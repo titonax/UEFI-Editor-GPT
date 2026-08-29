@@ -135,9 +135,7 @@
 }
 
 .nodeName {
-  max-width: 19rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: none;
 }
 
 .formId {

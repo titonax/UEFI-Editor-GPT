@@ -16,6 +16,8 @@ a parallel demo application.
 - Accepts the four extracted Aptio V artefacts used by the original editor.
 - Builds a GUID-aware `FormSet → Form → Ref target` graph, including duplicate
   FormIds, detached graphs, cycles and broken references.
+- Provides a resizable menu-tree pane with remembered width and full labels for
+  wide or deeply nested HII hierarchies.
 - Records binary IFR opcode offsets, lengths, nested scopes and owning
   Form/FormSet identities as the foundation for structural menu editing.
 - Provides a transactional, fixed-size primitive for safely retargeting an
