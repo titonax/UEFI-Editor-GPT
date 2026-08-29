@@ -7,6 +7,7 @@ import FileUploads from "./components/FileUploads/FileUploads";
 import { isPopulatedFiles, type Files } from "./components/FileUploads/fileModel";
 import FormUi from "./components/FormUi/FormUi";
 import Navigation from "./components/Navigation/Navigation";
+import NavigationResizer from "./components/Navigation/NavigationResizer";
 import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
 import { IconBrandGithub } from "@tabler/icons-react";
@@ -29,7 +30,21 @@ const emptyData: Data = {
   },
 };
 
-export default function App() {
+interface AppProps {
+  navigationWidth: number;
+  navigationMinWidth: number;
+  navigationMaxWidth: number;
+  onNavigationWidthChange: (width: number) => void;
+  onNavigationWidthReset: () => void;
+}
+
+export default function App({
+  navigationWidth,
+  navigationMinWidth,
+  navigationMaxWidth,
+  onNavigationWidthChange,
+  onNavigationWidthReset,
+}: AppProps) {
   const [files, setFiles] = useImmer<Files>({
     setupSctContainer: { isWrongFile: false },
     setupTxtContainer: { isWrongFile: false },
@@ -54,6 +69,13 @@ export default function App() {
               data={data}
               currentFormIndex={currentFormIndex}
               setCurrentFormIndex={setCurrentFormIndex}
+            />
+            <NavigationResizer
+              width={navigationWidth}
+              minWidth={navigationMinWidth}
+              maxWidth={navigationMaxWidth}
+              onChange={onNavigationWidthChange}
+              onReset={onNavigationWidthReset}
             />
           </AppShell.Navbar>
           <AppShell.Header>

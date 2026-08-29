@@ -1,9 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
+import Application from "./Application.tsx";
 
 import "@mantine/core/styles.css";
-import { AppShell, MantineProvider, createTheme } from "@mantine/core";
+import { MantineProvider, createTheme } from "@mantine/core";
 
 const theme = createTheme({
   colors: {
@@ -30,21 +30,7 @@ if (rootElement === null) {
 createRoot(rootElement).render(
   <StrictMode>
     <MantineProvider theme={theme} defaultColorScheme="dark">
-      <AppShell
-        navbar={{
-          width: { base: 220, xs: 240, sm: 280, md: 320, lg: 360 },
-          breakpoint: 0,
-        }}
-        header={{
-          height: { base: 180, xs: 120, md: 60 },
-        }}
-        footer={{
-          height: { base: 120, xs: 80, md: 40 },
-        }}
-        transitionDuration={0}
-      >
-        <App />
-      </AppShell>
+      <Application />
     </MantineProvider>
   </StrictMode>,
 );
