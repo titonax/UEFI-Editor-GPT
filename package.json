@@ -27,7 +27,7 @@
     "@mantine/hooks": "^7.17.2",
     "@tabler/icons-react": "^3.0.0",
     "file-saver": "^2.0.5",
-    "immer": "^10.0.3",
+    "immer": "^11.1.18",
     "react": "^19",
     "react-dom": "^19",
     "use-immer": "^0.11"
