@@ -8,7 +8,7 @@ export async function sha256Hex(data: BufferSource): Promise<string> {
 }
 
 export async function hashFile(file: File): Promise<string> {
-  return sha256Hex(await file.arrayBuffer());
+  return sha256Hex(new Uint8Array(await file.arrayBuffer()));
 }
 
 export async function calculateJsonChecksum(
