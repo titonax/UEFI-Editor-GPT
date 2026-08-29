@@ -13,6 +13,12 @@ export default defineConfig({
       reporter: ["text", "html", "json-summary"],
       include: ["src/components/scripts/**/*.ts"],
       exclude: ["src/**/*.test.ts", "src/**/hexWorker.ts"],
+      thresholds: {
+        statements: 60,
+        branches: 65,
+        functions: 80,
+        lines: 60,
+      },
     },
   },
 });

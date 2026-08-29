@@ -8,6 +8,9 @@ npm ci
 npm run check
 ```
 
+`npm run check` includes the coverage-enforced test suite. Dependency-only
+changes should also run `npm audit` and commit the updated lockfile.
+
 Pull requests should state:
 
 - which firmware family and sample exercises the change;

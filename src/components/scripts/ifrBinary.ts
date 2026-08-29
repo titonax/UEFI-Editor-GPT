@@ -1,3 +1,11 @@
+import {
+  assertBinaryRange,
+  formatHex,
+  readGuid,
+  readUint16,
+  readUint24,
+  readUint32,
+} from "./binaryReader";
 import { FirmwareError } from "./errors";
 
 export const IFR_OPCODE = {
@@ -90,54 +98,6 @@ export interface IfrBinaryModel {
   diagnostics: IfrBinaryDiagnostic[];
 }
 
-function ensureRange(bytes: Uint8Array, offset: number, size: number, label: string) {
-  if (
-    !Number.isSafeInteger(offset) ||
-    !Number.isSafeInteger(size) ||
-    offset < 0 ||
-    size < 0 ||
-    offset + size > bytes.length
-  ) {
-    throw new FirmwareError(
-      "PARSE_FAILED",
-      `${label} at 0x${offset.toString(16).toUpperCase()} exceeds its source buffer.`,
-    );
-  }
-}
-
-function u16(bytes: Uint8Array, offset: number) {
-  ensureRange(bytes, offset, 2, "16-bit field");
-  return bytes[offset] | (bytes[offset + 1] << 8);
-}
-
-function u24(bytes: Uint8Array, offset: number) {
-  ensureRange(bytes, offset, 3, "24-bit field");
-  return bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16);
-}
-
-function u32(bytes: Uint8Array, offset: number) {
-  ensureRange(bytes, offset, 4, "32-bit field");
-  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(
-    offset,
-    true,
-  );
-}
-
-function hex(value: number, width: number) {
-  return value.toString(16).toUpperCase().padStart(width, "0");
-}
-
-function decodeGuid(bytes: Uint8Array, offset: number) {
-  ensureRange(bytes, offset, 16, "GUID");
-  return `${hex(u32(bytes, offset), 8)}-${hex(u16(bytes, offset + 4), 4)}-${hex(
-    u16(bytes, offset + 6),
-    4,
-  )}-${hex(bytes[offset + 8], 2)}${hex(bytes[offset + 9], 2)}-${Array.from(
-    bytes.slice(offset + 10, offset + 16),
-    (byte) => hex(byte, 2),
-  ).join("")}`;
-}
-
 function enclosing(stack: IfrOpcodeSpan[], opcode: number): IfrOpcodeSpan | undefined {
   for (let index = stack.length - 1; index >= 0; index--) {
     const candidate = stack[index];
@@ -161,7 +121,7 @@ function decodeKnownFields(
         `FormSet at 0x${span.offset.toString(16).toUpperCase()} is shorter than 23 bytes.`,
       );
     }
-    span.formSetGuid = decodeGuid(bytes, span.offset + 2);
+    span.formSetGuid = readGuid(bytes, span.offset + 2);
     span.ownerFormSetGuid = span.formSetGuid;
     return;
   }
@@ -173,7 +133,7 @@ function decodeKnownFields(
         `Form at 0x${span.offset.toString(16).toUpperCase()} is shorter than 6 bytes.`,
       );
     }
-    span.formId = u16(bytes, span.offset + 2);
+    span.formId = readUint16(bytes, span.offset + 2);
     span.ownerFormId = span.formId;
     return;
   }
@@ -186,11 +146,11 @@ function decodeKnownFields(
     );
   }
 
-  span.questionId = u16(bytes, span.offset + 6);
-  span.formId = u16(bytes, span.offset + 13);
-  if (span.length >= 17) span.refQuestionId = u16(bytes, span.offset + 15);
-  if (span.length >= 33) span.targetFormSetGuid = decodeGuid(bytes, span.offset + 17);
-  if (span.length >= 35) span.devicePathStringId = u16(bytes, span.offset + 33);
+  span.questionId = readUint16(bytes, span.offset + 6);
+  span.formId = readUint16(bytes, span.offset + 13);
+  if (span.length >= 17) span.refQuestionId = readUint16(bytes, span.offset + 15);
+  if (span.length >= 33) span.targetFormSetGuid = readGuid(bytes, span.offset + 17);
+  if (span.length >= 35) span.devicePathStringId = readUint16(bytes, span.offset + 33);
 }
 
 export function parseIfrOpcodeStream(
@@ -198,13 +158,13 @@ export function parseIfrOpcodeStream(
   start: number,
   end: number,
 ): IfrOpcodeSpan[] {
-  ensureRange(bytes, start, end - start, "IFR opcode stream");
+  assertBinaryRange(bytes, start, end - start, "IFR opcode stream");
   const spans: IfrOpcodeSpan[] = [];
   const stack: IfrOpcodeSpan[] = [];
   let cursor = start;
 
   while (cursor < end) {
-    ensureRange(bytes, cursor, 2, "IFR opcode header");
+    assertBinaryRange(bytes, cursor, 2, "IFR opcode header");
     const opcode = bytes[cursor];
     const length = bytes[cursor + 1] & 0x7f;
     const scope = (bytes[cursor + 1] & 0x80) !== 0;
@@ -234,7 +194,7 @@ export function parseIfrOpcodeStream(
       opener.matchingEndOffset = cursor;
       const span: IfrOpcodeSpan = {
         opcode,
-        name: OPCODE_NAMES[opcode] ?? `Opcode 0x${hex(opcode, 2)}`,
+        name: OPCODE_NAMES[opcode] ?? `Opcode 0x${formatHex(opcode, 2)}`,
         offset: cursor,
         end: cursor + length,
         length,
@@ -253,7 +213,7 @@ export function parseIfrOpcodeStream(
 
     const span: IfrOpcodeSpan = {
       opcode,
-      name: OPCODE_NAMES[opcode] ?? `Opcode 0x${hex(opcode, 2)}`,
+      name: OPCODE_NAMES[opcode] ?? `Opcode 0x${formatHex(opcode, 2)}`,
       offset: cursor,
       end: cursor + length,
       length,
@@ -318,8 +278,8 @@ function parseFormsPackage(
 }
 
 function packageHeader(bytes: Uint8Array, offset: number) {
-  ensureRange(bytes, offset, HII_PACKAGE_HEADER_SIZE, "HII package header");
-  return { length: u24(bytes, offset), type: bytes[offset + 3] };
+  assertBinaryRange(bytes, offset, HII_PACKAGE_HEADER_SIZE, "HII package header");
+  return { length: readUint24(bytes, offset), type: bytes[offset + 3] };
 }
 
 function parsePackageListAtStart(
@@ -327,7 +287,7 @@ function parsePackageListAtStart(
   diagnostics: IfrBinaryDiagnostic[],
 ): IfrFormPackage[] | null {
   if (bytes.length < HII_PACKAGE_LIST_HEADER_SIZE) return null;
-  const listLength = u32(bytes, 16);
+  const listLength = readUint32(bytes, 16);
   if (listLength < HII_PACKAGE_LIST_HEADER_SIZE || listLength > bytes.length) {
     return null;
   }

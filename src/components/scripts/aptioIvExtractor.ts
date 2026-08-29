@@ -5,6 +5,14 @@ import {
   PreopenDirectory,
   WASI,
 } from "@bjorn3/browser_wasi_shim";
+import {
+  align,
+  readGuid,
+  readUint16,
+  readUint24,
+  readUint64AsNumber,
+} from "./binaryReader";
+import { FirmwareError } from "./errors";
 
 const setupGuid = "899407D7-99FE-43D8-9A21-79EC328CAC21";
 const amitseGuid = "B1DA0ADF-4F77-4070-A88E-BFFE1C60529A";
@@ -20,48 +28,6 @@ export interface AptioIvArtifacts {
   extractionDepth: number;
 }
 
-function u24(bytes: Uint8Array, offset: number) {
-  return bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16);
-}
-
-function u16(bytes: Uint8Array, offset: number) {
-  return bytes[offset] | (bytes[offset + 1] << 8);
-}
-
-function u32(bytes: Uint8Array, offset: number) {
-  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(
-    offset,
-    true,
-  );
-}
-
-function u64(bytes: Uint8Array, offset: number) {
-  const value = new DataView(
-    bytes.buffer,
-    bytes.byteOffset,
-    bytes.byteLength,
-  ).getBigUint64(offset, true);
-  return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : 0;
-}
-
-function align(value: number, alignment: number) {
-  return Math.ceil(value / alignment) * alignment;
-}
-
-function hex(value: number, width: number) {
-  return value.toString(16).toUpperCase().padStart(width, "0");
-}
-
-function guid(bytes: Uint8Array, offset: number) {
-  return `${hex(u32(bytes, offset), 8)}-${hex(u16(bytes, offset + 4), 4)}-${hex(
-    u16(bytes, offset + 6),
-    4,
-  )}-${hex(bytes[offset + 8], 2)}${hex(bytes[offset + 9], 2)}-${Array.from(
-    bytes.slice(offset + 10, offset + 16),
-    (byte) => hex(byte, 2),
-  ).join("")}`;
-}
-
 const decompressorModules = new Map<string, Promise<WebAssembly.Module>>();
 
 function loadDecompressor(name: string) {
@@ -69,7 +35,8 @@ function loadDecompressor(name: string) {
   if (!pending) {
     pending = fetch(`${import.meta.env.BASE_URL}${name}`).then((response) => {
       if (!response.ok) {
-        throw new Error(
+        throw new FirmwareError(
+          "PARSE_FAILED",
           `Firmware decompressor WebAssembly could not be loaded (${String(response.status)}).`,
         );
       }
@@ -109,7 +76,8 @@ async function runFirmwareDecompress(
   );
   const output = directory.get("output.bin");
   if (exitCode !== 0 || !output) {
-    throw new Error(
+    throw new FirmwareError(
+      "PARSE_FAILED",
       messages.join("\n") || `Firmware decompressor exited with ${String(exitCode)}.`,
     );
   }
@@ -131,13 +99,16 @@ async function firmwareDecompress(input: Uint8Array, mode: "lzma" | "standard") 
       );
     }
   }
-  throw new Error(`EFI/Tiano decompression failed (${failures.join("; ")}).`);
+  throw new FirmwareError(
+    "PARSE_FAILED",
+    `EFI/Tiano decompression failed (${failures.join("; ")}).`,
+  );
 }
 
 function validVolume(bytes: Uint8Array, start: number) {
   if (start + 0x38 > bytes.length) return false;
-  const length = u64(bytes, start + 0x20);
-  const headerLength = u16(bytes, start + 0x30);
+  const length = readUint64AsNumber(bytes, start + 0x20);
+  const headerLength = readUint16(bytes, start + 0x30);
   return (
     bytes[start + 0x28] === 0x5f &&
     bytes[start + 0x29] === 0x46 &&
@@ -166,13 +137,13 @@ interface LocatedFile {
 
 function findFile(bytes: Uint8Array, wantedGuid: string, depth: number) {
   for (const volumeStart of findVolumes(bytes)) {
-    const volumeEnd = volumeStart + u64(bytes, volumeStart + 0x20);
-    let fileStart = volumeStart + align(u16(bytes, volumeStart + 0x30), 8);
+    const volumeEnd = volumeStart + readUint64AsNumber(bytes, volumeStart + 0x20);
+    let fileStart = volumeStart + align(readUint16(bytes, volumeStart + 0x30), 8);
     while (fileStart + 24 <= volumeEnd) {
       if (bytes.slice(fileStart, fileStart + 24).every((byte) => byte === 0xff)) break;
-      const size = u24(bytes, fileStart + 20);
+      const size = readUint24(bytes, fileStart + 20);
       if (size < 24 || fileStart + size > volumeEnd) break;
-      if (guid(bytes, fileStart) === wantedGuid) {
+      if (readGuid(bytes, fileStart) === wantedGuid) {
         return { bytes, bodyStart: fileStart + 24, end: fileStart + size, depth };
       }
       fileStart = volumeStart + align(fileStart - volumeStart + size, 8);
@@ -184,16 +155,16 @@ function findFile(bytes: Uint8Array, wantedGuid: string, depth: number) {
 async function nestedBuffers(bytes: Uint8Array) {
   const nested: Uint8Array[] = [];
   for (const volumeStart of findVolumes(bytes)) {
-    const volumeEnd = volumeStart + u64(bytes, volumeStart + 0x20);
-    let fileStart = volumeStart + align(u16(bytes, volumeStart + 0x30), 8);
+    const volumeEnd = volumeStart + readUint64AsNumber(bytes, volumeStart + 0x20);
+    let fileStart = volumeStart + align(readUint16(bytes, volumeStart + 0x30), 8);
     while (fileStart + 24 <= volumeEnd) {
       if (bytes.slice(fileStart, fileStart + 24).every((byte) => byte === 0xff)) break;
-      const size = u24(bytes, fileStart + 20);
+      const size = readUint24(bytes, fileStart + 20);
       if (size < 24 || fileStart + size > volumeEnd) break;
       let section = fileStart + 24;
       const fileEnd = fileStart + size;
       while (section + 4 <= fileEnd) {
-        const sectionSize = u24(bytes, section);
+        const sectionSize = readUint24(bytes, section);
         const type = bytes[section + 3];
         if (sectionSize < 4 || section + sectionSize > fileEnd) break;
         if (type === 0x01 && sectionSize >= 9) {
@@ -232,7 +203,7 @@ async function locateFirmwareFile(bytes: Uint8Array, wantedGuid: string) {
 async function locateHii(file: LocatedFile): Promise<Uint8Array | null> {
   let section = file.bodyStart;
   while (section + 4 <= file.end) {
-    const size = u24(file.bytes, section);
+    const size = readUint24(file.bytes, section);
     const type = file.bytes[section + 3];
     if (size < 4 || section + size > file.end) break;
     if (type === 0x01 && size >= 9) {
@@ -251,7 +222,7 @@ async function locateHii(file: LocatedFile): Promise<Uint8Array | null> {
       const result = await locateHii(nestedFile);
       if (result) return result;
     }
-    if (type === 0x18 && size >= 20 && guid(file.bytes, section + 4) === hiiGuid) {
+    if (type === 0x18 && size >= 20 && readGuid(file.bytes, section + 4) === hiiGuid) {
       return file.bytes.slice(section + 20, section + size);
     }
     section = align(section + size, 4);
@@ -265,7 +236,7 @@ async function locateFreeformSection(
 ): Promise<Uint8Array | null> {
   let section = file.bodyStart;
   while (section + 4 <= file.end) {
-    const size = u24(file.bytes, section);
+    const size = readUint24(file.bytes, section);
     const type = file.bytes[section + 3];
     if (size < 4 || section + size > file.end) break;
     if (type === 0x01 && size >= 9) {
@@ -286,7 +257,11 @@ async function locateFreeformSection(
       );
       if (result) return result;
     }
-    if (type === 0x18 && size >= 20 && guid(file.bytes, section + 4) === wantedGuid) {
+    if (
+      type === 0x18 &&
+      size >= 20 &&
+      readGuid(file.bytes, section + 4) === wantedGuid
+    ) {
       return file.bytes.slice(section + 20, section + size);
     }
     section = align(section + size, 4);
@@ -297,7 +272,7 @@ async function locateFreeformSection(
 async function locatePe32(file: LocatedFile): Promise<Uint8Array | null> {
   let section = file.bodyStart;
   while (section + 4 <= file.end) {
-    const size = u24(file.bytes, section);
+    const size = readUint24(file.bytes, section);
     const type = file.bytes[section + 3];
     if (size < 4 || section + size > file.end) break;
     if (type === 0x01 && size >= 9) {
@@ -339,7 +314,12 @@ async function runIfrExtractor(hii: Uint8Array) {
   );
   const url = `${import.meta.env.BASE_URL}ifrextractor.wasm`;
   const response = await fetch(url);
-  if (!response.ok) throw new Error("IFRExtractor WebAssembly is not available.");
+  if (!response.ok) {
+    throw new FirmwareError(
+      "PARSE_FAILED",
+      "IFRExtractor WebAssembly is not available.",
+    );
+  }
   const module = await WebAssembly.compileStreaming(response);
   const instance = await WebAssembly.instantiate(module, {
     wasi_snapshot_preview1: wasi.wasiImport,
@@ -350,14 +330,18 @@ async function runIfrExtractor(hii: Uint8Array) {
     },
   );
   if (exitCode !== 0)
-    throw new Error(
+    throw new FirmwareError(
+      "PARSE_FAILED",
       stdout.join("\n") || `IFRExtractor exited with ${String(exitCode)}.`,
     );
   const outputs = [...directory.entries()].filter(([name]) =>
     name.endsWith(".ifr.txt"),
   );
   if (outputs.length === 0)
-    throw new Error("IFRExtractor did not generate a verbose IFR file.");
+    throw new FirmwareError(
+      "PARSE_FAILED",
+      "IFRExtractor did not generate a verbose IFR file.",
+    );
   return outputs.map(([, output]) => new TextDecoder().decode(output.data)).join("\n");
 }
 
@@ -365,10 +349,15 @@ export async function extractAptioIvArtifacts(file: File): Promise<AptioIvArtifa
   const image = new Uint8Array(await file.arrayBuffer());
   const setup = await locateFirmwareFile(image, setupGuid);
   if (!setup) {
-    throw new Error("Setup FFS was not found after recursive decompression.");
+    throw new FirmwareError(
+      "PARSE_FAILED",
+      "Setup FFS was not found after recursive decompression.",
+    );
   }
   const hii = await locateHii(setup);
-  if (!hii) throw new Error("The Setup HII package was not found.");
+  if (!hii) {
+    throw new FirmwareError("PARSE_FAILED", "The Setup HII package was not found.");
+  }
   const amitseFile = await locateFirmwareFile(image, amitseGuid);
   const [amitse, setupData] = amitseFile
     ? await Promise.all([
