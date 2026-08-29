@@ -69,6 +69,8 @@ export default function App({
               data={data}
               currentFormIndex={currentFormIndex}
               setCurrentFormIndex={setCurrentFormIndex}
+              setData={setData}
+              originalSetupSct={files.setupSctContainer.textContent}
             />
             <NavigationResizer
               width={navigationWidth}

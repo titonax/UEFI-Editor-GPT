@@ -134,6 +134,17 @@
   cursor: default;
 }
 
+.moveAction {
+  flex: 0 0 auto;
+  margin-left: auto;
+  opacity: 0.35;
+}
+
+.treeRow:hover .moveAction,
+.moveAction:focus-visible {
+  opacity: 1;
+}
+
 .nodeName {
   max-width: none;
 }

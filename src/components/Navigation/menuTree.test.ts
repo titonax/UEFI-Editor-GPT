@@ -29,7 +29,11 @@ describe("HII menu graph", () => {
 
     const tree = buildMenuTree(data);
     expect(tree.roots[0]?.formName).toBe("Advanced A");
-    expect(tree.roots[0]?.children[0]?.formName).toBe("CPU");
+    expect(tree.roots[0]?.children[0]).toMatchObject({
+      formName: "CPU",
+      parentFormIndex: 0,
+      referenceChildIndex: 0,
+    });
     expect(tree.orphans.some((node) => node.formName === "Advanced B")).toBe(true);
   });
 
@@ -44,6 +48,10 @@ describe("HII menu graph", () => {
         }),
       ],
     });
-    expect(buildMenuTree(data).roots[0]?.children[0]?.status).toBe("broken");
+    expect(buildMenuTree(data).roots[0]?.children[0]).toMatchObject({
+      status: "broken",
+      parentFormIndex: 0,
+      referenceChildIndex: 0,
+    });
   });
 });

@@ -9,29 +9,37 @@ import {
   IconFolder,
   IconFolderOpen,
   IconListTree,
+  IconArrowsMove,
   IconRefresh,
   IconSearch,
   IconSitemap,
 } from "@tabler/icons-react";
+import type { Updater } from "use-immer";
 import s from "./Navigation.module.css";
 import type { Data } from "../scripts/types";
 import { buildMenuTree, findNodePath, type MenuTreeNode } from "./menuTree";
+import MenuMoveDialog from "./MenuMoveDialog";
 
 interface NavigationProps {
   data: Data;
   currentFormIndex: number;
   setCurrentFormIndex: React.Dispatch<React.SetStateAction<number>>;
+  setData: Updater<Data>;
+  originalSetupSct: string;
 }
 
 export default function Navigation({
   data,
   currentFormIndex,
   setCurrentFormIndex,
+  setData,
+  originalSetupSct,
 }: NavigationProps) {
   const tree = React.useMemo(() => buildMenuTree(data), [data]);
   const [expanded, setExpanded] = React.useState(
     () => new Set(tree.roots.map((node) => node.key)),
   );
+  const [moveNode, setMoveNode] = React.useState<MenuTreeNode | null>(null);
 
   const activePath = React.useMemo(() => {
     if (currentFormIndex < 0) {
@@ -193,6 +201,26 @@ export default function Navigation({
             )}
             {node.uiStateDependent && <span className={s.uiStateLabel}>UI state</span>}
           </button>
+
+          {node.parentFormIndex !== undefined &&
+            node.referenceChildIndex !== undefined && (
+              <Tooltip label="Move this menu to another Form">
+                <ActionIcon
+                  className={s.moveAction}
+                  size="sm"
+                  variant="subtle"
+                  color="blue"
+                  aria-label={`Move ${node.label}`}
+                  disabled={node.missing}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMoveNode(node);
+                  }}
+                >
+                  <IconArrowsMove size={14} />
+                </ActionIcon>
+              </Tooltip>
+            )}
         </div>
 
         {hasChildren && opened && (
@@ -206,6 +234,16 @@ export default function Navigation({
 
   return (
     <>
+      <MenuMoveDialog
+        data={data}
+        node={moveNode}
+        opened={moveNode !== null}
+        originalSetupSct={originalSetupSct}
+        setData={setData}
+        onClose={() => {
+          setMoveNode(null);
+        }}
+      />
       <AppShell.Section className={s.treeHeader}>
         <Group justify="space-between" gap="xs" wrap="nowrap">
           <Group gap="xs" wrap="nowrap">
