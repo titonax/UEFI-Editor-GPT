@@ -1,0 +1,61 @@
+{
+  "name": "uefi-editor",
+  "private": true,
+  "version": "0.5.0",
+  "description": "Browser-based AMI Aptio IV/V HII and IFR editor",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --pretty false",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "check": "npm run format:check && npm run lint && npm run test && npm run build",
+    "preview": "vite preview"
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
+  "dependencies": {
+    "@bjorn3/browser_wasi_shim": "^0.4.2",
+    "@mantine/core": "^7.17.2",
+    "@mantine/hooks": "^7.17.2",
+    "@tabler/icons-react": "^3.0.0",
+    "file-saver": "^2.0.5",
+    "immer": "^10.0.3",
+    "react": "^19",
+    "react-dom": "^19",
+    "use-immer": "^0.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.20.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/file-saver": "^2.0.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^9",
+    "eslint-plugin-react-dom": "^1.40.1",
+    "eslint-plugin-react-hooks": "^5",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "eslint-plugin-react-x": "^1.40.1",
+    "globals": "^16",
+    "jsdom": "^26.1.0",
+    "postcss": "^8.4.33",
+    "postcss-preset-mantine": "^1.12.3",
+    "postcss-simple-vars": "^7.0.1",
+    "prettier": "^3.9.6",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.24.1",
+    "vite": "^6",
+    "vite-plugin-checker": "^0.9",
+    "vitest": "^3.2.7"
+  }
+}
