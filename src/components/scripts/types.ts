@@ -1,3 +1,5 @@
+import type { IfrBinaryModel } from "./ifrBinary";
+
 export interface Data {
   firmwareFamily: "aptio-v" | "aptio-iv";
   menu: Menu;
@@ -5,6 +7,7 @@ export interface Data {
   varStores: VarStores;
   forms: Forms;
   suppressions: Suppression[];
+  ifrBinary?: IfrBinaryModel;
   version: string;
   hashes: {
     setupTxt: string;

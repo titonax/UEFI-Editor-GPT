@@ -16,6 +16,11 @@ a parallel demo application.
 - Accepts the four extracted Aptio V artefacts used by the original editor.
 - Builds a GUID-aware `FormSet → Form → Ref target` graph, including duplicate
   FormIds, detached graphs, cycles and broken references.
+- Records binary IFR opcode offsets, lengths, nested scopes and owning
+  Form/FormSet identities as the foundation for structural menu editing.
+- Provides a transactional, fixed-size primitive for safely retargeting an
+  existing IFR `Ref`; structural moves remain disabled until serialization and
+  reinsertion are complete.
 - Separates `SuppressIf` hiding from `GrayOutIf`/`DisableIf` availability.
 - Reports runtime/HW, access-policy and UI-state evidence without presenting an
   inference as a confirmed fact.
@@ -74,8 +79,8 @@ deploy static content to Pages` workflow. Pull requests still compile the WASM
 toolchain without attempting a deployment.
 
 The automated suite covers hexadecimal bounds, JSON envelopes, condition
-semantics, GUID-aware tree construction, broken references, IFR condition
-parsing and binary patch preconditions.
+semantics, GUID-aware tree construction, broken references, binary IFR scope
+and identity parsing, IFR condition parsing and binary patch preconditions.
 
 ## Design rules
 
