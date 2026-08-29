@@ -59,7 +59,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v6
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           # Upload dist folder
           path: "./dist"
