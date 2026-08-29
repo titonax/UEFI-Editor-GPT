@@ -1,8 +1,9 @@
 import type { PopulatedFiles } from "../FileUploads/fileModel";
 import { calculateJsonChecksum, hashFile } from "./checksum";
 import { FirmwareError } from "./errors";
-import { decimalToHex as decToHexString } from "./hex";
+import { decimalToHex as decToHexString, hexToBytes } from "./hex";
 import { determineCondition, enrichConditions } from "./ifrConditions";
+import { analyzeIfrBinary } from "./ifrBinary";
 import type {
   CheckBoxPrompt,
   ConditionKind,
@@ -24,6 +25,8 @@ import type {
 export const version = "0.4.0";
 export { calculateJsonChecksum } from "./checksum";
 export { validateByteInput } from "./hex";
+export { analyzeIfrBinary, parseIfrOpcodeStream } from "./ifrBinary";
+export { applyIfrBytePatches, planIfrReferenceRetarget } from "./ifrEditing";
 export { downloadModifiedFiles } from "./patcher";
 const wantedIFRExtractorVersions = ["1.6.1"];
 
@@ -684,6 +687,7 @@ export async function parseData(files: PopulatedFiles) {
     forms,
     varStores,
     suppressions,
+    ifrBinary: analyzeIfrBinary(hexToBytes(files.setupSctContainer.textContent)),
     version,
     hashes: {
       setupTxt: setupTxtHash,

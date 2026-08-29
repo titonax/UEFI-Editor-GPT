@@ -58,6 +58,9 @@ export default function Footer({
                       jsonData.suppressions,
                     )) === data.hashes.offsetChecksum
                   ) {
+                    // Binary provenance is derived from the loaded source and must
+                    // never be trusted from an editable data.json snapshot.
+                    jsonData.ifrBinary = data.ifrBinary;
                     setData(jsonData);
                     onError("");
                   } else {
