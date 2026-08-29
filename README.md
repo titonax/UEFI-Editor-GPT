@@ -68,6 +68,11 @@ npm run build
 npm run check
 ```
 
+GitHub Pages deployment is intentionally manual. Enable Pages with **GitHub
+Actions** as its source in the repository settings, then run the `Build and
+deploy static content to Pages` workflow. Pull requests still compile the WASM
+toolchain without attempting a deployment.
+
 The automated suite covers hexadecimal bounds, JSON envelopes, condition
 semantics, GUID-aware tree construction, broken references, IFR condition
 parsing and binary patch preconditions.
