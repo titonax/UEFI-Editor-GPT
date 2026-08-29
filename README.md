@@ -69,6 +69,7 @@ npm run format:check
 npm run lint
 npm run typecheck
 npm test
+npm run test:coverage
 npm run build
 npm run check
 ```
@@ -78,9 +79,14 @@ Actions** as its source in the repository settings, then run the `Build and
 deploy static content to Pages` workflow. Pull requests still compile the WASM
 toolchain without attempting a deployment.
 
-The automated suite covers hexadecimal bounds, JSON envelopes, condition
-semantics, GUID-aware tree construction, broken references, binary IFR scope
-and identity parsing, IFR condition parsing and binary patch preconditions.
+The automated suite covers hexadecimal bounds, deep JSON validation, SetupData
+and AMITSE discovery, text and binary IFR parsing, condition semantics,
+GUID-aware tree construction, broken references and binary patch preconditions.
+Coverage thresholds are enforced by `npm run check` and pull-request CI.
+
+The application release is `0.5.0`; exported `data.json` files use schema
+`0.4.0`. Those versions are independent so application releases do not
+unnecessarily invalidate saved editor state.
 
 ## Design rules
 

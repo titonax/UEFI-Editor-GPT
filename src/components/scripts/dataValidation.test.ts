@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firmwareData } from "../../test/fixtures";
+import { firmwareData, prompt } from "../../test/fixtures";
 import { parseDataFile } from "./dataValidation";
 
 describe("data.json validation", () => {
@@ -10,7 +10,42 @@ describe("data.json validation", () => {
   it("rejects malformed and incomplete data", () => {
     expect(() => parseDataFile("{")).toThrow(/not valid JSON/);
     expect(() => parseDataFile(JSON.stringify({ version: "0.4.0" }))).toThrow(
-      /complete UEFI Editor data model/,
+      /firmwareFamily/,
     );
+  });
+
+  it("rejects malformed nested forms, prompts, menus and suppressions", () => {
+    const invalidPrompt = firmwareData();
+    invalidPrompt.forms[0].children = [prompt({ questionId: 4 as never })];
+    expect(() => parseDataFile(JSON.stringify(invalidPrompt))).toThrow(/forms/);
+
+    const invalidMenu = firmwareData({
+      menu: [{ name: "Main", formId: "0x1", offset: 12 as never }],
+    });
+    expect(() => parseDataFile(JSON.stringify(invalidMenu))).toThrow(/menu/);
+
+    const invalidSuppression = firmwareData({
+      suppressions: [
+        {
+          offset: "0x1",
+          active: true,
+          start: "0x1",
+          end: "0x2",
+          source: "guess" as never,
+        },
+      ],
+    });
+    expect(() => parseDataFile(JSON.stringify(invalidSuppression))).toThrow(
+      /suppressions/,
+    );
+  });
+
+  it("drops imported binary analysis because it must match the opened SCT", () => {
+    const imported = {
+      ...firmwareData(),
+      ifrBinary: { packageCount: 999, packages: [] },
+    };
+
+    expect(parseDataFile(JSON.stringify(imported)).ifrBinary).toBeUndefined();
   });
 });

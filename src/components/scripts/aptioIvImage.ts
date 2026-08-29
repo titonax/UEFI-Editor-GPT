@@ -1,3 +1,5 @@
+import { readUint16, readUint64AsNumber } from "./binaryReader";
+
 export interface AptioIvImageReport {
   size: number;
   intelDescriptor: boolean;
@@ -36,23 +38,13 @@ function findAll(hex: string, signature: string, alignment = 1) {
   return offsets;
 }
 
-function uint16(bytes: Uint8Array, offset: number) {
-  return bytes[offset] | (bytes[offset + 1] << 8);
-}
-
-function uint64AsNumber(bytes: Uint8Array, offset: number) {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const value = view.getBigUint64(offset, true);
-  return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : 0;
-}
-
 function isValidFirmwareVolume(bytes: Uint8Array, start: number) {
   if (start < 0 || start + 0x38 > bytes.length || start % 8 !== 0) {
     return false;
   }
 
-  const volumeLength = uint64AsNumber(bytes, start + 0x20);
-  const headerLength = uint16(bytes, start + 0x30);
+  const volumeLength = readUint64AsNumber(bytes, start + 0x20);
+  const headerLength = readUint16(bytes, start + 0x30);
   if (
     headerLength < 0x38 ||
     headerLength % 2 !== 0 ||
@@ -64,7 +56,7 @@ function isValidFirmwareVolume(bytes: Uint8Array, start: number) {
 
   let checksum = 0;
   for (let offset = 0; offset < headerLength; offset += 2) {
-    checksum = (checksum + uint16(bytes, start + offset)) & 0xffff;
+    checksum = (checksum + readUint16(bytes, start + offset)) & 0xffff;
   }
 
   return checksum === 0;

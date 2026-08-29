@@ -6,9 +6,9 @@ import type { Updater } from "use-immer";
 import type { PopulatedFiles } from "../FileUploads/fileModel";
 import {
   calculateJsonChecksum,
+  dataSchemaVersion,
   downloadModifiedFiles,
   validateByteInput,
-  version,
 } from "../scripts/scripts";
 import { parseDataFile } from "../scripts/dataValidation";
 import { errorMessage } from "../scripts/errors";
@@ -47,7 +47,7 @@ export default function Footer({
                   const jsonData = parseDataFile(fileData);
 
                   if (
-                    jsonData.version === version &&
+                    jsonData.version === dataSchemaVersion &&
                     jsonData.hashes.setupTxt === data.hashes.setupTxt &&
                     jsonData.hashes.setupSct === data.hashes.setupSct &&
                     jsonData.hashes.amitseSct === data.hashes.amitseSct &&
