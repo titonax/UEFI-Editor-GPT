@@ -334,6 +334,47 @@ function parsePackageListAtStart(
   return packages;
 }
 
+function scanEmbeddedFormsPackages(bytes: Uint8Array): IfrFormPackage[] {
+  const packages: IfrFormPackage[] = [];
+  let cursor = 0;
+  while (cursor + HII_PACKAGE_HEADER_SIZE <= bytes.length) {
+    if (bytes[cursor + 3] !== HII_PACKAGE_FORMS) {
+      cursor++;
+      continue;
+    }
+    const length = readUint24(bytes, cursor);
+    const payloadOffset = cursor + HII_PACKAGE_HEADER_SIZE;
+    if (
+      length < HII_PACKAGE_HEADER_SIZE + 2 ||
+      cursor + length > bytes.length ||
+      bytes[payloadOffset] !== IFR_OPCODE.FORM_SET
+    ) {
+      cursor++;
+      continue;
+    }
+
+    const ignoredDiagnostics: IfrBinaryDiagnostic[] = [];
+    const candidate = parseFormsPackage(
+      bytes,
+      cursor,
+      length,
+      null,
+      ignoredDiagnostics,
+    );
+    if (
+      candidate.valid &&
+      candidate.opcodes.some((span) => span.opcode === IFR_OPCODE.FORM_SET) &&
+      candidate.opcodes.some((span) => span.opcode === IFR_OPCODE.FORM)
+    ) {
+      packages.push(candidate);
+      cursor += length;
+    } else {
+      cursor++;
+    }
+  }
+  return packages;
+}
+
 export function analyzeIfrBinary(bytes: Uint8Array): IfrBinaryModel {
   const diagnostics: IfrBinaryDiagnostic[] = [];
   let packages = parsePackageListAtStart(bytes, diagnostics);
@@ -350,6 +391,14 @@ export function analyzeIfrBinary(bytes: Uint8Array): IfrBinaryModel {
   }
 
   packages ??= [];
+  const knownOffsets = new Set(packages.map((pkg) => pkg.offset));
+  for (const embedded of scanEmbeddedFormsPackages(bytes)) {
+    if (!knownOffsets.has(embedded.offset)) {
+      packages.push(embedded);
+      knownOffsets.add(embedded.offset);
+    }
+  }
+  packages.sort((left, right) => left.offset - right.offset);
   if (packages.length === 0) {
     diagnostics.push({
       code: "NO_FORMS_PACKAGE",

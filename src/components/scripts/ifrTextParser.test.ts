@@ -10,6 +10,7 @@ describe("IFR text parser", () => {
       '0x030:\t\tCheckBox Prompt: "Feature", Help: "Toggle", QuestionFlags: 0, QuestionId: 0x2, VarStoreId: 0x1, VarOffset: 0x0, Flags: 0 { 06 82 01 00 01 00 00 00 }',
       "0x040:\t\t\tDefault DefaultId: 0x0 Value: 0x1 { 5B 02 }",
       "0x050:\t\t{ 29 02 }",
+      '0x055:\t\tRef Prompt: "Submenu", Help: "", QuestionFlags: 0, QuestionId: 0x3, VarStoreId: 0x1, VarStoreInfo: 0, FormId: 0x2 { 0F 0F 00 00 00 00 03 00 01 00 00 00 00 02 00 }',
       "0x060:\t{ 29 02 }",
     ].join("\n");
 
@@ -23,16 +24,24 @@ describe("IFR text parser", () => {
     ]);
     expect(parsed.forms).toHaveLength(1);
     expect(parsed.forms[0]).toEqual(
-      expect.objectContaining({ name: "Main", formId: "0x1" }),
+      expect.objectContaining({ name: "Main", formId: "0x1", ifrOffset: "0x020" }),
     );
-    expect(parsed.forms[0].children).toEqual([
-      expect.objectContaining({
-        type: "CheckBox",
-        name: "Feature",
-        varStoreName: "Setup",
-        defaults: [{ defaultId: "0x0", value: "0x1" }],
-      }),
-    ]);
+    expect(parsed.forms[0].children).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "CheckBox",
+          name: "Feature",
+          varStoreName: "Setup",
+          defaults: [{ defaultId: "0x0", value: "0x1" }],
+        }),
+        expect.objectContaining({
+          type: "Ref",
+          name: "Submenu",
+          formId: "0x2",
+          ifrOffset: "0x055",
+        }),
+      ]),
+    );
   });
 
   it("rejects unclosed scopes", () => {

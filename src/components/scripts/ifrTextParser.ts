@@ -114,7 +114,7 @@ export function parseIfrText(setupTxt: string, setupData: string): ParsedIfrText
     const defaultId = /Default DefaultId: (.*) Value: (.*) \{/.exec(line);
     const end = /\{ 29 02 \}/.exec(line);
     const indentations = (line.match(/\t/g) ?? []).length;
-    const offset = line.split(" ")[0].slice(0, -1);
+    const offset = /^(0x[0-9a-f]+):/i.exec(line)?.[1] ?? "";
     const currentScope = scopes[scopes.length - 1];
 
     if (formSet) {
@@ -160,6 +160,7 @@ export function parseIfrText(setupTxt: string, setupData: string): ParsedIfrText
         name: form[2],
         type: "Form",
         formId: form[1],
+        ifrOffset: offset,
         formSetGuid: currentFormSetGuid,
         formSetTitle: currentFormSetTitle,
         referencedIn: [],
@@ -199,6 +200,7 @@ export function parseIfrText(setupTxt: string, setupData: string): ParsedIfrText
         varStoreId: ref[5],
         varStoreName: findVarStoreName(varStores, ref[5], currentFormSetGuid),
         formId,
+        ifrOffset: offset,
         targetFormSetGuid,
         ...getAdditionalData(ref[8], setupData, true),
       };

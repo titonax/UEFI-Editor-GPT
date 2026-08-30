@@ -4,7 +4,7 @@ import { bytesToHex } from "./hex";
 import { IFR_OPCODE } from "./ifrBinary";
 import { hydrateIfrBinary, moveMenuReference, replayIfrEdits } from "./menuEditing";
 
-const guid = "00000000-0000-0000-0000-000000000000";
+const guid = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE";
 const end = [IFR_OPCODE.END, 2];
 
 function formOpcode(formId: number) {
@@ -77,6 +77,7 @@ function menuData() {
       form({
         name: "Source",
         formId: "0x1",
+        ifrOffset: "0x1B",
         formSetGuid: guid,
         children: [
           prompt({
@@ -84,14 +85,21 @@ function menuData() {
             name: "Target menu",
             questionId: "0x10",
             formId: "0x3",
+            ifrOffset: "0x21",
             pageId: null,
           }),
         ],
       }),
-      form({ name: "Destination", formId: "0x2", formSetGuid: guid }),
+      form({
+        name: "Destination",
+        formId: "0x2",
+        ifrOffset: "0x32",
+        formSetGuid: guid,
+      }),
       form({
         name: "Target",
         formId: "0x3",
+        ifrOffset: "0x42",
         formSetGuid: guid,
         referencedIn: ["0x1"],
       }),
@@ -125,6 +133,10 @@ describe("HII menu reference moves", () => {
       formId: "0x3",
     });
     expect(result.forms[2].referencedIn).toEqual(["0x2"]);
+    expect(result.forms[0].ifrOffset).toBe("0x1B");
+    expect(result.forms[1].ifrOffset).toBe("0x23");
+    expect(result.forms[1].children[0]).toMatchObject({ ifrOffset: "0x31" });
+    expect(result.forms[2].ifrOffset).toBe("0x42");
     expect(Number.parseInt(result.suppressions[0].offset, 16)).toBe(
       oldSuppressionOffset - 15,
     );
@@ -136,6 +148,23 @@ describe("HII menu reference moves", () => {
       ),
     ).toMatchObject({ ownerFormId: 2, formId: 3 });
     expect(data.forms[0].children).toHaveLength(1);
+  });
+
+  it("falls back to a unique FormId when text GUIDs do not match the binary", async () => {
+    const data = menuData();
+    for (const form of data.forms) delete form.ifrOffset;
+    const reference = data.forms[0].children[0];
+    if (reference.type !== "Ref") throw new Error("Expected a Ref fixture.");
+    delete reference.ifrOffset;
+
+    const result = await moveMenuReference(data, bytesToHex(setupPackage()), {
+      sourceFormIndex: 0,
+      referenceChildIndex: 0,
+      destinationFormIndex: 1,
+    });
+
+    expect(result.forms[0].children).toHaveLength(0);
+    expect(result.forms[1].children[0]).toMatchObject({ formId: "0x3" });
   });
 
   it("rejects destinations that create cycles or duplicate the target", async () => {
