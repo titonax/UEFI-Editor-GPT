@@ -12,8 +12,8 @@
 5. `menuTree.ts` builds the navigable graph without collapsing identical
    FormIds from different FormSets.
 6. `visibility.ts` classifies gates and propagates parent visibility.
-7. `menuEditing.ts` plans fixed-size Ref relocation, updates the semantic graph
-   and remaps affected IFR offsets.
+7. `menuEditing.ts` inventories compatible destinations, plans fixed-size Ref
+   relocation, updates HII container lengths and remaps affected IFR offsets.
 8. `patcher.ts` replays structural edits, validates every target and builds
    modified byte arrays.
 9. Only after a complete patch succeeds are the files offered for download.
@@ -53,8 +53,12 @@ display dialogs, mutate the DOM or reload the page.
 - Imported binary IFR analysis is discarded and rebuilt from the loaded SCT.
 - Binary IFR scopes must be balanced before their spans can be used for editing.
 - Binary patches must match their expected source bytes and may not overlap.
-- Ref moves preserve the Forms Package length and must remain inside one
-  package; nested Refs, duplicates and graph cycles are rejected.
+- Ref moves preserve the complete Setup HII size. A cross-package move must
+  prove both Forms Package boundaries and compatible Package List provenance;
+  every changed 24-bit/32-bit length is precondition-checked.
+- Cross-FormSet moves require an existing explicit `FormSetGuid` (`REF3` or
+  `REF4`). Implicit `REF`/`REF2` conversion remains disabled because it would
+  grow the opcode. Nested Refs, duplicates and graph cycles are rejected.
 - Aptio IV binary export is disabled while reinsertion is not proven safe.
 - Runtime/HW classification is evidence, not proof of the current machine state.
 

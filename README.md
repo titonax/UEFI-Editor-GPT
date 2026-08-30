@@ -20,9 +20,13 @@ a parallel demo application.
   wide or deeply nested HII hierarchies.
 - Records binary IFR opcode offsets, lengths, nested scopes and owning
   Form/FormSet identities as the foundation for structural menu editing.
-- Moves a complete direct IFR `Ref` from one Form to another in the same Forms
-  Package, preserving its encoded bytes and the package size. Each move is
-  replayable, precondition-checked and included in Aptio V export.
+- Inventories every existing destination Form, including hidden or detached
+  entries, and classifies moves as safe, requiring `REF3` conversion or
+  unavailable before editing.
+- Moves a complete direct IFR `Ref` between existing Forms and proven Forms
+  Packages without changing the Setup HII size. Cross-package moves rebalance
+  package and Package List lengths transactionally. Each move is replayable,
+  precondition-checked and included in Aptio V export.
 - Separates `SuppressIf` hiding from `GrayOutIf`/`DisableIf` availability.
 - Reports runtime/HW, access-policy and UI-state evidence without presenting an
   inference as a confirmed fact.

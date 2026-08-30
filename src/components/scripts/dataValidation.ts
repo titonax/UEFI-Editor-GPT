@@ -248,6 +248,18 @@ function isHashes(value: unknown): value is Data["hashes"] {
   );
 }
 
+function isIfrBytePatch(value: unknown) {
+  return (
+    isRecord(value) &&
+    isNonNegativeInteger(value.offset) &&
+    isByteArray(value.expected) &&
+    value.expected.length > 0 &&
+    isByteArray(value.replacement) &&
+    value.replacement.length === value.expected.length &&
+    isString(value.description)
+  );
+}
+
 function isIfrReferenceMove(value: unknown): value is IfrReferenceMove {
   return (
     isRecord(value) &&
@@ -260,6 +272,9 @@ function isIfrReferenceMove(value: unknown): value is IfrReferenceMove {
     value.expected.length === value.sourceEnd - value.sourceOffset &&
     isByteArray(value.destinationExpected) &&
     value.destinationExpected.length > 0 &&
+    (value.containerPatches === undefined ||
+      (Array.isArray(value.containerPatches) &&
+        value.containerPatches.every(isIfrBytePatch))) &&
     isString(value.description)
   );
 }
