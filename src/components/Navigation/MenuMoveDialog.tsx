@@ -29,14 +29,6 @@ export default function MenuMoveDialog({
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!opened) {
-      setDestination(null);
-      setError("");
-      setBusy(false);
-    }
-  }, [opened]);
-
   const sourceForm =
     node?.parentFormIndex === undefined ? undefined : data.forms[node.parentFormIndex];
   const compatibility = React.useMemo(

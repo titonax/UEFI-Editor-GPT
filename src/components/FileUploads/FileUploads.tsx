@@ -47,12 +47,21 @@ export default function FileUploads({
   setData,
   onError,
 }: FileUploadsProps) {
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [settledFiles, setSettledFiles] = React.useState<Files | null>(null);
+  const populated = isPopulatedFiles(files);
+  const hasOversizedFile =
+    populated &&
+    [
+      files.setupSctContainer.file,
+      files.setupTxtContainer.file,
+      files.amitseSctContainer.file,
+      files.setupdataBinContainer.file,
+    ].some((file) => file.size > MAX_INPUT_BYTES);
+  const isLoading = populated && !hasOversizedFile && settledFiles !== files;
 
   React.useEffect(() => {
     if (isPopulatedFiles(files)) {
       let cancelled = false;
-      setIsLoading(true);
       onError("");
 
       const selectedFiles = [
@@ -63,7 +72,6 @@ export default function FileUploads({
       ];
       if (selectedFiles.some((file) => file.size > MAX_INPUT_BYTES)) {
         onError("One of the selected files exceeds the 512 MiB safety limit.");
-        setIsLoading(false);
         return;
       }
 
@@ -88,24 +96,26 @@ export default function FileUploads({
               draft.amitseSctContainer.textContent = values[2];
               draft.setupdataBinContainer.textContent = values[3];
             });
+            setSettledFiles(files);
           })
           .catch((reason: unknown) => {
-            if (!cancelled) onError(errorMessage(reason));
-          })
-          .finally(() => {
-            if (!cancelled) setIsLoading(false);
+            if (!cancelled) {
+              onError(errorMessage(reason));
+              setSettledFiles(files);
+            }
           });
       } else {
         void parseData(files)
           .then((data) => {
             if (cancelled) return;
             setData(data);
+            setSettledFiles(files);
           })
           .catch((reason: unknown) => {
-            if (!cancelled) onError(errorMessage(reason));
-          })
-          .finally(() => {
-            if (!cancelled) setIsLoading(false);
+            if (!cancelled) {
+              onError(errorMessage(reason));
+              setSettledFiles(files);
+            }
           });
       }
 
