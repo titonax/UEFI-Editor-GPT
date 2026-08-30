@@ -117,6 +117,7 @@ function isRefPrompt(value: UnknownRecord): value is UnknownRecord & RefPrompt {
     value.type === "Ref" &&
     isFormChildBase(value) &&
     isString(value.formId) &&
+    isOptionalString(value.ifrOffset) &&
     isOptionalString(value.targetFormSetGuid) &&
     isNullableString(value.pageId)
   );
@@ -182,6 +183,7 @@ function isForm(value: unknown): value is Form {
     value.type === "Form" &&
     isString(value.name) &&
     isString(value.formId) &&
+    isOptionalString(value.ifrOffset) &&
     isOptionalString(value.formSetGuid) &&
     isOptionalString(value.formSetTitle) &&
     isStringArray(value.referencedIn) &&

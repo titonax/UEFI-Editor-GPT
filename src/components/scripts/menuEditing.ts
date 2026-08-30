@@ -22,13 +22,23 @@ export interface MenuReferenceMoveRequest {
 }
 
 function sameGuid(left?: string, right?: string) {
-  return (left ?? "").toLowerCase() === (right ?? "").toLowerCase();
+  const normalize = (value?: string) =>
+    (value ?? "").replace(/[{}\s]/g, "").toLowerCase();
+  return normalize(left) === normalize(right);
 }
 
 function parsedId(value: string, label: string) {
   const parsed = Number.parseInt(value);
   if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > 0xffff) {
     throw new FirmwareError("INVALID_INPUT", `${label} is not a valid FormId.`);
+  }
+  return parsed;
+}
+
+function parsedOffset(value: string, label: string) {
+  const parsed = Number.parseInt(value, 16);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new FirmwareError("INVALID_INPUT", `${label} is not a valid IFR offset.`);
   }
   return parsed;
 }
@@ -51,19 +61,23 @@ function uniqueSpan(matches: IfrOpcodeSpan[], label: string): IfrOpcodeSpan {
 
 function findFormSpan(model: IfrBinaryModel, form: Form, label: string) {
   const formId = parsedId(form.formId, label);
-  return uniqueSpan(
-    model.packages.flatMap((pkg) =>
-      pkg.valid
-        ? pkg.opcodes.filter(
-            (span) =>
-              span.opcode === IFR_OPCODE.FORM &&
-              span.formId === formId &&
-              sameGuid(span.ownerFormSetGuid, form.formSetGuid),
-          )
-        : [],
-    ),
-    label,
+  const idMatches = model.packages.flatMap((pkg) =>
+    pkg.valid
+      ? pkg.opcodes.filter(
+          (span) => span.opcode === IFR_OPCODE.FORM && span.formId === formId,
+        )
+      : [],
   );
+  if (form.ifrOffset !== undefined) {
+    const offset = parsedOffset(form.ifrOffset, `${label} offset`);
+    const offsetMatches = idMatches.filter((span) => span.offset === offset);
+    if (offsetMatches.length > 0) return uniqueSpan(offsetMatches, label);
+  }
+  const guidMatches = idMatches.filter((span) =>
+    sameGuid(span.ownerFormSetGuid, form.formSetGuid),
+  );
+  if (guidMatches.length > 0) return uniqueSpan(guidMatches, label);
+  return uniqueSpan(idMatches, label);
 }
 
 function findReferenceSpan(
@@ -73,17 +87,24 @@ function findReferenceSpan(
 ) {
   const questionId = parsedId(reference.questionId, "Reference QuestionId");
   const targetFormId = parsedId(reference.formId, "Reference target FormId");
-  return uniqueSpan(
-    pkg.opcodes.filter(
-      (span) =>
-        span.opcode === IFR_OPCODE.REF &&
-        span.parentOffset === sourceForm.offset &&
-        span.questionId === questionId &&
-        span.formId === targetFormId &&
-        sameGuid(span.targetFormSetGuid, reference.targetFormSetGuid),
-    ),
-    `Ref QuestionId ${reference.questionId}`,
+  const label = `Ref QuestionId ${reference.questionId}`;
+  const semanticMatches = pkg.opcodes.filter(
+    (span) =>
+      span.opcode === IFR_OPCODE.REF &&
+      span.parentOffset === sourceForm.offset &&
+      span.questionId === questionId &&
+      span.formId === targetFormId,
   );
+  if (reference.ifrOffset !== undefined) {
+    const offset = parsedOffset(reference.ifrOffset, `${label} offset`);
+    const offsetMatches = semanticMatches.filter((span) => span.offset === offset);
+    if (offsetMatches.length > 0) return uniqueSpan(offsetMatches, label);
+  }
+  const guidMatches = semanticMatches.filter((span) =>
+    sameGuid(span.targetFormSetGuid, reference.targetFormSetGuid),
+  );
+  if (guidMatches.length > 0) return uniqueSpan(guidMatches, label);
+  return uniqueSpan(semanticMatches, label);
 }
 
 function findFormIndex(data: Data, formId: string, formSetGuid?: string) {
@@ -213,6 +234,12 @@ export async function moveMenuReference(
   const { sourceForm, destinationForm, reference } = validateRequest(data, request);
   const currentBytes = replayIfrEdits(data, originalSetupSct);
   const model = analyzeIfrBinary(currentBytes);
+  if (!model.packages.some((pkg) => pkg.valid)) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "No valid HII Forms Package was found in the Setup binary stream.",
+    );
+  }
   const sourceSpan = findFormSpan(model, sourceForm, "Source Form");
   const destinationSpan = findFormSpan(model, destinationForm, "Destination Form");
   const sourcePackage = packageForSpan(model, sourceSpan);
@@ -232,6 +259,17 @@ export async function moveMenuReference(
   );
   const moved = applyIfrStructuralMove(currentBytes, move);
   const next = structuredClone(data);
+
+  for (const form of next.forms) {
+    if (form.ifrOffset !== undefined) {
+      form.ifrOffset = remapHexOffset(form.ifrOffset, moved.remapOffset);
+    }
+    for (const child of form.children) {
+      if (child.type === "Ref" && child.ifrOffset !== undefined) {
+        child.ifrOffset = remapHexOffset(child.ifrOffset, moved.remapOffset);
+      }
+    }
+  }
 
   const [movedReference] = next.forms[request.sourceFormIndex].children.splice(
     request.referenceChildIndex,

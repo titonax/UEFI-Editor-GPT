@@ -4,7 +4,12 @@ import { parseDataFile } from "./dataValidation";
 
 describe("data.json validation", () => {
   it("accepts the editor data envelope", () => {
-    expect(parseDataFile(JSON.stringify(firmwareData())).version).toBe("0.4.0");
+    const data = firmwareData();
+    data.forms[0].ifrOffset = "0x20";
+    expect(parseDataFile(JSON.stringify(data))).toMatchObject({
+      version: "0.4.0",
+      forms: [{ ifrOffset: "0x20" }],
+    });
   });
 
   it("rejects malformed and incomplete data", () => {

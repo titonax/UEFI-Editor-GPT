@@ -57,6 +57,7 @@ export interface Form {
   name: string;
   type: "Form";
   formId: string;
+  ifrOffset?: string;
   formSetGuid?: string;
   formSetTitle?: string;
   referencedIn: string[];
@@ -90,6 +91,7 @@ export type FormChildren =
 export interface RefPrompt extends FormChild {
   type: "Ref";
   formId: string;
+  ifrOffset?: string;
   targetFormSetGuid?: string;
   pageId: string | null;
 }
