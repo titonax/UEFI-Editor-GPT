@@ -56,7 +56,7 @@ export function firmwareData(overrides: Partial<Data> = {}): Data {
     forms: [form()],
     varStores: [],
     suppressions: [],
-    version: "0.4.0",
+    version: "0.5.0",
     hashes: {
       setupTxt: "txt",
       setupSct: "sct",

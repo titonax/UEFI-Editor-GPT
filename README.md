@@ -11,8 +11,9 @@ a parallel demo application.
 
 ## Current capabilities
 
-- Accepts a complete Aptio IV image and recursively inspects FV/FFS,
-  EFI/Tiano/LZMA compression, Setup HII, AMITSE and SetupData.
+- Accepts a complete AMI UEFI image, reports container and Aptio evidence without
+  forcing an IV/V label, and recursively inspects FV/FFS, EFI/Tiano/LZMA
+  compression, Setup HII, AMITSE and SetupData after explicit confirmation.
 - Accepts the four extracted Aptio V artefacts used by the original editor.
 - Builds a GUID-aware `FormSet → Form → Ref target` graph, including duplicate
   FormIds, detached graphs, cycles and broken references.
@@ -39,8 +40,12 @@ a parallel demo application.
 
 ## Usage
 
-For Aptio IV, select a complete `.bin`, `.rom` or `.u1l` image. The browser will
-inspect it, decompress nested firmware volumes and run IFRExtractor WebAssembly.
+For a complete AMI image, select a `.bin`, `.rom`, `.cap`, `.fd`, `.bio` or
+`.u1l` file. The browser first performs a read-only inspection and explains its
+evidence. Press **Start HII analysis** to decompress nested firmware volumes and
+run IFRExtractor WebAssembly. Shared Setup, AMITSE, NVAR and FFS structures are
+not treated as proof of Aptio IV or V; unresolved images remain clearly marked
+and binary export stays disabled.
 
 For the extracted-file workflow, provide:
 
@@ -97,7 +102,7 @@ GUID-aware tree construction, broken references and binary patch preconditions.
 Coverage thresholds are enforced by `npm run check` and pull-request CI.
 
 The application release is `0.5.0`; exported `data.json` files use schema
-`0.4.0`. Those versions are independent so application releases do not
+`0.5.0`. Those versions are independent so application releases do not
 unnecessarily invalidate saved editor state.
 
 ## Design rules
@@ -111,6 +116,7 @@ unnecessarily invalidate saved editor state.
 - New behaviour requires a regression test, especially for malformed input.
 
 See [architecture](docs/architecture.md) and
+[AMI comparison corpus](docs/ami/sample-corpus.md) for the evidence model, and
 [contributing](CONTRIBUTING.md) for the module boundaries and review checklist.
 
 ## Credits

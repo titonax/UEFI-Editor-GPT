@@ -7,14 +7,19 @@ describe("data.json validation", () => {
     const data = firmwareData();
     data.forms[0].ifrOffset = "0x20";
     expect(parseDataFile(JSON.stringify(data))).toMatchObject({
-      version: "0.4.0",
+      version: "0.5.0",
       forms: [{ ifrOffset: "0x20" }],
     });
   });
 
+  it("accepts an AMI Aptio image whose generation remains unresolved", () => {
+    const data = firmwareData({ firmwareFamily: "ami-aptio" });
+    expect(parseDataFile(JSON.stringify(data)).firmwareFamily).toBe("ami-aptio");
+  });
+
   it("rejects malformed and incomplete data", () => {
     expect(() => parseDataFile("{")).toThrow(/not valid JSON/);
-    expect(() => parseDataFile(JSON.stringify({ version: "0.4.0" }))).toThrow(
+    expect(() => parseDataFile(JSON.stringify({ version: "0.5.0" }))).toThrow(
       /firmwareFamily/,
     );
   });
