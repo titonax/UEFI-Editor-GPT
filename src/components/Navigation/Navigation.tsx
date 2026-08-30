@@ -236,6 +236,7 @@ export default function Navigation({
     <>
       <MenuMoveDialog
         data={data}
+        tree={tree}
         node={moveNode}
         opened={moveNode !== null}
         originalSetupSct={originalSetupSct}

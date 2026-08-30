@@ -182,6 +182,23 @@ describe("binary IFR model", () => {
     ).toMatchObject({ offset: prefix.length + 4 + formSet().length });
   });
 
+  it("retains Package List provenance when the list is embedded", () => {
+    const prefix = new Uint8Array([0xaa, 0xbb, 0xcc]);
+    const list = packageList();
+    const bytes = new Uint8Array(prefix.length + list.length);
+    bytes.set(prefix);
+    bytes.set(list, prefix.length);
+
+    const model = analyzeIfrBinary(bytes);
+
+    expect(model.packages).toHaveLength(1);
+    expect(model.packages[0]).toMatchObject({
+      packageListOffset: prefix.length,
+      offset: prefix.length + 20,
+      valid: true,
+    });
+  });
+
   it("rejects truncated and unbalanced opcode streams", () => {
     expect(() => parseIfrOpcodeStream(new Uint8Array([0x01, 0x06]), 0, 2)).toThrow(
       /Invalid IFR opcode length/,

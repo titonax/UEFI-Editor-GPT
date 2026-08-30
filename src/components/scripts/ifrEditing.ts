@@ -15,6 +15,7 @@ export interface IfrReferenceMove {
   destinationOffset: number;
   expected: number[];
   destinationExpected: number[];
+  containerPatches?: IfrBytePatch[];
   description: string;
 }
 
@@ -25,6 +26,45 @@ export interface IfrStructuralMoveResult {
 
 function littleEndian16(value: number) {
   return [value & 0xff, (value >>> 8) & 0xff];
+}
+
+function validateMoveContainerPatches(source: Uint8Array, move: IfrReferenceMove) {
+  const claimedOffsets = new Set<number>();
+  for (const patch of move.containerPatches ?? []) {
+    if (
+      !Number.isSafeInteger(patch.offset) ||
+      patch.offset < 0 ||
+      patch.expected.length === 0 ||
+      patch.expected.length !== patch.replacement.length ||
+      patch.offset + patch.expected.length > source.length
+    ) {
+      throw new FirmwareError(
+        "PATCH_FAILED",
+        "An IFR move container patch has invalid bounds or changes length.",
+      );
+    }
+    for (let index = 0; index < patch.expected.length; index++) {
+      const offset = patch.offset + index;
+      if (
+        claimedOffsets.has(offset) ||
+        (offset >= move.sourceOffset && offset < move.sourceEnd)
+      ) {
+        throw new FirmwareError(
+          "PATCH_FAILED",
+          "IFR move container patches overlap each other or the moved Ref.",
+        );
+      }
+      claimedOffsets.add(offset);
+    }
+    if (!sameBytes(source, patch.offset, patch.expected)) {
+      throw new FirmwareError(
+        "PATCH_FAILED",
+        `IFR move container precondition failed at 0x${patch.offset
+          .toString(16)
+          .toUpperCase()}.`,
+      );
+    }
+  }
 }
 
 function validateUint16(value: number, label: string) {
@@ -246,6 +286,7 @@ export function applyIfrStructuralMove(
         .toUpperCase()}.`,
     );
   }
+  validateMoveContainerPatches(source, move);
 
   const result = new Uint8Array(source.length);
   const moved = source.slice(move.sourceOffset, move.sourceEnd);
@@ -262,6 +303,10 @@ export function applyIfrStructuralMove(
       move.destinationOffset + length,
     );
     result.set(source.slice(move.sourceEnd), move.sourceEnd);
+  }
+
+  for (const patch of move.containerPatches ?? []) {
+    result.set(patch.replacement, remapIfrOffset(move, patch.offset));
   }
 
   return {

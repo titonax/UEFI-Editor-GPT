@@ -1,4 +1,5 @@
 import { calculateJsonChecksum } from "./checksum";
+import { readUint24, readUint32 } from "./binaryReader";
 import { FirmwareError } from "./errors";
 import { decimalToHex, hexToBytes } from "./hex";
 import {
@@ -12,6 +13,8 @@ import {
   applyIfrStructuralMove,
   applyIfrStructuralMoves,
   planIfrReferenceMove,
+  type IfrBytePatch,
+  type IfrReferenceMove,
 } from "./ifrEditing";
 import type { Data, Form, RefPrompt } from "./types";
 
@@ -19,6 +22,15 @@ export interface MenuReferenceMoveRequest {
   sourceFormIndex: number;
   referenceChildIndex: number;
   destinationFormIndex: number;
+}
+
+export type MenuMoveCompatibility =
+  "safe-same-package" | "safe-cross-package" | "requires-ref3" | "unavailable";
+
+export interface MenuMoveDestination {
+  formIndex: number;
+  compatibility: MenuMoveCompatibility;
+  reason: string;
 }
 
 function sameGuid(left?: string, right?: string) {
@@ -45,6 +57,103 @@ function parsedOffset(value: string, label: string) {
 
 function packageForSpan(model: IfrBinaryModel, span: IfrOpcodeSpan) {
   return model.packages.find((pkg) => pkg.opcodes.includes(span));
+}
+
+function littleEndian(value: number, width: 3 | 4) {
+  return Array.from({ length: width }, (_, index) => (value >>> (index * 8)) & 0xff);
+}
+
+function planLengthPatch(
+  source: Uint8Array,
+  offset: number,
+  width: 3 | 4,
+  delta: number,
+  description: string,
+): IfrBytePatch {
+  const current = width === 3 ? readUint24(source, offset) : readUint32(source, offset);
+  const replacement = current + delta;
+  const maximum = width === 3 ? 0xffffff : 0xffffffff;
+  if (
+    !Number.isSafeInteger(replacement) ||
+    replacement < (width === 3 ? 4 : 20) ||
+    replacement > maximum
+  ) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      `${description} would produce an invalid container length.`,
+    );
+  }
+  return {
+    offset,
+    expected: littleEndian(current, width),
+    replacement: littleEndian(replacement, width),
+    description,
+  };
+}
+
+function addContainerLengthPatches(
+  source: Uint8Array,
+  move: IfrReferenceMove,
+  sourcePackage: IfrFormPackage,
+  destinationPackage: IfrFormPackage,
+): IfrReferenceMove {
+  if (sourcePackage === destinationPackage) return move;
+
+  const sourceListOffset = sourcePackage.packageListOffset;
+  const destinationListOffset = destinationPackage.packageListOffset;
+  if ((sourceListOffset === null) !== (destinationListOffset === null)) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "The Forms Packages have incompatible container provenance.",
+    );
+  }
+
+  const movedLength = move.sourceEnd - move.sourceOffset;
+  const containerPatches: IfrBytePatch[] = [
+    planLengthPatch(
+      source,
+      sourcePackage.offset,
+      3,
+      -movedLength,
+      "Shrink source Forms Package",
+    ),
+    planLengthPatch(
+      source,
+      destinationPackage.offset,
+      3,
+      movedLength,
+      "Grow destination Forms Package",
+    ),
+  ];
+
+  if (
+    sourceListOffset !== null &&
+    destinationListOffset !== null &&
+    sourceListOffset !== destinationListOffset
+  ) {
+    containerPatches.push(
+      planLengthPatch(
+        source,
+        sourceListOffset + 16,
+        4,
+        -movedLength,
+        "Shrink source HII Package List",
+      ),
+      planLengthPatch(
+        source,
+        destinationListOffset + 16,
+        4,
+        movedLength,
+        "Grow destination HII Package List",
+      ),
+    );
+  }
+
+  return {
+    ...move,
+    containerPatches,
+    description: `${move.description} across HII Forms Packages`,
+  };
 }
 
 function uniqueSpan(matches: IfrOpcodeSpan[], label: string): IfrOpcodeSpan {
@@ -226,12 +335,129 @@ export function hydrateIfrBinary(data: Data, originalSetupSct: string): Data {
   return hydrated;
 }
 
+interface PlannedMenuMove {
+  destinationForm: Form;
+  referenceSpan: IfrOpcodeSpan;
+  destinationSpan: IfrOpcodeSpan;
+  sourcePackage: IfrFormPackage;
+  destinationPackage: IfrFormPackage;
+  move: IfrReferenceMove;
+}
+
+function planMenuMove(
+  data: Data,
+  currentBytes: Uint8Array,
+  model: IfrBinaryModel,
+  request: MenuReferenceMoveRequest,
+): PlannedMenuMove {
+  const { sourceForm, destinationForm, reference } = validateRequest(data, request);
+  const sourceSpan = findFormSpan(model, sourceForm, "Source Form");
+  const destinationSpan = findFormSpan(model, destinationForm, "Destination Form");
+  const sourcePackage = packageForSpan(model, sourceSpan);
+  const destinationPackage = packageForSpan(model, destinationSpan);
+  if (!sourcePackage || !destinationPackage) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "The source or destination Forms Package could not be proven.",
+    );
+  }
+  const referenceSpan = findReferenceSpan(sourcePackage, sourceSpan, reference);
+  const baseMove = planIfrReferenceMove(
+    currentBytes,
+    referenceSpan,
+    sourceSpan,
+    destinationSpan,
+  );
+  return {
+    destinationForm,
+    referenceSpan,
+    destinationSpan,
+    sourcePackage,
+    destinationPackage,
+    move: addContainerLengthPatches(
+      currentBytes,
+      baseMove,
+      sourcePackage,
+      destinationPackage,
+    ),
+  };
+}
+
+function reasonMessage(reason: unknown) {
+  return reason instanceof Error ? reason.message : String(reason);
+}
+
+export function analyzeMenuMoveDestinations(
+  data: Data,
+  originalSetupSct: string,
+  sourceFormIndex: number,
+  referenceChildIndex: number,
+): MenuMoveDestination[] {
+  let currentBytes: Uint8Array;
+  let model: IfrBinaryModel;
+  try {
+    currentBytes = replayIfrEdits(data, originalSetupSct);
+    model = analyzeIfrBinary(currentBytes);
+    if (!model.packages.some((pkg) => pkg.valid)) {
+      throw new FirmwareError(
+        "PATCH_FAILED",
+        "No valid HII Forms Package was found in the Setup binary stream.",
+      );
+    }
+  } catch (reason) {
+    return data.forms.map((_, formIndex) => ({
+      formIndex,
+      compatibility: "unavailable",
+      reason: reasonMessage(reason),
+    }));
+  }
+
+  return data.forms.map((_, destinationFormIndex) => {
+    if (destinationFormIndex === sourceFormIndex) {
+      return {
+        formIndex: destinationFormIndex,
+        compatibility: "unavailable",
+        reason: "The Ref is already in this Form.",
+      };
+    }
+    try {
+      const planned = planMenuMove(data, currentBytes, model, {
+        sourceFormIndex,
+        referenceChildIndex,
+        destinationFormIndex,
+      });
+      const crossPackage = planned.sourcePackage !== planned.destinationPackage;
+      return {
+        formIndex: destinationFormIndex,
+        compatibility: crossPackage ? "safe-cross-package" : "safe-same-package",
+        reason: crossPackage
+          ? "Safe fixed-size move; Forms Package lengths will be rebalanced."
+          : "Safe fixed-size move inside the existing Forms Package.",
+      };
+    } catch (reason) {
+      const message = reasonMessage(reason);
+      return {
+        formIndex: destinationFormIndex,
+        compatibility: message.includes(
+          "without an explicit FormSetGuid cannot move to another FormSet",
+        )
+          ? "requires-ref3"
+          : "unavailable",
+        reason: message.includes(
+          "without an explicit FormSetGuid cannot move to another FormSet",
+        )
+          ? "This REF/REF2 needs conversion to REF3 before it can cross FormSets."
+          : message,
+      };
+    }
+  });
+}
+
 export async function moveMenuReference(
   data: Data,
   originalSetupSct: string,
   request: MenuReferenceMoveRequest,
 ): Promise<Data> {
-  const { sourceForm, destinationForm, reference } = validateRequest(data, request);
   const currentBytes = replayIfrEdits(data, originalSetupSct);
   const model = analyzeIfrBinary(currentBytes);
   if (!model.packages.some((pkg) => pkg.valid)) {
@@ -240,22 +466,11 @@ export async function moveMenuReference(
       "No valid HII Forms Package was found in the Setup binary stream.",
     );
   }
-  const sourceSpan = findFormSpan(model, sourceForm, "Source Form");
-  const destinationSpan = findFormSpan(model, destinationForm, "Destination Form");
-  const sourcePackage = packageForSpan(model, sourceSpan);
-  const destinationPackage = packageForSpan(model, destinationSpan);
-  if (!sourcePackage || sourcePackage !== destinationPackage) {
-    throw new FirmwareError(
-      "PATCH_FAILED",
-      "Refs can only be moved between Forms in the same HII Forms Package.",
-    );
-  }
-  const referenceSpan = findReferenceSpan(sourcePackage, sourceSpan, reference);
-  const move = planIfrReferenceMove(
+  const { referenceSpan, destinationForm, destinationSpan, move } = planMenuMove(
+    data,
     currentBytes,
-    referenceSpan,
-    sourceSpan,
-    destinationSpan,
+    model,
+    request,
   );
   const moved = applyIfrStructuralMove(currentBytes, move);
   const next = structuredClone(data);
@@ -302,6 +517,21 @@ export async function moveMenuReference(
   }
   rebuildIncomingReferences(next);
   next.ifrBinary = analyzeIfrBinary(moved.bytes);
+  const movedReferenceOffset = moved.remapOffset(referenceSpan.offset);
+  const verifiedReference = next.ifrBinary.packages
+    .flatMap((pkg) => (pkg.valid ? pkg.opcodes : []))
+    .find((span) => span.offset === movedReferenceOffset);
+  if (
+    verifiedReference?.opcode !== IFR_OPCODE.REF ||
+    verifiedReference.ownerFormId !==
+      parsedId(destinationForm.formId, "Destination Form") ||
+    verifiedReference.parentOffset !== moved.remapOffset(destinationSpan.offset)
+  ) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "The moved HII stream could not be reparsed with the Ref in its destination Form.",
+    );
+  }
   next.hashes.offsetChecksum = await calculateJsonChecksum(
     next.menu,
     next.forms,

@@ -375,6 +375,79 @@ function scanEmbeddedFormsPackages(bytes: Uint8Array): IfrFormPackage[] {
   return packages;
 }
 
+interface EmbeddedPackageList {
+  offset: number;
+  length: number;
+  packages: IfrFormPackage[];
+}
+
+function parseValidPackageListAt(
+  bytes: Uint8Array,
+  listOffset: number,
+): EmbeddedPackageList | null {
+  if (listOffset < 0 || listOffset + HII_PACKAGE_LIST_HEADER_SIZE > bytes.length) {
+    return null;
+  }
+  const listLength = readUint32(bytes, listOffset + 16);
+  if (
+    listLength < HII_PACKAGE_LIST_HEADER_SIZE + HII_PACKAGE_HEADER_SIZE ||
+    listOffset + listLength > bytes.length
+  ) {
+    return null;
+  }
+
+  const packages: IfrFormPackage[] = [];
+  let cursor = listOffset + HII_PACKAGE_LIST_HEADER_SIZE;
+  const listEnd = listOffset + listLength;
+  while (cursor < listEnd) {
+    let header: ReturnType<typeof packageHeader>;
+    try {
+      header = packageHeader(bytes, cursor);
+    } catch {
+      return null;
+    }
+    if (header.length < HII_PACKAGE_HEADER_SIZE || cursor + header.length > listEnd) {
+      return null;
+    }
+    if (header.type === HII_PACKAGE_FORMS) {
+      const ignoredDiagnostics: IfrBinaryDiagnostic[] = [];
+      const formsPackage = parseFormsPackage(
+        bytes,
+        cursor,
+        header.length,
+        listOffset,
+        ignoredDiagnostics,
+      );
+      if (!formsPackage.valid) return null;
+      packages.push(formsPackage);
+    }
+    cursor += header.length;
+    if (header.type === HII_PACKAGE_END) {
+      return header.length === HII_PACKAGE_HEADER_SIZE &&
+        cursor === listEnd &&
+        packages.length > 0
+        ? { offset: listOffset, length: listLength, packages }
+        : null;
+    }
+  }
+  return null;
+}
+
+function scanEmbeddedPackageLists(bytes: Uint8Array): EmbeddedPackageList[] {
+  const lists: EmbeddedPackageList[] = [];
+  let cursor = 0;
+  while (cursor + HII_PACKAGE_LIST_HEADER_SIZE <= bytes.length) {
+    const candidate = parseValidPackageListAt(bytes, cursor);
+    if (candidate) {
+      lists.push(candidate);
+      cursor += candidate.length;
+    } else {
+      cursor++;
+    }
+  }
+  return lists;
+}
+
 export function analyzeIfrBinary(bytes: Uint8Array): IfrBinaryModel {
   const diagnostics: IfrBinaryDiagnostic[] = [];
   let packages = parsePackageListAtStart(bytes, diagnostics);
@@ -392,6 +465,14 @@ export function analyzeIfrBinary(bytes: Uint8Array): IfrBinaryModel {
 
   packages ??= [];
   const knownOffsets = new Set(packages.map((pkg) => pkg.offset));
+  for (const list of scanEmbeddedPackageLists(bytes)) {
+    for (const pkg of list.packages) {
+      if (!knownOffsets.has(pkg.offset)) {
+        packages.push(pkg);
+        knownOffsets.add(pkg.offset);
+      }
+    }
+  }
   for (const embedded of scanEmbeddedFormsPackages(bytes)) {
     if (!knownOffsets.has(embedded.offset)) {
       packages.push(embedded);
@@ -402,7 +483,7 @@ export function analyzeIfrBinary(bytes: Uint8Array): IfrBinaryModel {
   if (packages.length === 0) {
     diagnostics.push({
       code: "NO_FORMS_PACKAGE",
-      message: "No HII Forms Package was found at the start of the source buffer.",
+      message: "No HII Forms Package was found in the source buffer.",
       offset: 0,
     });
   }

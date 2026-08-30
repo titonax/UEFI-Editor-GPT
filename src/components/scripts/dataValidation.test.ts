@@ -64,6 +64,14 @@ describe("data.json validation", () => {
           destinationOffset: 20,
           expected: [0x0f, 2],
           destinationExpected: [0x29, 2],
+          containerPatches: [
+            {
+              offset: 4,
+              expected: [0x20, 0, 0],
+              replacement: [0x1e, 0, 0],
+              description: "Shrink Forms Package",
+            },
+          ],
           description: "Move Ref",
         },
       ],
@@ -74,5 +82,11 @@ describe("data.json validation", () => {
     if (!malformed.ifrEdits?.[0]) throw new Error("Expected an IFR edit fixture.");
     malformed.ifrEdits[0].expected = [0x0f];
     expect(() => parseDataFile(JSON.stringify(malformed))).toThrow(/ifrEdits/);
+
+    const malformedPatch = structuredClone(imported);
+    const patch = malformedPatch.ifrEdits?.[0]?.containerPatches?.[0];
+    if (!patch) throw new Error("Expected a container patch fixture.");
+    patch.replacement = [0x1e];
+    expect(() => parseDataFile(JSON.stringify(malformedPatch))).toThrow(/ifrEdits/);
   });
 });
