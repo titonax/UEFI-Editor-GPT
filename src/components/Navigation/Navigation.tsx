@@ -36,9 +36,6 @@ export default function Navigation({
   originalSetupSct,
 }: NavigationProps) {
   const tree = React.useMemo(() => buildMenuTree(data), [data]);
-  const [expanded, setExpanded] = React.useState(
-    () => new Set(tree.roots.map((node) => node.key)),
-  );
   const [moveNode, setMoveNode] = React.useState<MenuTreeNode | null>(null);
 
   const activePath = React.useMemo(() => {
@@ -51,30 +48,31 @@ export default function Navigation({
       ? rootPath
       : findNodePath(tree.orphans, currentFormIndex);
   }, [currentFormIndex, tree.orphans, tree.roots]);
+  const activePathKey = activePath.map((node) => node.key).join("\u0000");
+  const [expansion, setExpansion] = React.useState(() => ({
+    activePathKey,
+    keys: new Set(tree.roots.map((node) => node.key)),
+  }));
 
-  React.useEffect(() => {
-    if (activePath.length < 2) {
-      return;
+  if (expansion.activePathKey !== activePathKey) {
+    const keys = new Set(expansion.keys);
+    for (const node of activePath.slice(0, -1)) {
+      keys.add(node.key);
     }
+    setExpansion({ activePathKey, keys });
+  }
 
-    setExpanded((current) => {
-      const next = new Set(current);
-      for (const node of activePath.slice(0, -1)) {
-        next.add(node.key);
-      }
-      return next;
-    });
-  }, [activePath]);
+  const expanded = expansion.keys;
 
   function toggleNode(key: string) {
-    setExpanded((current) => {
-      const next = new Set(current);
+    setExpansion((current) => {
+      const next = new Set(current.keys);
       if (next.has(key)) {
         next.delete(key);
       } else {
         next.add(key);
       }
-      return next;
+      return { ...current, keys: next };
     });
   }
 
@@ -234,17 +232,19 @@ export default function Navigation({
 
   return (
     <>
-      <MenuMoveDialog
-        data={data}
-        tree={tree}
-        node={moveNode}
-        opened={moveNode !== null}
-        originalSetupSct={originalSetupSct}
-        setData={setData}
-        onClose={() => {
-          setMoveNode(null);
-        }}
-      />
+      {moveNode && (
+        <MenuMoveDialog
+          data={data}
+          tree={tree}
+          node={moveNode}
+          opened
+          originalSetupSct={originalSetupSct}
+          setData={setData}
+          onClose={() => {
+            setMoveNode(null);
+          }}
+        />
+      )}
       <AppShell.Section className={s.treeHeader}>
         <Group justify="space-between" gap="xs" wrap="nowrap">
           <Group gap="xs" wrap="nowrap">
@@ -266,7 +266,10 @@ export default function Navigation({
                 color="gray"
                 aria-label="Expand all menu branches"
                 onClick={() => {
-                  setExpanded(new Set(tree.expandableKeys));
+                  setExpansion((current) => ({
+                    ...current,
+                    keys: new Set(tree.expandableKeys),
+                  }));
                 }}
               >
                 <IconArrowsMaximize size={15} />
@@ -279,7 +282,7 @@ export default function Navigation({
                 color="gray"
                 aria-label="Collapse all menu branches"
                 onClick={() => {
-                  setExpanded(new Set());
+                  setExpansion((current) => ({ ...current, keys: new Set() }));
                 }}
               >
                 <IconArrowsMinimize size={15} />
