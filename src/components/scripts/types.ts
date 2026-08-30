@@ -2,7 +2,7 @@ import type { IfrBinaryModel } from "./ifrBinary";
 import type { IfrReferenceMove } from "./ifrEditing";
 
 export interface Data {
-  firmwareFamily: "aptio-v" | "aptio-iv";
+  firmwareFamily: "aptio-v" | "aptio-iv" | "ami-aptio";
   menu: Menu;
   formSetRoots?: Menu;
   varStores: VarStores;

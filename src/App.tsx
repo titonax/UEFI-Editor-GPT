@@ -1,7 +1,7 @@
 import React from "react";
 import s from "./App.module.css";
 import { useImmer } from "use-immer";
-import { Alert, AppShell, Button, Group, Stack } from "@mantine/core";
+import { Alert, AppShell, Button, Divider, Group, Stack, Text } from "@mantine/core";
 import type { Data } from "./components/scripts/types";
 import FileUploads from "./components/FileUploads/FileUploads";
 import { isPopulatedFiles, type Files } from "./components/FileUploads/fileModel";
@@ -15,7 +15,7 @@ import BiosImageUpload from "./components/BiosImageUpload/BiosImageUpload";
 import { parseData } from "./components/scripts/scripts";
 
 const emptyData: Data = {
-  firmwareFamily: "aptio-v",
+  firmwareFamily: "ami-aptio",
   menu: [],
   forms: [],
   varStores: [],
@@ -113,14 +113,20 @@ export default function App({
             </Alert>
           )}
           <BiosImageUpload
-            onExtracted={async (extractedFiles) => {
+            onExtracted={async (extractedFiles, generation) => {
               setError("");
               setFiles(extractedFiles);
               const parsed = await parseData(extractedFiles);
-              parsed.firmwareFamily = "aptio-iv";
+              parsed.firmwareFamily =
+                generation === "unresolved" ? "ami-aptio" : generation;
               setData(parsed);
             }}
           />
+          <Divider label="Or load previously extracted HII artefacts" />
+          <Text c="dimmed" size="sm" ta="center">
+            Manual compatibility mode for existing Setup, IFR, AMITSE and SetupData
+            files.
+          </Text>
           <FileUploads
             files={files}
             setFiles={setFiles}

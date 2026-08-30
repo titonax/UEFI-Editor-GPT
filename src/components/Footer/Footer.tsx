@@ -113,11 +113,13 @@ export default function Footer({
             size="xs"
             variant="default"
             leftSection={<IconDownload />}
-            disabled={data.firmwareFamily === "aptio-iv"}
+            disabled={data.firmwareFamily !== "aptio-v"}
             title={
               data.firmwareFamily === "aptio-iv"
                 ? "Aptio IV export is disabled until safe reinsertion is implemented"
-                : undefined
+                : data.firmwareFamily === "ami-aptio"
+                  ? "Export is disabled until the firmware generation and write path are proven"
+                  : undefined
             }
             onClick={() => {
               try {

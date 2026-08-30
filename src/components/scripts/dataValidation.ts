@@ -300,7 +300,11 @@ export function parseDataFile(text: string): Data {
   if (!isRecord(value)) {
     invalidData("does not contain an object");
   }
-  if (value.firmwareFamily !== "aptio-v" && value.firmwareFamily !== "aptio-iv") {
+  if (
+    value.firmwareFamily !== "aptio-v" &&
+    value.firmwareFamily !== "aptio-iv" &&
+    value.firmwareFamily !== "ami-aptio"
+  ) {
     invalidData("has an invalid firmwareFamily");
   }
   if (!isString(value.version)) {

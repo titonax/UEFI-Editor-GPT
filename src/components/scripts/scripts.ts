@@ -7,7 +7,7 @@ import { parseIfrText } from "./ifrTextParser";
 import { discoverMenu } from "./menuDiscovery";
 import type { Data } from "./types";
 
-export const dataSchemaVersion = "0.4.0";
+export const dataSchemaVersion = "0.5.0";
 /** @deprecated Use dataSchemaVersion when referring to the data.json format. */
 export const version = dataSchemaVersion;
 
