@@ -1,4 +1,5 @@
 import { FirmwareError } from "./errors";
+import type { IfrReferenceMove } from "./ifrEditing";
 import type {
   CheckBoxPrompt,
   Data,
@@ -28,6 +29,17 @@ function isString(value: unknown): value is string {
 
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
+function isByteArray(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.every((byte) => isNonNegativeInteger(byte) && byte <= 0xff)
+  );
 }
 
 function isNullableString(value: unknown): value is string | null {
@@ -234,6 +246,28 @@ function isHashes(value: unknown): value is Data["hashes"] {
   );
 }
 
+function isIfrReferenceMove(value: unknown): value is IfrReferenceMove {
+  return (
+    isRecord(value) &&
+    value.kind === "move-ref" &&
+    isNonNegativeInteger(value.sourceOffset) &&
+    isNonNegativeInteger(value.sourceEnd) &&
+    value.sourceEnd > value.sourceOffset &&
+    isNonNegativeInteger(value.destinationOffset) &&
+    isByteArray(value.expected) &&
+    value.expected.length === value.sourceEnd - value.sourceOffset &&
+    isByteArray(value.destinationExpected) &&
+    value.destinationExpected.length > 0 &&
+    isString(value.description)
+  );
+}
+
+function isIfrEdits(value: unknown): value is IfrReferenceMove[] | undefined {
+  return (
+    value === undefined || (Array.isArray(value) && value.every(isIfrReferenceMove))
+  );
+}
+
 function invalidData(message: string): never {
   throw new FirmwareError("INVALID_INPUT", `data.json ${message}.`);
 }
@@ -273,6 +307,9 @@ export function parseDataFile(text: string): Data {
   if (!isHashes(value.hashes)) {
     invalidData("has invalid hashes");
   }
+  if (!isIfrEdits(value.ifrEdits)) {
+    invalidData("has invalid ifrEdits");
+  }
 
   return {
     firmwareFamily: value.firmwareFamily,
@@ -281,6 +318,7 @@ export function parseDataFile(text: string): Data {
     forms: value.forms,
     varStores: value.varStores,
     suppressions: value.suppressions,
+    ifrEdits: value.ifrEdits,
     version: value.version,
     hashes: value.hashes,
   };

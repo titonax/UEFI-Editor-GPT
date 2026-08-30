@@ -12,6 +12,7 @@ import {
 } from "../scripts/scripts";
 import { parseDataFile } from "../scripts/dataValidation";
 import { errorMessage } from "../scripts/errors";
+import { hydrateIfrBinary } from "../scripts/menuEditing";
 import type { Data } from "../scripts/types";
 import s from "./Footer.module.css";
 
@@ -44,7 +45,7 @@ export default function Footer({
               if (file) {
                 void (async () => {
                   const fileData = await file.text();
-                  const jsonData = parseDataFile(fileData);
+                  let jsonData = parseDataFile(fileData);
 
                   if (
                     jsonData.version === dataSchemaVersion &&
@@ -56,11 +57,14 @@ export default function Footer({
                       jsonData.menu,
                       jsonData.forms,
                       jsonData.suppressions,
-                    )) === data.hashes.offsetChecksum
+                    )) === jsonData.hashes.offsetChecksum
                   ) {
-                    // Binary provenance is derived from the loaded source and must
-                    // never be trusted from an editable data.json snapshot.
-                    jsonData.ifrBinary = data.ifrBinary;
+                    // Binary provenance is rebuilt from the opened source. Stored
+                    // edit plans are replayed only when every byte precondition holds.
+                    jsonData = hydrateIfrBinary(
+                      jsonData,
+                      files.setupSctContainer.textContent,
+                    );
                     setData(jsonData);
                     onError("");
                   } else {

@@ -1,7 +1,14 @@
 import { saveAs } from "file-saver";
 import type { PopulatedFiles } from "../FileUploads/fileModel";
 import { FirmwareError } from "./errors";
-import { decimalToHex, hexToBytes, offsetToHexIndex, replaceHex } from "./hex";
+import {
+  bytesToHex,
+  decimalToHex,
+  hexToBytes,
+  offsetToHexIndex,
+  replaceHex,
+} from "./hex";
+import { replayIfrEdits } from "./menuEditing";
 import type { Data, Form, Suppression } from "./types";
 
 interface PatchSources {
@@ -128,17 +135,25 @@ export function buildFirmwarePatches(
   data: Data,
   sources: PatchSources,
 ): PatchedFirmware {
-  const setup = patchSuppressions(data, sources.setupSct);
+  const structuralBytes = replayIfrEdits(data, sources.setupSct);
+  const structuralHex = bytesToHex(structuralBytes);
+  const structuralLog = (data.ifrEdits ?? [])
+    .map((edit) => `${edit.description}\n`)
+    .join("");
+  const setup = patchSuppressions(data, structuralHex);
+  const setupChanged = structuralLog.length > 0 || setup.hex !== undefined;
   const menu = patchMenu(data, sources.amitseSct);
   const setupData = patchSetupData(data, sources.setupdataBin);
   const sections = [
-    setup.hex ? `========== Setup HII ==========\n\n${setup.log}` : "",
+    setupChanged
+      ? `========== Setup HII ==========\n\n${structuralLog}${setup.log}`
+      : "",
     menu.hex ? `========== AMITSE ==========\n\n${menu.log}` : "",
     setupData.hex ? `========== SetupData ==========\n\n${setupData.log}` : "",
   ].filter(Boolean);
 
   return {
-    setupSct: setup.hex ? hexToBytes(setup.hex) : undefined,
+    setupSct: setupChanged ? hexToBytes(setup.hex ?? structuralHex) : undefined,
     amitseSct: menu.hex ? hexToBytes(menu.hex) : undefined,
     setupdataBin: setupData.hex ? hexToBytes(setupData.hex) : undefined,
     changeLog: sections.join("\n\n"),

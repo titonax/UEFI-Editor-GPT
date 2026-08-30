@@ -20,9 +20,9 @@ a parallel demo application.
   wide or deeply nested HII hierarchies.
 - Records binary IFR opcode offsets, lengths, nested scopes and owning
   Form/FormSet identities as the foundation for structural menu editing.
-- Provides a transactional, fixed-size primitive for safely retargeting an
-  existing IFR `Ref`; structural moves remain disabled until serialization and
-  reinsertion are complete.
+- Moves a complete direct IFR `Ref` from one Form to another in the same Forms
+  Package, preserving its encoded bytes and the package size. Each move is
+  replayable, precondition-checked and included in Aptio V export.
 - Separates `SuppressIf` hiding from `GrayOutIf`/`DisableIf` availability.
 - Reports runtime/HW, access-policy and UI-state evidence without presenting an
   inference as a confirmed fact.
@@ -54,6 +54,12 @@ The tree uses these states:
 | Orange | `GrayOutIf` or `DisableIf` can make it unavailable |
 | Gray   | Evidence is insufficient for a stronger conclusion |
 | Pink   | The graph contains a broken reference              |
+
+To move a submenu, use the move button on its tree row and choose the new
+parent Form. The first implementation deliberately accepts only direct,
+non-scoped `Ref` opcodes. It rejects cross-package moves, implicit cross-FormSet
+moves, duplicate targets and graph cycles. Conditional/nested references and
+package resizing are not rewritten automatically.
 
 ## Development
 

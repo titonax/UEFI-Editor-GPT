@@ -48,4 +48,26 @@ describe("data.json validation", () => {
 
     expect(parseDataFile(JSON.stringify(imported)).ifrBinary).toBeUndefined();
   });
+
+  it("preserves valid IFR edit plans and rejects malformed ones", () => {
+    const imported = firmwareData({
+      ifrEdits: [
+        {
+          kind: "move-ref",
+          sourceOffset: 10,
+          sourceEnd: 12,
+          destinationOffset: 20,
+          expected: [0x0f, 2],
+          destinationExpected: [0x29, 2],
+          description: "Move Ref",
+        },
+      ],
+    });
+    expect(parseDataFile(JSON.stringify(imported)).ifrEdits).toEqual(imported.ifrEdits);
+
+    const malformed = structuredClone(imported);
+    if (!malformed.ifrEdits?.[0]) throw new Error("Expected an IFR edit fixture.");
+    malformed.ifrEdits[0].expected = [0x0f];
+    expect(() => parseDataFile(JSON.stringify(malformed))).toThrow(/ifrEdits/);
+  });
 });

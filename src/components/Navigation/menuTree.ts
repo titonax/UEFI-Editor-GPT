@@ -43,6 +43,8 @@ export interface MenuTreeNode {
   outgoingReferenceCount: number;
   parentageLabel: string;
   conditionSummary?: string;
+  parentFormIndex?: number;
+  referenceChildIndex?: number;
 }
 
 export interface MenuTree {
@@ -248,6 +250,8 @@ export function buildMenuTree(data: Data): MenuTree {
     rootSource?: RootSource,
     pageMask?: string,
     parentageLabel = "No incoming IFR reference was found.",
+    parentFormIndex?: number,
+    referenceChildIndex?: number,
   ): MenuTreeNode {
     const form = data.forms[formIndex];
     const cycle = ancestors.has(formIndex);
@@ -312,6 +316,8 @@ export function buildMenuTree(data: Data): MenuTree {
                 conditionSummary:
                   nextConditionPath.join("; ") ||
                   "The Ref target does not exist in the parsed HII graph.",
+                parentFormIndex: formIndex,
+                referenceChildIndex: childIndex,
               };
             }
 
@@ -335,6 +341,8 @@ export function buildMenuTree(data: Data): MenuTree {
               undefined,
               undefined,
               `Referenced by ${form.name || form.formId} through an IFR Ref opcode.`,
+              formIndex,
+              childIndex,
             );
           })
           .filter((node): node is MenuTreeNode => node !== null);
@@ -370,6 +378,8 @@ export function buildMenuTree(data: Data): MenuTree {
         .length,
       parentageLabel,
       conditionSummary: conditionPath.length > 0 ? conditionPath.join("; ") : undefined,
+      parentFormIndex,
+      referenceChildIndex,
     };
   }
 
