@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.4.2",
-    "@mantine/core": "^7.17.2",
+    "@mantine/core": "^9.6.0",
     "@mantine/hooks": "^7.17.2",
     "@tabler/icons-react": "^3.46.0",
     "file-saver": "^2.0.5",
