@@ -13,6 +13,11 @@ import {
   readUint64AsNumber,
 } from "./binaryReader";
 import { FirmwareError } from "./errors";
+import {
+  encapsulatedFirmwareSection,
+  readFirmwareSection,
+  type FirmwareSection,
+} from "./firmwareSections";
 
 const setupGuid = "899407D7-99FE-43D8-9A21-79EC328CAC21";
 const amitseGuid = "B1DA0ADF-4F77-4070-A88E-BFFE1C60529A";
@@ -135,21 +140,61 @@ interface LocatedFile {
   depth: number;
 }
 
-function findFile(bytes: Uint8Array, wantedGuid: string, depth: number) {
+interface FirmwareFileBounds {
+  bodyStart: number;
+  end: number;
+  size: number;
+}
+
+function firmwareFileBounds(
+  bytes: Uint8Array,
+  fileStart: number,
+  volumeEnd: number,
+): FirmwareFileBounds | null {
+  if (fileStart + 24 > volumeEnd) return null;
+  const size24 = readUint24(bytes, fileStart + 20);
+  const extended = size24 === 0xffffff;
+  const headerSize = extended ? 32 : 24;
+  if (fileStart + headerSize > volumeEnd) return null;
+  const size = extended ? readUint64AsNumber(bytes, fileStart + 24) : size24;
+  if (size < headerSize || fileStart + size > volumeEnd) return null;
+  return {
+    bodyStart: fileStart + headerSize,
+    end: fileStart + size,
+    size,
+  };
+}
+
+function findFiles(bytes: Uint8Array, wantedGuids: Set<string>, depth: number) {
+  const found = new Map<string, LocatedFile>();
   for (const volumeStart of findVolumes(bytes)) {
     const volumeEnd = volumeStart + readUint64AsNumber(bytes, volumeStart + 0x20);
     let fileStart = volumeStart + align(readUint16(bytes, volumeStart + 0x30), 8);
     while (fileStart + 24 <= volumeEnd) {
       if (bytes.slice(fileStart, fileStart + 24).every((byte) => byte === 0xff)) break;
-      const size = readUint24(bytes, fileStart + 20);
-      if (size < 24 || fileStart + size > volumeEnd) break;
-      if (readGuid(bytes, fileStart) === wantedGuid) {
-        return { bytes, bodyStart: fileStart + 24, end: fileStart + size, depth };
+      const file = firmwareFileBounds(bytes, fileStart, volumeEnd);
+      if (!file) break;
+      const guid = readGuid(bytes, fileStart);
+      if (wantedGuids.has(guid) && !found.has(guid)) {
+        found.set(guid, {
+          bytes,
+          bodyStart: file.bodyStart,
+          end: file.end,
+          depth,
+        });
       }
-      fileStart = volumeStart + align(fileStart - volumeStart + size, 8);
+      fileStart = volumeStart + align(fileStart - volumeStart + file.size, 8);
     }
   }
-  return null;
+  return found;
+}
+
+async function decodeEncapsulation(bytes: Uint8Array, section: FirmwareSection) {
+  const encapsulated = encapsulatedFirmwareSection(bytes, section);
+  if (!encapsulated) return null;
+  return encapsulated.compression === "none"
+    ? encapsulated.bytes
+    : firmwareDecompress(encapsulated.bytes, encapsulated.compression);
 }
 
 async function nestedBuffers(bytes: Uint8Array) {
@@ -159,143 +204,105 @@ async function nestedBuffers(bytes: Uint8Array) {
     let fileStart = volumeStart + align(readUint16(bytes, volumeStart + 0x30), 8);
     while (fileStart + 24 <= volumeEnd) {
       if (bytes.slice(fileStart, fileStart + 24).every((byte) => byte === 0xff)) break;
-      const size = readUint24(bytes, fileStart + 20);
-      if (size < 24 || fileStart + size > volumeEnd) break;
-      let section = fileStart + 24;
-      const fileEnd = fileStart + size;
-      while (section + 4 <= fileEnd) {
-        const sectionSize = readUint24(bytes, section);
-        const type = bytes[section + 3];
-        if (sectionSize < 4 || section + sectionSize > fileEnd) break;
-        if (type === 0x01 && sectionSize >= 9) {
-          const compressionType = bytes[section + 8];
-          const body = bytes.slice(section + 9, section + sectionSize);
-          if (compressionType === 0) nested.push(body);
-          if (compressionType === 1) {
-            nested.push(await firmwareDecompress(body, "standard"));
-          }
-          if (compressionType === 2) {
-            nested.push(await firmwareDecompress(body, "lzma"));
-          }
-        }
-        section = align(section + sectionSize, 4);
+      const file = firmwareFileBounds(bytes, fileStart, volumeEnd);
+      if (!file) break;
+      let sectionStart = file.bodyStart;
+      while (sectionStart + 4 <= file.end) {
+        const section = readFirmwareSection(bytes, sectionStart, file.end);
+        if (!section) break;
+        const child = await decodeEncapsulation(bytes, section);
+        if (child) nested.push(child);
+        sectionStart = align(section.end, 4);
       }
-      fileStart = volumeStart + align(fileStart - volumeStart + size, 8);
+      fileStart = volumeStart + align(fileStart - volumeStart + file.size, 8);
     }
   }
   return nested;
 }
 
-async function locateFirmwareFile(bytes: Uint8Array, wantedGuid: string) {
+async function locateFirmwareFiles(bytes: Uint8Array, wantedGuids: string[]) {
   const queue = [{ bytes, depth: 0 }];
+  const remaining = new Set(wantedGuids);
+  const located = new Map<string, LocatedFile>();
   for (let index = 0; index < queue.length && index < 64; index++) {
     const current = queue[index];
-    const found = findFile(current.bytes, wantedGuid, current.depth);
-    if (found) return found;
+    const found = findFiles(current.bytes, remaining, current.depth);
+    for (const [guid, file] of found) {
+      located.set(guid, file);
+      remaining.delete(guid);
+    }
+    if (remaining.size === 0) break;
     const children = await nestedBuffers(current.bytes);
     queue.push(
       ...children.map((child) => ({ bytes: child, depth: current.depth + 1 })),
     );
   }
-  return null;
+  return located;
 }
 
-async function locateHii(file: LocatedFile): Promise<Uint8Array | null> {
-  let section = file.bodyStart;
-  while (section + 4 <= file.end) {
-    const size = readUint24(file.bytes, section);
-    const type = file.bytes[section + 3];
-    if (size < 4 || section + size > file.end) break;
-    if (type === 0x01 && size >= 9) {
-      const compressionType = file.bytes[section + 8];
-      const body = file.bytes.slice(section + 9, section + size);
-      const nested =
-        compressionType === 0
-          ? body
-          : await firmwareDecompress(body, compressionType === 2 ? "lzma" : "standard");
-      const nestedFile = {
-        bytes: nested,
-        bodyStart: 0,
-        end: nested.length,
-        depth: file.depth,
-      };
-      const result = await locateHii(nestedFile);
-      if (result) return result;
-    }
-    if (type === 0x18 && size >= 20 && readGuid(file.bytes, section + 4) === hiiGuid) {
-      return file.bytes.slice(section + 20, section + size);
-    }
-    section = align(section + size, 4);
-  }
-  return null;
-}
+type SectionPayloadLocator = (
+  bytes: Uint8Array,
+  section: FirmwareSection,
+) => number | null;
 
-async function locateFreeformSection(
+async function locateSectionPayload(
   file: LocatedFile,
-  wantedGuid: string,
+  locatePayload: SectionPayloadLocator,
+  recursionDepth = 0,
 ): Promise<Uint8Array | null> {
-  let section = file.bodyStart;
-  while (section + 4 <= file.end) {
-    const size = readUint24(file.bytes, section);
-    const type = file.bytes[section + 3];
-    if (size < 4 || section + size > file.end) break;
-    if (type === 0x01 && size >= 9) {
-      const compressionType = file.bytes[section + 8];
-      const body = file.bytes.slice(section + 9, section + size);
-      const nested =
-        compressionType === 0
-          ? body
-          : await firmwareDecompress(body, compressionType === 2 ? "lzma" : "standard");
-      const result = await locateFreeformSection(
-        {
-          bytes: nested,
-          bodyStart: 0,
-          end: nested.length,
-          depth: file.depth,
-        },
-        wantedGuid,
-      );
+  let sectionStart = file.bodyStart;
+  while (sectionStart + 4 <= file.end) {
+    const section = readFirmwareSection(file.bytes, sectionStart, file.end);
+    if (!section) break;
+    const payloadStart = locatePayload(file.bytes, section);
+    if (payloadStart !== null && payloadStart <= section.end) {
+      return file.bytes.slice(payloadStart, section.end);
+    }
+    if (recursionDepth < 16) {
+      const nested = await decodeEncapsulation(file.bytes, section);
+      const result = nested
+        ? await locateSectionPayload(
+            {
+              bytes: nested,
+              bodyStart: 0,
+              end: nested.length,
+              depth: file.depth,
+            },
+            locatePayload,
+            recursionDepth + 1,
+          )
+        : null;
       if (result) return result;
     }
-    if (
-      type === 0x18 &&
-      size >= 20 &&
-      readGuid(file.bytes, section + 4) === wantedGuid
-    ) {
-      return file.bytes.slice(section + 20, section + size);
-    }
-    section = align(section + size, 4);
+    sectionStart = align(section.end, 4);
   }
   return null;
 }
 
-async function locatePe32(file: LocatedFile): Promise<Uint8Array | null> {
-  let section = file.bodyStart;
-  while (section + 4 <= file.end) {
-    const size = readUint24(file.bytes, section);
-    const type = file.bytes[section + 3];
-    if (size < 4 || section + size > file.end) break;
-    if (type === 0x01 && size >= 9) {
-      const compressionType = file.bytes[section + 8];
-      const body = file.bytes.slice(section + 9, section + size);
-      const nested =
-        compressionType === 0
-          ? body
-          : await firmwareDecompress(body, compressionType === 2 ? "lzma" : "standard");
-      const result = await locatePe32({
-        bytes: nested,
-        bodyStart: 0,
-        end: nested.length,
-        depth: file.depth,
-      });
-      if (result) return result;
-    }
-    if (type === 0x10) {
-      return file.bytes.slice(section + 4, section + size);
-    }
-    section = align(section + size, 4);
-  }
-  return null;
+async function locateHii(file: LocatedFile) {
+  return locateSectionPayload(file, (bytes, section) =>
+    section.type === 0x18 &&
+    section.size >= section.headerSize + 16 &&
+    readGuid(bytes, section.start + section.headerSize) === hiiGuid
+      ? section.start + section.headerSize + 16
+      : null,
+  );
+}
+
+async function locateFreeformSection(file: LocatedFile, wantedGuid: string) {
+  return locateSectionPayload(file, (bytes, section) =>
+    section.type === 0x18 &&
+    section.size >= section.headerSize + 16 &&
+    readGuid(bytes, section.start + section.headerSize) === wantedGuid
+      ? section.start + section.headerSize + 16
+      : null,
+  );
+}
+
+async function locatePe32(file: LocatedFile) {
+  return locateSectionPayload(file, (_bytes, section) =>
+    section.type === 0x10 ? section.start + section.headerSize : null,
+  );
 }
 
 async function runIfrExtractor(hii: Uint8Array) {
@@ -347,24 +354,34 @@ async function runIfrExtractor(hii: Uint8Array) {
 
 export async function extractAptioIvArtifacts(file: File): Promise<AptioIvArtifacts> {
   const image = new Uint8Array(await file.arrayBuffer());
-  const setup = await locateFirmwareFile(image, setupGuid);
+  const files = await locateFirmwareFiles(image, [
+    setupGuid,
+    amitseGuid,
+    setupDataGuid,
+  ]);
+  const setup = files.get(setupGuid);
   if (!setup) {
     throw new FirmwareError(
       "PARSE_FAILED",
       "Setup FFS was not found after recursive decompression.",
     );
   }
-  const hii = await locateHii(setup);
+  const hii = (await locateHii(setup)) ?? (await locatePe32(setup));
   if (!hii) {
-    throw new FirmwareError("PARSE_FAILED", "The Setup HII package was not found.");
+    throw new FirmwareError(
+      "PARSE_FAILED",
+      "Neither a Setup HII package nor a Setup PE32 section was found.",
+    );
   }
-  const amitseFile = await locateFirmwareFile(image, amitseGuid);
-  const [amitse, setupData] = amitseFile
-    ? await Promise.all([
-        locatePe32(amitseFile),
-        locateFreeformSection(amitseFile, setupDataGuid),
-      ])
-    : [null, null];
+  const amitseFile = files.get(amitseGuid);
+  const setupDataFile = files.get(setupDataGuid);
+  const amitse = amitseFile ? await locatePe32(amitseFile) : null;
+  let setupData = setupDataFile
+    ? await locateFreeformSection(setupDataFile, setupDataGuid)
+    : null;
+  if (!setupData && amitseFile) {
+    setupData = await locateFreeformSection(amitseFile, setupDataGuid);
+  }
   const ifrText = await runIfrExtractor(hii);
   const formPackageCount = (ifrText.match(/FormSet Guid:/g) ?? []).length;
   return {

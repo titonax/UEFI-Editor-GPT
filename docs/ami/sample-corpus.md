@@ -34,3 +34,19 @@ not a parser failure.
 - Recursive extraction is required for eight of the ten unique images because
   their Setup FFS is not visible in the outer byte stream.
 - `image2.bin` and `image3.bin` are byte-identical and count as one sample.
+
+## `image2.bin` nested extraction regression
+
+The outer image contains eight structurally valid GUID-defined LZMA sections.
+Opening the main nested volume resolves the three AMI artifacts that are not
+visible to the preflight scan:
+
+| Artifact    | Nested layout                                     | Extracted bytes | SHA-256                                                            |
+| ----------- | ------------------------------------------------- | --------------: | ------------------------------------------------------------------ |
+| Setup / IFR | Setup FFS → PE32                                  |         749,344 | `1eb3f351dbf1bc1385ae46eab0a4d8441cb393b186a9cace2ffe4d062217d3d5` |
+| AMITSE      | AMITSE FFS → GUID-defined LZMA → PE32             |         134,336 | `9bff75a39e94cda1b606e81e0cee9abe058e07db117ec151689ad9ad3d827641` |
+| SetupData   | SetupData FFS → GUID-defined LZMA → freeform body |         407,344 | `24628d61cd193b5ae71340592ec826209a62911dae89946812eab9cfa34a347b` |
+
+IFRExtractor produces one Form Package and 2,356,133 characters of verbose
+IFR text from the Setup PE32. This sample therefore requires both supported
+Setup sources: a freeform HII body when present, or the Setup PE32 otherwise.
