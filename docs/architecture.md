@@ -27,7 +27,8 @@
 | ------------------------- | ----------------------------------------------------------- |
 | `amiFirmwareImage.ts`     | Image inspection, container detection and Aptio evidence    |
 | `amiFirmwareExtractor.ts` | Generation-neutral entry point for shared extraction        |
-| `aptioIvExtractor.ts`     | Recursive FV/FFS/section extraction and WASM adapters       |
+| `aptioIvExtractor.ts`     | Recursive FV/FFS extraction and WASM adapters               |
+| `firmwareSections.ts`     | PI section headers and safe encapsulation dispatch          |
 | `binaryReader.ts`         | Bounds-checked little-endian reads, GUIDs and alignment     |
 | `scripts.ts`              | Source validation and final IFR data-model assembly         |
 | `ifrTextParser.ts`        | Compatibility parsing of verbose IFRExtractor text          |
@@ -56,6 +57,8 @@ display dialogs, mutate the DOM or reload the page.
 - Imported editor state must match the current source hashes and offset checksum.
 - Imported binary IFR analysis is discarded and rebuilt from the loaded SCT.
 - Binary IFR scopes must be balanced before their spans can be used for editing.
+- GUID-defined sections are opened only by a known processor, or when their PI
+  attributes explicitly say that processing is not required.
 - Binary patches must match their expected source bytes and may not overlap.
 - Ref moves preserve the complete Setup HII size. A cross-package move must
   prove both Forms Package boundaries and compatible Package List provenance;

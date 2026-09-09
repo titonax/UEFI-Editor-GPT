@@ -28,6 +28,12 @@ function offsets(values: number[]) {
   return values.length === 0 ? "Not found" : values.map(formatHexOffset).join(", ");
 }
 
+function outerModuleOffsets(values: number[]) {
+  return values.length === 0
+    ? "Not visible before deep scan"
+    : values.map(formatHexOffset).join(", ");
+}
+
 interface BiosImageUploadProps {
   onExtracted: (
     files: PopulatedFiles,
@@ -214,15 +220,26 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 </Table.Td>
               </Table.Tr>
               <Table.Tr>
-                <Table.Th>Setup FFS</Table.Th>
-                <Table.Td>{offsets(report.setupFfs)}</Table.Td>
+                <Table.Th>Setup FFS (outer image)</Table.Th>
+                <Table.Td>{outerModuleOffsets(report.setupFfs)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
-                <Table.Th>AMITSE FFS</Table.Th>
-                <Table.Td>{offsets(report.amitseFfs)}</Table.Td>
+                <Table.Th>AMITSE FFS (outer image)</Table.Th>
+                <Table.Td>{outerModuleOffsets(report.amitseFfs)}</Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Th>LZMA GUID-defined sections</Table.Th>
+                <Table.Td>{offsets(report.guidedLzmaSections)}</Table.Td>
               </Table.Tr>
             </Table.Tbody>
           </Table>
+          {report.deepScanRequired && (
+            <Alert color="blue" title="Nested firmware requires HII analysis">
+              Setup or AMITSE is not visible in the outer byte stream. Start HII
+              analysis decompresses GUID-defined sections and searches their nested
+              firmware volumes before deciding that a module is absent.
+            </Alert>
+          )}
           {report.evidence.length > 0 && (
             <List size="sm" spacing="xs">
               {report.evidence.map((entry) => (

@@ -1,4 +1,4 @@
-import { readUint16, readUint64AsNumber } from "./binaryReader";
+import { readUint16, readUint24, readUint32, readUint64AsNumber } from "./binaryReader";
 
 export type AmiFirmwareGeneration = "aptio-iv" | "aptio-v" | "unresolved";
 export type DetectionConfidence = "confirmed" | "probable" | "unresolved";
@@ -22,6 +22,7 @@ export interface AmiFirmwareImageReport {
   ffs3Volumes: number[];
   setupFfs: number[];
   amitseFfs: number[];
+  guidedLzmaSections: number[];
   setupDataProfiles: number[];
   nestedFirmwareCandidate: boolean;
   deepScanRequired: boolean;
@@ -49,6 +50,10 @@ const signatures: SignatureDefinition[] = [
     name: "amitseFfs",
     bytes: hex("DF0ADAB1774F7040A88EBFFE1C60529A"),
     alignment: 8,
+  },
+  {
+    name: "guidedLzma",
+    bytes: hex("98584EEE143959429D6EDC7BD79403CF"),
   },
   {
     name: "setupDataGuid",
@@ -159,6 +164,27 @@ function offsets(results: Map<string, number[]>, name: string) {
   return results.get(name) ?? [];
 }
 
+function guidedSectionStart(bytes: Uint8Array, guidOffset: number) {
+  for (const headerSize of [4, 8] as const) {
+    const start = guidOffset - headerSize;
+    if (start < 0 || start + headerSize + 20 > bytes.length) continue;
+    const size24 = readUint24(bytes, start);
+    const extended = size24 === 0xffffff;
+    if (bytes[start + 3] !== 0x02 || extended !== (headerSize === 8)) continue;
+    const size = extended ? readUint32(bytes, start + 4) : size24;
+    const dataOffset = readUint16(bytes, guidOffset + 16);
+    if (
+      size >= headerSize + 20 &&
+      dataOffset >= headerSize + 20 &&
+      dataOffset <= size &&
+      start + size <= bytes.length
+    ) {
+      return start;
+    }
+  }
+  return null;
+}
+
 function has(results: Map<string, number[]>, ...names: string[]) {
   return names.some((name) => offsets(results, name).length > 0);
 }
@@ -180,6 +206,10 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
     .filter((offset) => isValidFirmwareVolume(bytes, offset));
   const setupFfs = offsets(found, "setupFfs");
   const amitseFfs = offsets(found, "amitseFfs");
+  const guidedLzmaSections = offsets(found, "guidedLzma").flatMap((offset) => {
+    const start = guidedSectionStart(bytes, offset);
+    return start === null ? [] : [start];
+  });
   const setupDataProfiles = offsets(found, "setupDataProfile");
   const ffs2Volumes = firmwareVolumes.filter((offset) =>
     bytesEqual(bytes, offset + 0x10, ffs2Guid),
@@ -256,6 +286,16 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
       strength: "strong",
     });
   }
+  if (guidedLzmaSections.length > 0) {
+    evidence.push({
+      code: "guided-lzma",
+      summary: `${String(guidedLzmaSections.length)} LZMA GUID-defined section(s)`,
+      detail:
+        "Encapsulated firmware may contain Setup and AMITSE; Start HII analysis resolves these nested layers.",
+      supports: "uefi",
+      strength: "strong",
+    });
+  }
   if (has(found, "americanMegatrends")) {
     evidence.push({
       code: "ami-vendor-string",
@@ -301,7 +341,8 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
     });
   }
 
-  const deepScanRequired = firmwareVolumes.length > 0 && setupFfs.length === 0;
+  const deepScanRequired =
+    firmwareVolumes.length > 0 && (setupFfs.length === 0 || amitseFfs.length === 0);
   return {
     size: bytes.length,
     container: containerOf(firmwareVolumes, intelDescriptor),
@@ -311,6 +352,7 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
     ffs3Volumes,
     setupFfs,
     amitseFfs,
+    guidedLzmaSections,
     setupDataProfiles,
     nestedFirmwareCandidate:
       firmwareVolumes.length > 0 && setupFfs.length === 0 && hasAmiMarkers,

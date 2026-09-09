@@ -81,4 +81,23 @@ describe("AMI firmware image inspection", () => {
     const report = inspectAmiFirmwareBytes(bytes);
     expect(report.firmwareVolumes).toEqual([]);
   });
+
+  it("marks GUID-defined LZMA nesting for the deep HII scan", () => {
+    const bytes = validFirmwareVolumeImage({
+      offset: 0x7c,
+      bytes: [
+        0x28, 0x00, 0x00, 0x02, 0x98, 0x58, 0x4e, 0xee, 0x14, 0x39, 0x59, 0x42, 0x9d,
+        0x6e, 0xdc, 0x7b, 0xd7, 0x94, 0x03, 0xcf, 0x18, 0x00, 0x01, 0x00, 0x5d, 0x00,
+        0x00, 0x80, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00,
+        0x00,
+      ],
+    });
+    bytes.fill(0, 0x40, 0x50);
+
+    const report = inspectAmiFirmwareBytes(bytes);
+
+    expect(report.guidedLzmaSections).toEqual([0x7c]);
+    expect(report.deepScanRequired).toBe(true);
+    expect(report.evidence.some((entry) => entry.code === "guided-lzma")).toBe(true);
+  });
 });
