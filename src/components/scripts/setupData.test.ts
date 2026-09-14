@@ -39,6 +39,47 @@ describe("SetupData discovery", () => {
     ]);
   });
 
+  it("keeps a complete OEM and AMI page list with non-bitmask selectors", () => {
+    const selectors = [
+      0x00, 0x40, 0x50, 0x60, 0x70, 0x80, 0x02, 0x08, 0x04, 0x20, 0x01,
+    ];
+    const roots = selectors.map((_, index) => ({
+      name: `Root ${String(index)}`,
+      formId: `0x${(0x400 + index).toString(16).toUpperCase()}`,
+      offset: null,
+      formSetGuid: `${(index + 1).toString(16).padStart(8, "0")}-1111-2222-3333-${(index + 1).toString(16).padStart(12, "0")}`,
+      source: "formset" as const,
+    }));
+    const reverseBytes = (value: string) =>
+      value.match(/../g)?.reverse().join("") ?? "";
+    const encodeGuid = (value: string) => {
+      const parts = value.split("-");
+      return (
+        reverseBytes(parts[0]) +
+        reverseBytes(parts[1]) +
+        reverseBytes(parts[2]) +
+        parts[3] +
+        parts[4]
+      );
+    };
+    const encodeUint32 = (value: number) =>
+      reverseBytes(value.toString(16).padStart(8, "0"));
+    const setupData = roots
+      .map(
+        (entry, index) =>
+          encodeUint32(selectors[index]) + encodeGuid(entry.formSetGuid),
+      )
+      .join("")
+      .toLowerCase();
+
+    const discovered = discoverSetupDataMenu(roots, setupData);
+    expect(discovered).toHaveLength(11);
+    expect(discovered.map((entry) => entry.pageMask)).toEqual(
+      selectors.map((value) => `0x${value.toString(16).toUpperCase()}`),
+    );
+    expect(discovered.every((entry) => entry.source === "setupdata")).toBe(true);
+  });
+
   it("prefers the var store in the current form set", () => {
     const stores = [
       { varStoreId: "0x1", size: "4", name: "Other", formSetGuid: "B" },
