@@ -25,15 +25,12 @@ function littleEndianUint32(value: string) {
   return normalized.length === 8 ? parseInt(normalized, 16) : Number.NaN;
 }
 
-function isPageMask(value: number) {
-  return value === 0 || (value > 0 && (value & (value - 1)) === 0);
-}
-
 export function discoverSetupDataMenu(formSetRoots: Menu, setupData: string): Menu {
+  const normalizedSetupData = setupData.toUpperCase();
   const candidates: {
     entry: Menu[number];
     start: number;
-    mask: number;
+    pageValue: number;
   }[] = [];
 
   for (const entry of formSetRoots) {
@@ -41,16 +38,18 @@ export function discoverSetupDataMenu(formSetRoots: Menu, setupData: string): Me
       continue;
     }
     const encodedGuid = guidToUefiHex(entry.formSetGuid);
-    let guidIndex = setupData.indexOf(encodedGuid);
+    let guidIndex = normalizedSetupData.indexOf(encodedGuid);
     while (guidIndex !== -1) {
       if (guidIndex >= 8) {
         const start = guidIndex - 8;
-        const mask = littleEndianUint32(setupData.slice(start, guidIndex));
-        if (isPageMask(mask)) {
-          candidates.push({ entry, start, mask });
+        const pageValue = littleEndianUint32(
+          normalizedSetupData.slice(start, guidIndex),
+        );
+        if (Number.isSafeInteger(pageValue)) {
+          candidates.push({ entry, start, pageValue });
         }
       }
-      guidIndex = setupData.indexOf(encodedGuid, guidIndex + 2);
+      guidIndex = normalizedSetupData.indexOf(encodedGuid, guidIndex + 2);
     }
   }
 
@@ -78,11 +77,11 @@ export function discoverSetupDataMenu(formSetRoots: Menu, setupData: string): Me
     return [];
   }
 
-  return pageList.map(({ entry, start, mask }) => ({
+  return pageList.map(({ entry, start, pageValue }) => ({
     ...entry,
     offset: null,
     source: "setupdata",
-    pageMask: decToHexString(mask),
+    pageMask: decToHexString(pageValue),
     pageInfoOffset: decToHexString(start / 2),
   }));
 }
@@ -124,7 +123,7 @@ export function getAdditionalData(
       byteArray[2] +
       byteArray[3] +
       ".{4}(..)(..)",
-    "g",
+    "gi",
   );
 
   const matches = [...hexSetupdataBin.matchAll(regex)].filter(

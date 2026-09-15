@@ -33,6 +33,27 @@ describe("menu discovery", () => {
     ]);
   });
 
+  it("matches AMITSE GUID bytes regardless of hexadecimal casing", () => {
+    expect(
+      discoverMenu({
+        amitseSct: "ddddeeeeeeeeeeee0100",
+        setupData: "",
+        formSetIds: new Set(["DDDDEEEEEEEEEEEE"]),
+        formSetMetadata: new Map([["DDDDEEEEEEEEEEEE", { guid, title: "Setup" }]]),
+        formSetRoots: [root],
+        forms: [form({ name: "Main", formSetGuid: guid })],
+      }),
+    ).toEqual([
+      {
+        name: "Main",
+        formId: "0x1",
+        offset: "0x8",
+        formSetGuid: guid,
+        source: "amitse",
+      },
+    ]);
+  });
+
   it("falls back to form-set roots when no executable menu is found", () => {
     expect(
       discoverMenu({

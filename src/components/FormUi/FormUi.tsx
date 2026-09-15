@@ -516,7 +516,7 @@ export default function FormUi({
                   <Tooltip
                     label={
                       entry.source === "setupdata"
-                        ? `This root is registered in the AMITSE SetupData page list${entry.pageMask ? ` with page mask ${entry.pageMask}` : ""}.`
+                        ? `This root is registered in the AMITSE SetupData page list${entry.pageMask ? ` with page selector ${entry.pageMask}` : ""}.`
                         : entry.source === "amitse" || entry.offset !== null
                           ? "This root is present in the AMITSE executable menu table."
                           : "This is the entry form declared by its HII FormSet. It is structural evidence, not a runtime visibility condition."

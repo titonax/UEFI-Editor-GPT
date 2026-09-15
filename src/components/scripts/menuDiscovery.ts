@@ -25,7 +25,7 @@ export function discoverMenu({
   forms,
 }: MenuDiscoveryInput): Menu {
   const matches = [...formSetIds].flatMap((formSetId) =>
-    [...amitseSct.matchAll(new RegExp(formSetId + "(.{4})", "g"))].map((match) => ({
+    [...amitseSct.matchAll(new RegExp(formSetId + "(.{4})", "gi"))].map((match) => ({
       match,
       formSetId,
     })),

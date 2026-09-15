@@ -139,7 +139,9 @@ function inferMenuProfiles(roots: MenuTreeNode[]): MenuProfile[] {
   for (const root of roots) {
     const role = canonicalMenuRole(root.label);
     const startsAfterExit =
-      previousRole === "exit" && (role === "main" || role === "sysinfo");
+      previousRole === "exit" &&
+      (role === "main" || role === "sysinfo") &&
+      (seenRoles.has("main") || seenRoles.has("sysinfo"));
     const restartsKnownSequence =
       current.length >= 3 &&
       seenRoles.has(role) &&
@@ -170,7 +172,10 @@ function inferMenuProfiles(roots: MenuTreeNode[]): MenuProfile[] {
       roles.has("main") &&
       roles.has("chipset") &&
       rawLabels.some((label) => label.includes("save") && label.includes("exit"));
-    const oem = roles.has("sysinfo") && hasGenericGroup && groups.length > 1;
+    const vendorLayout =
+      roles.has("file") && roles.has("storage") && roles.has("power");
+    const oem =
+      (roles.has("sysinfo") || vendorLayout) && hasGenericGroup && groups.length > 1;
     const assessment: MenuProfile["assessment"] = oem
       ? "probable-live"
       : generic && groups.length > 1
@@ -195,7 +200,9 @@ function inferMenuProfiles(roots: MenuTreeNode[]): MenuProfile[] {
     }
     if (oem) {
       evidence.push(
-        "The SysInfo/Advanced/Security/Boot/Exit sequence restarts the major tabs and uses vendor-oriented pages, indicating an alternate OEM layout.",
+        vendorLayout
+          ? "The File/Storage/Security/Power/Advanced sequence uses vendor-oriented pages, indicating an OEM layout."
+          : "The SysInfo/Advanced/Security/Boot/Exit sequence restarts the major tabs and uses vendor-oriented pages, indicating an OEM layout.",
       );
     }
     if (assessment !== "unresolved") {
@@ -222,6 +229,14 @@ function inferMenuProfiles(roots: MenuTreeNode[]): MenuProfile[] {
     }
     for (const root of group) {
       assignProfile(root);
+      if (root.rootSource === "setupdata") {
+        root.reachabilityLabel =
+          assessment === "probable-live"
+            ? "Probable live SetupData root"
+            : assessment === "probable-fallback"
+              ? "Probable fallback SetupData root"
+              : "AMITSE SetupData page";
+      }
     }
     return profile;
   });
@@ -457,7 +472,7 @@ export function buildMenuTree(data: Data): MenuTree {
         rootSource,
         entry.pageMask,
         rootSource === "setupdata"
-          ? `Registered as a top-level AMITSE SetupData page${entry.pageMask ? ` with mask ${entry.pageMask}` : ""}. It has ${String(form.referencedIn.length)} incoming and ${String(form.children.filter((child) => child.type === "Ref").length)} outgoing IFR Ref(s); its parent is the AMITSE menu profile, not another HII form.`
+          ? `Registered as a top-level AMITSE SetupData page${entry.pageMask ? ` with selector ${entry.pageMask}` : ""}. It has ${String(form.referencedIn.length)} incoming and ${String(form.children.filter((child) => child.type === "Ref").length)} outgoing IFR Ref(s); its parent is the AMITSE menu profile, not another HII form.`
           : "Registered as a top-level menu entry; it does not require an IFR Ref parent.",
       );
     })
