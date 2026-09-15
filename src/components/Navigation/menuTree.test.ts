@@ -37,7 +37,7 @@ describe("HII menu graph", () => {
     expect(tree.orphans.some((node) => node.formName === "Advanced B")).toBe(true);
   });
 
-  it("reports dangling Ref targets as broken nodes", () => {
+  it("reports absent static Ref targets without assuming firmware corruption", () => {
     const data = firmwareData({
       menu: [{ name: "Main", formId: "0x1", offset: null }],
       forms: [
@@ -49,9 +49,65 @@ describe("HII menu graph", () => {
       ],
     });
     expect(buildMenuTree(data).roots[0]?.children[0]).toMatchObject({
-      status: "broken",
+      status: "unknown",
+      reachability: "unresolved",
+      reachabilityLabel: "Unresolved Ref target",
       parentFormIndex: 0,
       referenceChildIndex: 0,
+    });
+  });
+
+  it("does not resolve an explicit cross-FormSet Ref in the wrong FormSet", () => {
+    const guidA = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
+    const guidB = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB";
+    const data = firmwareData({
+      menu: [{ name: "Main", formId: "0x1", formSetGuid: guidA, offset: null }],
+      forms: [
+        form({
+          formSetGuid: guidA,
+          children: [
+            prompt({
+              type: "Ref",
+              name: "Missing external form",
+              formId: "0x2",
+              targetFormSetGuid: guidB,
+              pageId: null,
+            }),
+          ],
+        }),
+        form({ name: "Wrong target", formId: "0x2", formSetGuid: guidA }),
+      ],
+    });
+
+    expect(buildMenuTree(data).roots[0]?.children[0]).toMatchObject({
+      label: "Missing external form",
+      external: true,
+      status: "unknown",
+      reachability: "external",
+      reachabilityLabel: "External HII FormSet",
+      formIndex: null,
+    });
+  });
+
+  it("labels detached forms with their own title inside a shared FormSet", () => {
+    const guid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
+    const data = firmwareData({
+      menu: [{ name: "Setup", formId: "0x1", formSetGuid: guid, offset: null }],
+      forms: [
+        form({ name: "Setup", formSetTitle: "Setup", formSetGuid: guid }),
+        form({
+          name: "Hidden chipset page",
+          formId: "0x2",
+          formSetTitle: "Setup",
+          formSetGuid: guid,
+        }),
+      ],
+    });
+
+    expect(buildMenuTree(data).orphans[0]).toMatchObject({
+      label: "Hidden chipset page",
+      formName: "Hidden chipset page",
+      reachability: "detached",
     });
   });
 

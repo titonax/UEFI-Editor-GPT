@@ -352,8 +352,9 @@ async function runIfrExtractor(hii: Uint8Array) {
   return outputs.map(([, output]) => new TextDecoder().decode(output.data)).join("\n");
 }
 
-export async function extractAptioIvArtifacts(file: File): Promise<AptioIvArtifacts> {
-  const image = new Uint8Array(await file.arrayBuffer());
+export async function extractAptioIvBytes(
+  image: Uint8Array,
+): Promise<AptioIvArtifacts> {
   const files = await locateFirmwareFiles(image, [
     setupGuid,
     amitseGuid,
@@ -392,4 +393,8 @@ export async function extractAptioIvArtifacts(file: File): Promise<AptioIvArtifa
     formPackageCount,
     extractionDepth: setup.depth,
   };
+}
+
+export async function extractAptioIvArtifacts(file: File): Promise<AptioIvArtifacts> {
+  return extractAptioIvBytes(new Uint8Array(await file.arrayBuffer()));
 }

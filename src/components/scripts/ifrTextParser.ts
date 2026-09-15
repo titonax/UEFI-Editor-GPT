@@ -1,7 +1,7 @@
 import { FirmwareError } from "./errors";
 import { determineCondition, enrichConditions } from "./ifrConditions";
 import type { FormSetMetadata } from "./menuDiscovery";
-import { findVarStoreName, getAdditionalData } from "./setupData";
+import { findVarStoreName, getAdditionalData, indexSetupData } from "./setupData";
 import type {
   CheckBoxPrompt,
   ConditionKind,
@@ -59,6 +59,7 @@ function checkConditions(scopes: Scopes, formChild: FormChildren) {
 }
 
 export function parseIfrText(setupTxt: string, setupData: string): ParsedIfrText {
+  const setupDataIndex = indexSetupData(setupData);
   const formSetIds = new Set<string>();
   const formSetMetadata = new Map<string, FormSetMetadata>();
   const formSetRoots: Menu = [];
@@ -202,7 +203,7 @@ export function parseIfrText(setupTxt: string, setupData: string): ParsedIfrText
         formId,
         ifrOffset: offset,
         targetFormSetGuid,
-        ...getAdditionalData(ref[8], setupData, true),
+        ...getAdditionalData(ref[8], setupDataIndex, true),
       };
 
       checkConditions(scopes, currentRef);
@@ -222,7 +223,7 @@ export function parseIfrText(setupTxt: string, setupData: string): ParsedIfrText
     if (string) {
       const { accessLevel, failsafe, optimal, offsets } = getAdditionalData(
         string[10],
-        setupData,
+        setupDataIndex,
         false,
       );
       currentString = {
@@ -246,7 +247,7 @@ export function parseIfrText(setupTxt: string, setupData: string): ParsedIfrText
     if (numeric) {
       const { accessLevel, failsafe, optimal, offsets } = getAdditionalData(
         numeric[12],
-        setupData,
+        setupDataIndex,
         false,
       );
       currentNumeric = {
@@ -275,7 +276,7 @@ export function parseIfrText(setupTxt: string, setupData: string): ParsedIfrText
     if (checkBox) {
       const { accessLevel, failsafe, optimal, offsets } = getAdditionalData(
         checkBox[8],
-        setupData,
+        setupDataIndex,
         false,
       );
       currentCheckBox = {
@@ -301,7 +302,7 @@ export function parseIfrText(setupTxt: string, setupData: string): ParsedIfrText
     if (oneOf) {
       const { accessLevel, failsafe, optimal, offsets } = getAdditionalData(
         oneOf[12],
-        setupData,
+        setupDataIndex,
         false,
       );
       currentOneOf = {

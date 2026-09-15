@@ -14,12 +14,19 @@ import {
 import { IconBinary, IconPlayerPlay, IconUpload } from "@tabler/icons-react";
 import {
   formatHexOffset,
-  inspectAmiFirmwareImage,
-  type AmiFirmwareGeneration,
+  inspectAmiFirmwareBytes,
+  inspectAmiSetupProfile,
+  reconcileAmiGeneration,
   type AmiFirmwareImageReport,
+  type AmiGenerationAssessment,
+  type AmiSetupLayout,
+  type AmiSetupProfileReport,
   type FirmwareContainer,
 } from "../scripts/amiFirmwareImage";
-import { extractAmiFirmwareArtifacts } from "../scripts/amiFirmwareExtractor";
+import {
+  extractAmiFirmwareBytes,
+  type AmiFirmwareArtifacts,
+} from "../scripts/amiFirmwareExtractor";
 import type { PopulatedFiles } from "../FileUploads/fileModel";
 
 const MAX_FIRMWARE_BYTES = 512 * 1024 * 1024;
@@ -35,10 +42,7 @@ function outerModuleOffsets(values: number[]) {
 }
 
 interface BiosImageUploadProps {
-  onExtracted: (
-    files: PopulatedFiles,
-    generation: AmiFirmwareGeneration,
-  ) => Promise<void>;
+  onExtracted: (files: PopulatedFiles) => Promise<void>;
 }
 
 function toHex(bytes: Uint8Array) {
@@ -51,19 +55,18 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   const operation = React.useRef(0);
   const [file, setFile] = React.useState<File | null>(null);
   const [report, setReport] = React.useState<AmiFirmwareImageReport | null>(null);
+  const [artifacts, setArtifacts] = React.useState<AmiFirmwareArtifacts | null>(null);
+  const [profile, setProfile] = React.useState<AmiSetupProfileReport | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [stage, setStage] = React.useState("");
   const [error, setError] = React.useState("");
 
   const startAnalysis = async () => {
-    if (!file || !report || report.firmwareVolumes.length === 0) return;
+    if (!artifacts) return;
     const currentOperation = operation.current;
     setLoading(true);
     setError("");
     try {
-      setStage("Decompressing nested volumes and locating Setup…");
-      const artifacts = await extractAmiFirmwareArtifacts(file);
-      if (currentOperation !== operation.current) return;
       setStage("Decoding IFR and building the menu tree…");
       const setupFile = new File([artifacts.hii], "setup-ami-aptio.bin");
       const ifrFile = new File([artifacts.ifrText], "setup-ami-aptio.ifr.txt", {
@@ -71,31 +74,28 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
       });
       const amitseBytes = artifacts.amitse ?? new Uint8Array();
       const setupDataBytes = artifacts.setupData ?? new Uint8Array();
-      await onExtracted(
-        {
-          setupSctContainer: {
-            file: setupFile,
-            textContent: toHex(artifacts.hii),
-            isWrongFile: false,
-          },
-          setupTxtContainer: {
-            file: ifrFile,
-            textContent: artifacts.ifrText,
-            isWrongFile: false,
-          },
-          amitseSctContainer: {
-            file: new File([amitseBytes], "amitse-ami-aptio.bin"),
-            textContent: toHex(amitseBytes),
-            isWrongFile: false,
-          },
-          setupdataBinContainer: {
-            file: new File([setupDataBytes], "setupdata-ami-aptio.bin"),
-            textContent: toHex(setupDataBytes),
-            isWrongFile: false,
-          },
+      await onExtracted({
+        setupSctContainer: {
+          file: setupFile,
+          textContent: toHex(artifacts.hii),
+          isWrongFile: false,
         },
-        report.generation,
-      );
+        setupTxtContainer: {
+          file: ifrFile,
+          textContent: artifacts.ifrText,
+          isWrongFile: false,
+        },
+        amitseSctContainer: {
+          file: new File([amitseBytes], "amitse-ami-aptio.bin"),
+          textContent: toHex(amitseBytes),
+          isWrongFile: false,
+        },
+        setupdataBinContainer: {
+          file: new File([setupDataBytes], "setupdata-ami-aptio.bin"),
+          textContent: toHex(setupDataBytes),
+          isWrongFile: false,
+        },
+      });
     } catch (reason: unknown) {
       if (currentOperation === operation.current) {
         setError(reason instanceof Error ? reason.message : String(reason));
@@ -108,6 +108,64 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
     }
   };
 
+  const inspectFirmware = async (selected: File | null) => {
+    const currentOperation = ++operation.current;
+    setFile(selected);
+    setReport(null);
+    setArtifacts(null);
+    setProfile(null);
+    setError("");
+    if (!selected) return;
+    if (selected.size > MAX_FIRMWARE_BYTES) {
+      setError("The selected firmware exceeds the 512 MiB safety limit.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      setStage("Reading the firmware locally…");
+      const image = new Uint8Array(await selected.arrayBuffer());
+      if (currentOperation !== operation.current) return;
+
+      setStage("Validating firmware volumes and the outer container…");
+      const imageReport = inspectAmiFirmwareBytes(image);
+      if (currentOperation !== operation.current) return;
+      setReport(imageReport);
+      if (imageReport.firmwareVolumes.length === 0) return;
+
+      setStage("Decompressing nested volumes and locating AMI Setup data…");
+      const extracted = await extractAmiFirmwareBytes(image);
+      if (currentOperation !== operation.current) return;
+
+      setStage("Inspecting $SPF and the HII Forms layout…");
+      const setupProfile = inspectAmiSetupProfile(extracted.hii, extracted.setupData);
+      if (currentOperation !== operation.current) return;
+      setArtifacts(extracted);
+      setProfile(setupProfile);
+    } catch (reason: unknown) {
+      if (currentOperation === operation.current) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      }
+    } finally {
+      if (currentOperation === operation.current) {
+        setLoading(false);
+        setStage("");
+      }
+    }
+  };
+
+  const assessment: AmiGenerationAssessment = report
+    ? reconcileAmiGeneration(report, profile)
+    : { generation: "unresolved", confidence: "unresolved", conflict: false };
+  const evidence = report
+    ? [
+        ...report.evidence.filter(
+          (entry) => entry.code !== "spf-profile" || !profile?.spfPresent,
+        ),
+        ...(profile?.evidence ?? []),
+      ]
+    : [];
+
   return (
     <Stack>
       <Group gap="xs">
@@ -117,41 +175,14 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
       <FileInput
         leftSection={<IconUpload />}
         size="lg"
-        placeholder="Complete BIOS image (.bin/.rom/.cap/.fd/.bio/.u1l)"
-        accept=".bin,.rom,.cap,.fd,.bio,.u1l"
+        placeholder="Complete BIOS/firmware image (any filename extension)"
         value={file}
         disabled={loading}
-        onChange={(selected) => {
-          const currentOperation = ++operation.current;
-          setFile(selected);
-          setReport(null);
-          setError("");
-          if (selected) {
-            if (selected.size > MAX_FIRMWARE_BYTES) {
-              setError("The selected firmware exceeds the 512 MiB safety limit.");
-              return;
-            }
-            setLoading(true);
-            setStage("Inspecting firmware volumes…");
-            void inspectAmiFirmwareImage(selected)
-              .then((imageReport) => {
-                if (currentOperation !== operation.current) return;
-                setReport(imageReport);
-              })
-              .catch((reason: unknown) => {
-                if (currentOperation === operation.current) {
-                  setError(reason instanceof Error ? reason.message : String(reason));
-                }
-              })
-              .finally(() => {
-                if (currentOperation === operation.current) {
-                  setLoading(false);
-                  setStage("");
-                }
-              });
-          }
-        }}
+        onChange={(selected) => void inspectFirmware(selected)}
       />
+      <Text size="xs" c="dimmed">
+        Local-only analysis: the firmware stays in this browser and is never uploaded.
+      </Text>
       {loading && (
         <Stack gap="xs">
           <Progress value={100} animated />
@@ -173,30 +204,40 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                   ? "blue"
                   : "yellow"
             }
-            title={detectionLabel(report.generation)}
+            title={detectionLabel(assessment.generation, assessment.conflict)}
           >
-            {report.amiAptioCandidate
-              ? report.generation === "unresolved"
-                ? "AMI Aptio structures were found, but the shared IV/V layout does not justify forcing a generation."
-                : `The ${report.confidence} detection is based on the evidence listed below.`
-              : report.firmwareVolumes.length > 0
-                ? "A valid UEFI image was found, but AMI Aptio evidence is still insufficient. Deep analysis can continue safely."
-                : "No valid UEFI firmware volumes were found. HII analysis is unavailable for this input."}
+            {assessment.conflict
+              ? "Outer metadata and the extracted HII layout disagree. The application will not force a generation."
+              : profile
+                ? assessment.generation === "unresolved"
+                  ? "AMI Aptio structures were found, but the shared IV/V layout does not justify forcing a generation."
+                  : "The generation is a corpus-backed profile match, not a vendor declaration. It does not unlock a generation-specific write path."
+                : report.amiAptioCandidate
+                  ? "AMI Aptio evidence was found. The local deep scan is needed before assigning a probable generation."
+                  : report.firmwareVolumes.length > 0
+                    ? "A valid UEFI image was found, but AMI Aptio evidence is still insufficient. Deep analysis can continue safely."
+                    : "No valid UEFI firmware volumes were found. HII analysis is unavailable for this input."}
           </Alert>
           <Group gap="xs">
             <Badge variant="light">{containerLabel(report.container)}</Badge>
             <Badge
               variant="light"
               color={
-                report.confidence === "confirmed"
+                assessment.confidence === "confirmed"
                   ? "green"
-                  : report.confidence === "probable"
+                  : assessment.confidence === "probable"
                     ? "blue"
                     : "gray"
               }
             >
-              {report.confidence} confidence
+              {assessment.confidence} confidence
             </Badge>
+            {assessment.conflict && (
+              <Badge variant="light" color="orange">
+                conflicting evidence
+              </Badge>
+            )}
+            {artifacts && <Badge variant="light">local deep scan complete</Badge>}
           </Group>
           <Table striped withColumnBorders>
             <Table.Tbody>
@@ -233,18 +274,50 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 <Table.Th>LZMA GUID-defined sections</Table.Th>
                 <Table.Td>{offsets(report.guidedLzmaSections)}</Table.Td>
               </Table.Tr>
+              {artifacts && profile && (
+                <>
+                  <Table.Tr>
+                    <Table.Th>Extracted AMI modules</Table.Th>
+                    <Table.Td>
+                      Setup HII ({artifacts.hii.length.toLocaleString()} bytes) · AMITSE{" "}
+                      {artifacts.amitse ? "found" : "not found"} · SetupData{" "}
+                      {artifacts.setupData ? "found" : "not found"}
+                    </Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Th>$SPF SetupData</Table.Th>
+                    <Table.Td>{spfLabel(profile)}</Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Th>HII Forms layout</Table.Th>
+                    <Table.Td>
+                      {String(profile.formPackageCount)} package(s) ·{" "}
+                      {String(profile.formSetGuids.length)} FormSet GUID(s) ·{" "}
+                      {layoutLabel(profile.layout)}
+                    </Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Th>Extraction depth</Table.Th>
+                    <Table.Td>
+                      {artifacts.extractionDepth === 0
+                        ? "Outer firmware volume"
+                        : `${String(artifacts.extractionDepth)} nested layer(s)`}
+                    </Table.Td>
+                  </Table.Tr>
+                </>
+              )}
             </Table.Tbody>
           </Table>
-          {report.deepScanRequired && (
+          {report.deepScanRequired && !profile && (
             <Alert color="blue" title="Nested firmware requires HII analysis">
-              Setup or AMITSE is not visible in the outer byte stream. Start HII
-              analysis decompresses GUID-defined sections and searches their nested
-              firmware volumes before deciding that a module is absent.
+              Setup or AMITSE is not visible in the outer byte stream. The local
+              preflight is decompressing nested firmware before deciding that a module
+              is absent.
             </Alert>
           )}
-          {report.evidence.length > 0 && (
+          {evidence.length > 0 && (
             <List size="sm" spacing="xs">
-              {report.evidence.map((entry) => (
+              {evidence.map((entry) => (
                 <List.Item key={entry.code}>
                   <Text span fw={600}>
                     {entry.summary}:{" "}
@@ -259,7 +332,7 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
           <Button
             size="lg"
             leftSection={<IconPlayerPlay />}
-            disabled={loading || report.firmwareVolumes.length === 0}
+            disabled={loading || !artifacts || !profile}
             onClick={() => void startAnalysis()}
           >
             Start HII analysis
@@ -270,10 +343,37 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   );
 }
 
-function detectionLabel(generation: AmiFirmwareGeneration) {
-  if (generation === "aptio-iv") return "AMI Aptio IV profile detected";
-  if (generation === "aptio-v") return "AMI Aptio V profile detected";
+function detectionLabel(
+  generation: AmiSetupProfileReport["generation"],
+  conflict: boolean,
+) {
+  if (conflict) return "AMI Aptio — generation signals conflict";
+  if (generation === "aptio-iv") return "AMI Aptio IV — probable HII profile";
+  if (generation === "aptio-v") return "AMI Aptio V — probable HII profile";
   return "AMI Aptio — generation unresolved";
+}
+
+function layoutLabel(layout: AmiSetupLayout) {
+  if (layout === "split-form-packages") return "split legacy profile";
+  if (layout === "unified-setup-formset") return "unified Setup profile";
+  return "unresolved profile";
+}
+
+function spfLabel(profile: AmiSetupProfileReport) {
+  if (!profile.spfPresent) return "Not found";
+  const fields = [
+    profile.spfField04 === null
+      ? null
+      : `field +0x04 ${formatProfileValue(profile.spfField04)}`,
+    profile.spfField08 === null
+      ? null
+      : `field +0x08 ${formatProfileValue(profile.spfField08)}`,
+  ].filter(Boolean);
+  return fields.length === 0 ? "Found" : `Found · ${fields.join(" · ")}`;
+}
+
+function formatProfileValue(value: number) {
+  return `0x${value.toString(16).toUpperCase().padStart(4, "0")}`;
 }
 
 function containerLabel(container: FirmwareContainer) {

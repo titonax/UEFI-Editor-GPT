@@ -56,7 +56,7 @@ describe("AMI firmware image inspection", () => {
     expect(report.confidence).toBe("probable");
   });
 
-  it("treats the $SPF SetupData combination as a probable IV profile", () => {
+  it("treats the $SPF SetupData combination as shared AMI evidence", () => {
     const report = inspectAmiFirmwareBytes(
       validFirmwareVolumeImage(
         { offset: 0x80, bytes: [...new TextEncoder().encode("$SPF")] },
@@ -70,8 +70,15 @@ describe("AMI firmware image inspection", () => {
       ),
     );
 
-    expect(report.generation).toBe("aptio-iv");
-    expect(report.confidence).toBe("probable");
+    expect(report.generation).toBe("unresolved");
+    expect(report.confidence).toBe("unresolved");
+    expect(report.evidence).toContainEqual(
+      expect.objectContaining({
+        code: "spf-profile",
+        supports: "ami-aptio",
+        strength: "strong",
+      }),
+    );
   });
 
   it("rejects signature-shaped data with an invalid FV checksum", () => {

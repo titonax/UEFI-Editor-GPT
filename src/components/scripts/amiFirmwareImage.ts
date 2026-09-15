@@ -1,4 +1,5 @@
 import { readUint16, readUint24, readUint32, readUint64AsNumber } from "./binaryReader";
+import { analyzeIfrBinary, IFR_OPCODE } from "./ifrBinary";
 
 export type AmiFirmwareGeneration = "aptio-iv" | "aptio-v" | "unresolved";
 export type DetectionConfidence = "confirmed" | "probable" | "unresolved";
@@ -30,6 +31,27 @@ export interface AmiFirmwareImageReport {
   generation: AmiFirmwareGeneration;
   confidence: DetectionConfidence;
   evidence: FirmwareEvidence[];
+}
+
+export type AmiSetupLayout =
+  "split-form-packages" | "unified-setup-formset" | "unresolved";
+
+export interface AmiSetupProfileReport {
+  spfPresent: boolean;
+  spfField04: number | null;
+  spfField08: number | null;
+  formPackageCount: number;
+  formSetGuids: string[];
+  layout: AmiSetupLayout;
+  generation: AmiFirmwareGeneration;
+  confidence: DetectionConfidence;
+  evidence: FirmwareEvidence[];
+}
+
+export interface AmiGenerationAssessment {
+  generation: AmiFirmwareGeneration;
+  confidence: DetectionConfidence;
+  conflict: boolean;
 }
 
 interface SignatureDefinition {
@@ -76,6 +98,8 @@ const signatures: SignatureDefinition[] = [
 const ffs2Guid = hex("78E58C8C3D8A1C4F9935896185C32DD3");
 const ffs3Guid = hex("7AC07354CB3DCA4DBD6F1E9689E7349A");
 const intelDescriptorSignature = hex("5AA5F00F");
+const spfSignature = ascii("$SPF");
+const unifiedAmiSetupFormSetGuid = "7B59104A-C00D-4158-87FF-F04D6396A915";
 
 function ascii(value: string) {
   return new TextEncoder().encode(value);
@@ -240,12 +264,6 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
   if (explicitIv !== explicitV) {
     generation = explicitIv ? "aptio-iv" : "aptio-v";
     confidence = "probable";
-  } else if (
-    setupDataProfiles.length > 0 &&
-    offsets(found, "setupDataGuid").length > 0
-  ) {
-    generation = "aptio-iv";
-    confidence = "probable";
   }
 
   const evidence: FirmwareEvidence[] = [];
@@ -335,9 +353,9 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
       code: "spf-profile",
       summary: "$SPF SetupData profile",
       detail:
-        "This matches the confirmed Aptio IV corpus, but is treated as a profile rather than a universal product marker.",
-      supports: "aptio-iv",
-      strength: "supporting",
+        "This is strong AMI SetupData evidence, but the same $SPF revision is used by the attached Aptio IV and V corpora.",
+      supports: "ami-aptio",
+      strength: "strong",
     });
   }
 
@@ -364,6 +382,122 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
   };
 }
 
+export function inspectAmiSetupProfile(
+  hii: Uint8Array,
+  setupData?: Uint8Array,
+): AmiSetupProfileReport {
+  const binaryIfr = analyzeIfrBinary(hii);
+  const packages = binaryIfr.packages.filter((entry) => entry.valid);
+  const formSetGuids = [
+    ...new Set(
+      packages.flatMap((entry) =>
+        entry.opcodes.flatMap((opcode) =>
+          opcode.opcode === IFR_OPCODE.FORM_SET && opcode.formSetGuid
+            ? [opcode.formSetGuid]
+            : [],
+        ),
+      ),
+    ),
+  ];
+  const spfPresent = setupData !== undefined && bytesEqual(setupData, 0, spfSignature);
+  const spfField04 =
+    spfPresent && setupData && setupData.length >= 8 ? readUint32(setupData, 4) : null;
+  const spfField08 =
+    spfPresent && setupData && setupData.length >= 12 ? readUint32(setupData, 8) : null;
+  const unifiedSetup =
+    packages.length === 1 &&
+    formSetGuids.length === 1 &&
+    formSetGuids[0]?.toLowerCase() === unifiedAmiSetupFormSetGuid.toLowerCase();
+  const splitSetup =
+    packages.length > 1 &&
+    !formSetGuids.some(
+      (guid) => guid.toLowerCase() === unifiedAmiSetupFormSetGuid.toLowerCase(),
+    );
+  const layout: AmiSetupLayout = unifiedSetup
+    ? "unified-setup-formset"
+    : splitSetup
+      ? "split-form-packages"
+      : "unresolved";
+  const generation: AmiFirmwareGeneration = unifiedSetup
+    ? "aptio-v"
+    : splitSetup
+      ? "aptio-iv"
+      : "unresolved";
+  const evidence: FirmwareEvidence[] = [];
+  const spfFields = [
+    spfField04 === null ? null : `field +0x04 ${formatHexValue(spfField04, 4)}`,
+    spfField08 === null ? null : `field +0x08 ${formatHexValue(spfField08, 4)}`,
+  ].filter((value): value is string => value !== null);
+
+  if (spfPresent) {
+    evidence.push({
+      code: "spf-profile",
+      summary: "$SPF SetupData profile",
+      detail: `$SPF confirms the AMI SetupData schema${spfFields.length === 0 ? "" : ` (${spfFields.join(", ")})`}, but it is shared by Aptio IV and V. The field meanings are deliberately not inferred without a published specification.`,
+      supports: "ami-aptio",
+      strength: "strong",
+    });
+  }
+  if (splitSetup) {
+    evidence.push({
+      code: "split-form-packages",
+      summary: `${String(packages.length)} split HII Forms Packages`,
+      detail:
+        "The attached cross-vendor corpus consistently associates this legacy multi-FormSet layout with Aptio IV.",
+      supports: "aptio-iv",
+      strength: "supporting",
+    });
+  } else if (unifiedSetup) {
+    evidence.push({
+      code: "unified-setup-formset",
+      summary: "Unified AMI Setup FormSet",
+      detail:
+        "One HII Forms Package uses the shared AMI Setup FormSet GUID; the attached corpus consistently associates this layout with Aptio V.",
+      supports: "aptio-v",
+      strength: "supporting",
+    });
+  } else if (packages.length > 0) {
+    evidence.push({
+      code: "hii-form-packages",
+      summary: `${String(packages.length)} valid HII Forms Package(s)`,
+      detail:
+        "The HII layout is valid but does not match a generation profile strongly enough to classify it.",
+      supports: "ami-aptio",
+      strength: "context",
+    });
+  }
+
+  return {
+    spfPresent,
+    spfField04,
+    spfField08,
+    formPackageCount: packages.length,
+    formSetGuids,
+    layout,
+    generation,
+    confidence: generation === "unresolved" ? "unresolved" : "probable",
+    evidence,
+  };
+}
+
+export function reconcileAmiGeneration(
+  outer: Pick<AmiFirmwareImageReport, "generation" | "confidence">,
+  setupProfile?: Pick<AmiSetupProfileReport, "generation" | "confidence"> | null,
+): AmiGenerationAssessment {
+  const generations = new Set(
+    [outer.generation, setupProfile?.generation]
+      .filter((value): value is AmiFirmwareGeneration => value !== undefined)
+      .filter((value) => value !== "unresolved"),
+  );
+  if (generations.size > 1) {
+    return { generation: "unresolved", confidence: "unresolved", conflict: true };
+  }
+  if (setupProfile && setupProfile.generation !== "unresolved") {
+    return { ...setupProfile, conflict: false };
+  }
+  return { ...outer, conflict: false };
+}
+
 export async function inspectAmiFirmwareImage(
   file: File,
 ): Promise<AmiFirmwareImageReport> {
@@ -372,4 +506,8 @@ export async function inspectAmiFirmwareImage(
 
 export function formatHexOffset(offset: number) {
   return `0x${offset.toString(16).toUpperCase().padStart(6, "0")}`;
+}
+
+function formatHexValue(value: number, width: number) {
+  return `0x${value.toString(16).toUpperCase().padStart(width, "0")}`;
 }

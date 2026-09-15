@@ -37,6 +37,7 @@ describe("data-model assembly", () => {
 
     const data = await parseData(files);
     expect(data.version).toBe(dataSchemaVersion);
+    expect(data.firmwareFamily).toBe("ami-aptio");
     expect(data.forms).toEqual([
       expect.objectContaining({ name: "Main", formId: "0x1" }),
     ]);

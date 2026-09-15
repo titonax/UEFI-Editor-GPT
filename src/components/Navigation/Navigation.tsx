@@ -98,9 +98,11 @@ export default function Navigation({
     const iconClass =
       node.reachability === "detached"
         ? s.statusDetached
-        : node.status === "visible" && node.profileAssessment === "probable-fallback"
-          ? s.statusProfileFallback
-          : gateClass;
+        : node.reachability === "external" || node.reachability === "unresolved"
+          ? s.statusUnknown
+          : node.status === "visible" && node.profileAssessment === "probable-fallback"
+            ? s.statusProfileFallback
+            : gateClass;
     const semanticTitle = `${title}${node.profileLabel ? `\n${node.profileLabel}` : ""}\n${node.reachabilityLabel}\n${node.parentageLabel}\n${node.statusLabel}${
       node.conditionSummary ? `: ${node.conditionSummary}` : ""
     }`;
@@ -121,6 +123,9 @@ export default function Navigation({
             s.treeRow,
             active ? s.selected : "",
             node.missing ? s.missing : "",
+            node.reachability === "external" || node.reachability === "unresolved"
+              ? s.external
+              : "",
             node.reachability === "detached" ? s.detachedRow : "",
           ]
             .filter(Boolean)
@@ -148,7 +153,14 @@ export default function Navigation({
           </button>
 
           {node.missing ? (
-            <IconAlertTriangle size={16} className={s.warningIcon} />
+            <IconAlertTriangle
+              size={16}
+              className={
+                node.reachability === "external" || node.reachability === "unresolved"
+                  ? s.externalIcon
+                  : s.warningIcon
+              }
+            />
           ) : node.cycle ? (
             <IconRefresh size={16} className={s.mutedIcon} />
           ) : hasChildren ? (
@@ -180,6 +192,8 @@ export default function Navigation({
             <span className={s.formId}>{node.formId}</span>
             {(node.reachability === "root" ||
               (node.reachability === "detached" && depth === 0) ||
+              node.reachability === "external" ||
+              node.reachability === "unresolved" ||
               node.reachability === "broken") && (
               <span className={s.reachabilityLabel}>
                 {node.reachabilityLabel}
