@@ -66,4 +66,35 @@ describe("menu discovery", () => {
       }),
     ).toEqual([root]);
   });
+
+  it("rejects signature-shaped AMITSE data that points to no form", () => {
+    expect(
+      discoverMenu({
+        amitseSct: "DDDDEEEEEEEEEEEEFFFF",
+        setupData: "",
+        formSetIds: new Set(["DDDDEEEEEEEEEEEE"]),
+        formSetMetadata: new Map([["DDDDEEEEEEEEEEEE", { guid, title: "Setup" }]]),
+        formSetRoots: [root],
+        forms: [form({ name: "Main", formSetGuid: guid })],
+      }),
+    ).toEqual([root]);
+  });
+
+  it("does not borrow a matching form ID from another FormSet", () => {
+    expect(
+      discoverMenu({
+        amitseSct: "DDDDEEEEEEEEEEEE0100",
+        setupData: "",
+        formSetIds: new Set(["DDDDEEEEEEEEEEEE"]),
+        formSetMetadata: new Map([["DDDDEEEEEEEEEEEE", { guid, title: "Setup" }]]),
+        formSetRoots: [root],
+        forms: [
+          form({
+            name: "Other Main",
+            formSetGuid: "11111111-2222-3333-4444-555555555555",
+          }),
+        ],
+      }),
+    ).toEqual([root]);
+  });
 });

@@ -30,27 +30,29 @@ export function discoverMenu({
       formSetId,
     })),
   );
-  const discoveredMenu: Menu = matches
-    .map(({ match, formSetId }) => {
-      const hexEntry = decToHexString(
-        parseInt(match[1].slice(2) + match[1].slice(0, 2), 16),
-      );
-      const formSet = formSetMetadata.get(formSetId);
-      const matchedForm =
-        forms.find(
-          (form) =>
-            form.formSetGuid === formSet?.guid &&
-            parseInt(form.formId) === parseInt(hexEntry),
-        ) ?? forms.find((form) => parseInt(form.formId) === parseInt(hexEntry));
-      return {
-        name: matchedForm?.name ?? formSet?.title ?? "",
+  const discoveredMenu: Menu = matches.flatMap(({ match, formSetId }) => {
+    const hexEntry = decToHexString(
+      parseInt(match[1].slice(2) + match[1].slice(0, 2), 16),
+    );
+    const formSet = formSetMetadata.get(formSetId);
+    const matchedForm = forms.find(
+      (form) =>
+        form.formSetGuid?.toLowerCase() === formSet?.guid.toLowerCase() &&
+        parseInt(form.formId) === parseInt(hexEntry),
+    );
+    if (!formSet || !matchedForm) {
+      return [];
+    }
+    return [
+      {
+        name: matchedForm.name,
         formId: hexEntry,
         offset: decToHexString((match.index + formSetId.length) / 2),
-        formSetGuid: formSet?.guid,
+        formSetGuid: formSet.guid,
         source: "amitse" as const,
-      };
-    })
-    .filter((entry) => entry.name);
+      },
+    ];
+  });
 
   const setupDataMenu = discoverSetupDataMenu(formSetRoots, setupData).map((entry) => {
     const executableEntry = discoveredMenu.find(

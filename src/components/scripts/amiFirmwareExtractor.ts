@@ -6,5 +6,6 @@
  */
 export {
   extractAptioIvArtifacts as extractAmiFirmwareArtifacts,
+  extractAptioIvBytes as extractAmiFirmwareBytes,
   type AptioIvArtifacts as AmiFirmwareArtifacts,
 } from "./aptioIvExtractor";

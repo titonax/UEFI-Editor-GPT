@@ -113,12 +113,10 @@ export default function App({
             </Alert>
           )}
           <BiosImageUpload
-            onExtracted={async (extractedFiles, generation) => {
+            onExtracted={async (extractedFiles) => {
               setError("");
               setFiles(extractedFiles);
               const parsed = await parseData(extractedFiles);
-              parsed.firmwareFamily =
-                generation === "unresolved" ? "ami-aptio" : generation;
               setData(parsed);
             }}
           />

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { discoverSetupDataMenu, findVarStoreName } from "./setupData";
+import {
+  discoverSetupDataMenu,
+  findVarStoreName,
+  getAdditionalData,
+  indexSetupData,
+} from "./setupData";
 
 describe("SetupData discovery", () => {
   it("recognizes a contiguous page list and records its masks and offsets", () => {
@@ -86,5 +91,57 @@ describe("SetupData discovery", () => {
       { varStoreId: "1", size: "4", name: "Setup", formSetGuid: "A" },
     ];
     expect(findVarStoreName(stores, "0x1", "A")).toBe("Setup");
+  });
+
+  it("indexes question metadata once and resolves an unaligned unique record", () => {
+    const record = new Uint8Array(3 + 54);
+    record.set([0xee, 0xff], 3);
+    record.set([0x12, 0x34], 3 + 12);
+    record[3 + 16] = 0x05;
+    record.set([0xcc, 0xdd], 3 + 20);
+    record.set([0xaa, 0xbb], 3 + 48);
+    record[3 + 52] = 0x01;
+    record[3 + 53] = 0x02;
+    const setupData = Array.from(record, (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+
+    expect(
+      getAdditionalData("00 00 AA BB CC DD EE FF", indexSetupData(setupData), true),
+    ).toEqual({
+      pageId: "1234",
+      accessLevel: "05",
+      failsafe: "01",
+      optimal: "02",
+      offsets: {
+        pageId: "0xF",
+        accessLevel: "0x13",
+        failsafe: "0x37",
+        optimal: "0x38",
+      },
+    });
+  });
+
+  it("keeps duplicate question metadata ambiguous", () => {
+    const record = new Uint8Array(54);
+    record.set([0xee, 0xff], 0);
+    record.set([0xcc, 0xdd], 20);
+    record.set([0xaa, 0xbb], 48);
+    const bytes = new Uint8Array(108);
+    bytes.set(record, 0);
+    bytes.set(record, 54);
+    const setupData = Array.from(bytes, (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+
+    expect(
+      getAdditionalData("00 00 AA BB CC DD EE FF", indexSetupData(setupData), false),
+    ).toEqual({
+      pageId: null,
+      accessLevel: null,
+      failsafe: null,
+      optimal: null,
+      offsets: null,
+    });
   });
 });

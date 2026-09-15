@@ -82,7 +82,7 @@ export async function parseData(files: PopulatedFiles): Promise<Data> {
   });
 
   return {
-    firmwareFamily: setupData.startsWith("24535046") ? "aptio-iv" : "aptio-v",
+    firmwareFamily: "ami-aptio",
     menu,
     formSetRoots: parsedIfr.formSetRoots,
     forms: parsedIfr.forms,
