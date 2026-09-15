@@ -50,13 +50,22 @@ describe("data.json validation", () => {
     );
   });
 
-  it("drops imported binary analysis because it must match the opened SCT", () => {
+  it("drops imported binary analysis because it must match the opened source", () => {
     const imported = {
       ...firmwareData(),
       ifrBinary: { packageCount: 999, packages: [] },
+      rootVisibility: {
+        status: "detected",
+        mechanism: "setup-pe32-root-byte-vector",
+        confidence: "corroborated",
+        reason: "untrusted",
+        entries: [],
+      },
     };
 
-    expect(parseDataFile(JSON.stringify(imported)).ifrBinary).toBeUndefined();
+    const parsed = parseDataFile(JSON.stringify(imported));
+    expect(parsed.ifrBinary).toBeUndefined();
+    expect(parsed.rootVisibility).toBeUndefined();
   });
 
   it("preserves valid IFR edit plans and rejects malformed ones", () => {

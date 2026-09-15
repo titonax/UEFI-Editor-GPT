@@ -5,6 +5,7 @@ import { hexToBytes } from "./hex";
 import { analyzeIfrBinary } from "./ifrBinary";
 import { parseIfrText } from "./ifrTextParser";
 import { discoverMenu } from "./menuDiscovery";
+import { inspectAmiRootVisibility } from "./amiRootVisibility";
 import type { Data } from "./types";
 
 export const dataSchemaVersion = "0.5.0";
@@ -80,6 +81,12 @@ export async function parseData(files: PopulatedFiles): Promise<Data> {
     formSetRoots: parsedIfr.formSetRoots,
     forms: parsedIfr.forms,
   });
+  const rootVisibility = files.firmwareSource
+    ? inspectAmiRootVisibility(
+        parsedIfr.formSetRoots,
+        files.firmwareSource.artifacts.provenance,
+      )
+    : undefined;
 
   return {
     firmwareFamily: "ami-aptio",
@@ -89,6 +96,7 @@ export async function parseData(files: PopulatedFiles): Promise<Data> {
     varStores: parsedIfr.varStores,
     suppressions: parsedIfr.suppressions,
     ifrBinary: analyzeIfrBinary(hexToBytes(files.setupSctContainer.textContent)),
+    rootVisibility,
     version: dataSchemaVersion,
     hashes: {
       setupTxt: setupTxtHash,

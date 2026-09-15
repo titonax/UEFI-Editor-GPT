@@ -123,6 +123,8 @@ unnecessarily invalidate saved editor state.
 
 See [architecture](docs/architecture.md) and
 [AMI comparison corpus](docs/ami/sample-corpus.md) for the evidence model,
+[root visibility analysis](docs/ami/root-visibility-vector.md) for the
+multi-FormSet byte-vector invariants,
 [full-image reconstruction](docs/ami/full-image-reconstruction.md) for the
 read/write safety boundary, and
 [contributing](CONTRIBUTING.md) for the module boundaries and review checklist.

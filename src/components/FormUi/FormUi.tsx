@@ -2,6 +2,7 @@ import React from "react";
 import s from "./FormUi.module.css";
 import type { Updater } from "use-immer";
 import {
+  Alert,
   Table,
   TextInput,
   NativeSelect,
@@ -81,6 +82,87 @@ const visibilityColors = {
   orphaned: "red",
   broken: "pink",
 } as const;
+
+function formatBufferOffset(offset: number) {
+  return "0x" + offset.toString(16).toUpperCase();
+}
+
+function RootVisibilityAnalysis({ data }: { data: Data }) {
+  const report = data.rootVisibility;
+  if (!report) return null;
+
+  if (report.status !== "detected") {
+    return (
+      <Alert
+        color={report.status === "ambiguous" ? "orange" : "gray"}
+        title={
+          report.status === "not-applicable"
+            ? "Root visibility vector — different HII layout"
+            : report.status === "ambiguous"
+              ? "Root visibility vector — ambiguous"
+              : "Root visibility vector — unresolved"
+        }
+      >
+        {report.reason}
+      </Alert>
+    );
+  }
+
+  const visible = report.entries.filter((entry) => entry.visible).length;
+  const hidden = report.entries.length - visible;
+  return (
+    <Alert color="blue" title="Root visibility vector — code corroborated">
+      <Stack gap="xs">
+        <Text size="sm">{report.reason}</Text>
+        <Group gap="xs">
+          <Badge color="green">{String(visible)} shown</Badge>
+          <Badge color="red">{String(hidden)} hidden</Badge>
+          {report.vector && (
+            <Badge color="gray" variant="light">
+              Buffer {String(report.vector.bufferId)} @{" "}
+              {formatBufferOffset(report.vector.offset)}
+            </Badge>
+          )}
+        </Group>
+        <Table striped withColumnBorders>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>IFR order</Table.Th>
+              <Table.Th>Root FormSet</Table.Th>
+              <Table.Th>Setup state</Table.Th>
+              <Table.Th>Vector byte</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {report.entries.map((entry) => (
+              <Table.Tr key={entry.formSetGuid ?? String(entry.rootIndex)}>
+                <Table.Td>{String(entry.rootIndex)}</Table.Td>
+                <Table.Td>
+                  <Text size="sm">{entry.name}</Text>
+                  {entry.formSetGuid && (
+                    <Text size="xs" c="dimmed">
+                      {entry.formSetGuid}
+                    </Text>
+                  )}
+                </Table.Td>
+                <Table.Td>
+                  <Badge color={entry.visible ? "green" : "red"} variant="light">
+                    {entry.visible ? "Shown (01)" : "Hidden (00)"}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>{formatBufferOffset(entry.bufferOffset)}</Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+        <Text size="xs" c="dimmed">
+          Read-only evidence. Full-image writing remains disabled until the
+          reconstruction path can rebuild and verify every enclosing firmware layer.
+        </Text>
+      </Stack>
+    </Alert>
+  );
+}
 
 function ConditionDetails({
   child,
@@ -461,108 +543,113 @@ export default function FormUi({
 
   if (currentFormIndex === -1) {
     return (
-      <Table striped withColumnBorders>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Name</Table.Th>
-            <Table.Th>Form Id</Table.Th>
-            <Table.Th>Root evidence</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {data.menu.map((entry, index) => (
-            <Table.Tr
-              key={index.toString() + (entry.offset ?? "readonly") + entry.formId}
-            >
-              <Table.Td
-                className={s.pointer}
-                onClick={() => {
-                  handleRefClick(entry.formId, entry.formSetGuid);
-                }}
-              >
-                {entry.name}
-              </Table.Td>
-              <Table.Td className={s.formIdWidth}>
-                <NativeSelect
-                  className={s.formIdChildWidth}
-                  disabled={entry.offset === null}
-                  value={entry.formId}
-                  data={data.forms
-                    .filter(
-                      (form) =>
-                        !entry.formSetGuid || form.formSetGuid === entry.formSetGuid,
-                    )
-                    .map((form) => form.formId)}
-                  onChange={(ev) => {
-                    const value = ev.target.value;
-                    const selectedName = data.forms.find(
-                      (form) =>
-                        (!entry.formSetGuid ||
-                          form.formSetGuid === entry.formSetGuid) &&
-                        parseInt(form.formId) === parseInt(value),
-                    )?.name;
-
-                    if (!selectedName) return;
-
-                    setData((draft) => {
-                      draft.menu[index].formId = value;
-                      draft.menu[index].name = selectedName;
-                    });
-                  }}
-                />
-              </Table.Td>
-              <Table.Td>
-                <Group gap={5}>
-                  <Tooltip
-                    label={
-                      entry.source === "setupdata"
-                        ? `This root is registered in the AMITSE SetupData page list${entry.pageMask ? ` with page selector ${entry.pageMask}` : ""}.`
-                        : entry.source === "amitse" || entry.offset !== null
-                          ? "This root is present in the AMITSE executable menu table."
-                          : "This is the entry form declared by its HII FormSet. It is structural evidence, not a runtime visibility condition."
-                    }
-                    multiline
-                    w={360}
-                  >
-                    <Badge
-                      color={
-                        entry.source === "setupdata"
-                          ? "cyan"
-                          : entry.source === "amitse" || entry.offset !== null
-                            ? "green"
-                            : "blue"
-                      }
-                      variant="light"
-                    >
-                      {entry.source === "setupdata"
-                        ? `SetupData page ${entry.pageMask ?? ""}`
-                        : entry.source === "amitse" || entry.offset !== null
-                          ? "AMITSE menu"
-                          : "HII FormSet entry"}
-                    </Badge>
-                  </Tooltip>
-                  {semanticTree.roots[index]?.profileLabel && (
-                    <Badge
-                      size="xs"
-                      color={
-                        semanticTree.roots[index].profileAssessment === "probable-live"
-                          ? "green"
-                          : semanticTree.roots[index].profileAssessment ===
-                              "probable-fallback"
-                            ? "orange"
-                            : "gray"
-                      }
-                      variant="outline"
-                    >
-                      {semanticTree.roots[index].profileLabel}
-                    </Badge>
-                  )}
-                </Group>
-              </Table.Td>
+      <Stack>
+        <RootVisibilityAnalysis data={data} />
+        <Table striped withColumnBorders>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Name</Table.Th>
+              <Table.Th>Form Id</Table.Th>
+              <Table.Th>Root evidence</Table.Th>
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+          </Table.Thead>
+          <Table.Tbody>
+            {data.menu.map((entry, index) => (
+              <Table.Tr
+                key={index.toString() + (entry.offset ?? "readonly") + entry.formId}
+              >
+                <Table.Td
+                  className={s.pointer}
+                  onClick={() => {
+                    handleRefClick(entry.formId, entry.formSetGuid);
+                  }}
+                >
+                  {entry.name}
+                </Table.Td>
+                <Table.Td className={s.formIdWidth}>
+                  <NativeSelect
+                    className={s.formIdChildWidth}
+                    disabled={entry.offset === null}
+                    value={entry.formId}
+                    data={data.forms
+                      .filter(
+                        (form) =>
+                          !entry.formSetGuid || form.formSetGuid === entry.formSetGuid,
+                      )
+                      .map((form) => form.formId)}
+                    onChange={(ev) => {
+                      const value = ev.target.value;
+                      const selectedName = data.forms.find(
+                        (form) =>
+                          (!entry.formSetGuid ||
+                            form.formSetGuid === entry.formSetGuid) &&
+                          parseInt(form.formId) === parseInt(value),
+                      )?.name;
+
+                      if (!selectedName) return;
+
+                      setData((draft) => {
+                        draft.menu[index].formId = value;
+                        draft.menu[index].name = selectedName;
+                      });
+                    }}
+                  />
+                </Table.Td>
+                <Table.Td>
+                  <Group gap={5}>
+                    <Tooltip
+                      label={
+                        entry.source === "setupdata"
+                          ? `This root is registered in the AMITSE SetupData page list${entry.pageMask ? ` with page selector ${entry.pageMask}` : ""}.`
+                          : entry.source === "amitse" || entry.offset !== null
+                            ? "This root is present in the AMITSE executable menu table."
+                            : "This is the entry form declared by its HII FormSet. It is structural evidence, not a runtime visibility condition."
+                      }
+                      multiline
+                      w={360}
+                    >
+                      <Badge
+                        color={
+                          entry.source === "setupdata"
+                            ? "cyan"
+                            : entry.source === "amitse" || entry.offset !== null
+                              ? "green"
+                              : "blue"
+                        }
+                        variant="light"
+                      >
+                        {entry.source === "setupdata"
+                          ? `SetupData page ${entry.pageMask ?? ""}`
+                          : entry.source === "amitse" || entry.offset !== null
+                            ? "AMITSE menu"
+                            : "HII FormSet entry"}
+                      </Badge>
+                    </Tooltip>
+                    {data.rootVisibility?.status !== "detected" &&
+                      semanticTree.roots[index]?.profileLabel && (
+                        <Badge
+                          size="xs"
+                          color={
+                            semanticTree.roots[index].profileAssessment ===
+                            "probable-live"
+                              ? "green"
+                              : semanticTree.roots[index].profileAssessment ===
+                                  "probable-fallback"
+                                ? "orange"
+                                : "gray"
+                          }
+                          variant="outline"
+                        >
+                          {semanticTree.roots[index].profileLabel}
+                        </Badge>
+                      )}
+                  </Group>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Stack>
     );
   }
 
