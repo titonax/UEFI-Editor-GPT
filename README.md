@@ -13,7 +13,11 @@ a parallel demo application.
 
 - Accepts a complete AMI UEFI image, reports container and Aptio evidence without
   forcing an IV/V label, and recursively inspects FV/FFS, EFI/Tiano/LZMA
-  compression, Setup HII, AMITSE and SetupData after explicit confirmation.
+  compression, Setup HII, AMITSE and SetupData locally during the read-only
+  preflight.
+- Retains the exact source-buffer, encapsulation-section and owning-FFS path for
+  each extracted artefact, while keeping full-image writing disabled until every
+  reconstruction invariant is available.
 - Accepts the four extracted Aptio V artefacts used by the original editor.
 - Builds a GUID-aware `FormSet → Form → Ref target` graph, including duplicate
   FormIds, detached graphs, cycles and broken references.
@@ -34,18 +38,20 @@ a parallel demo application.
 - Limits `Force visible` to `SuppressIf`; other conditions remain read-only.
 - Exports validated `data.json` snapshots and controlled Aptio V binary patches.
 
-> Aptio IV reinsertion/export remains disabled until safe volume rebuilding and
-> checksum handling are implemented. Analysis is available; generating a BIOS
-> that merely _looks_ valid is deliberately not.
+> Full-image reinsertion/export remains disabled until deterministic
+> recompression, bottom-up rebuilding, checksum handling and independent
+> re-extraction verification are implemented. Extracted-file Aptio V export is
+> separate. Generating a BIOS that merely _looks_ valid is deliberately not.
 
 ## Usage
 
-For a complete AMI image, select a `.bin`, `.rom`, `.cap`, `.fd`, `.bio` or
-`.u1l` file. The browser first performs a read-only inspection and explains its
-evidence. Press **Start HII analysis** to decompress nested firmware volumes and
-run IFRExtractor WebAssembly. Shared Setup, AMITSE, NVAR and FFS structures are
-not treated as proof of Aptio IV or V; unresolved images remain clearly marked
-and binary export stays disabled.
+For a complete AMI image, select the firmware regardless of its filename
+extension. The browser performs the deep, read-only FV/FFS extraction and
+IFRExtractor WebAssembly analysis locally, then explains its evidence and the
+captured reconstruction path. Press **Start HII analysis** to open the already
+analysed menu tree. Shared Setup, AMITSE, NVAR and FFS structures are not treated
+as proof of Aptio IV or V; unresolved images remain clearly marked and
+full-image export stays disabled.
 
 For the extracted-file workflow, provide:
 
@@ -64,11 +70,11 @@ The tree uses these states:
 | Gray   | Evidence is insufficient for a stronger conclusion |
 | Pink   | The graph contains a broken reference              |
 
-To move a submenu, use the move button on its tree row and choose the new
-parent Form. The first implementation deliberately accepts only direct,
-non-scoped `Ref` opcodes. It rejects cross-package moves, implicit cross-FormSet
-moves, duplicate targets and graph cycles. Conditional/nested references and
-package resizing are not rewritten automatically.
+To move a submenu, use the move button on its tree row and choose the new parent
+Form. Direct, non-scoped `Ref` opcodes may cross existing Forms Packages when
+the destination is structurally proven; package lengths are then rebalanced
+transactionally. Duplicate targets, graph cycles and conditional/nested
+references remain blocked with an explanation.
 
 ## Development
 
@@ -116,7 +122,9 @@ unnecessarily invalidate saved editor state.
 - New behaviour requires a regression test, especially for malformed input.
 
 See [architecture](docs/architecture.md) and
-[AMI comparison corpus](docs/ami/sample-corpus.md) for the evidence model, and
+[AMI comparison corpus](docs/ami/sample-corpus.md) for the evidence model,
+[full-image reconstruction](docs/ami/full-image-reconstruction.md) for the
+read/write safety boundary, and
 [contributing](CONTRIBUTING.md) for the module boundaries and review checklist.
 
 ## Credits

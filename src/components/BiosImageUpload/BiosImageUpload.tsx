@@ -27,6 +27,7 @@ import {
   extractAmiFirmwareBytes,
   type AmiFirmwareArtifacts,
 } from "../scripts/amiFirmwareExtractor";
+import { assessFirmwareReconstruction } from "../scripts/firmwareProvenance";
 import type { PopulatedFiles } from "../FileUploads/fileModel";
 
 const MAX_FIRMWARE_BYTES = 512 * 1024 * 1024;
@@ -94,6 +95,10 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
           file: new File([setupDataBytes], "setupdata-ami-aptio.bin"),
           textContent: toHex(setupDataBytes),
           isWrongFile: false,
+        },
+        firmwareSource: {
+          fileName: file?.name ?? "firmware.bin",
+          artifacts,
         },
       });
     } catch (reason: unknown) {
@@ -165,6 +170,9 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
         ...(profile?.evidence ?? []),
       ]
     : [];
+  const reconstruction = artifacts
+    ? assessFirmwareReconstruction(artifacts.provenance)
+    : null;
 
   return (
     <Stack>
@@ -238,6 +246,16 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
               </Badge>
             )}
             {artifacts && <Badge variant="light">local deep scan complete</Badge>}
+            {reconstruction && (
+              <Badge
+                variant="light"
+                color={reconstruction.traceComplete ? "gray" : "orange"}
+              >
+                {reconstruction.traceComplete
+                  ? "reconstruction provenance captured"
+                  : "incomplete reconstruction provenance"}
+              </Badge>
+            )}
           </Group>
           <Table striped withColumnBorders>
             <Table.Tbody>
@@ -304,6 +322,19 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                         : `${String(artifacts.extractionDepth)} nested layer(s)`}
                     </Table.Td>
                   </Table.Tr>
+                  {reconstruction && (
+                    <Table.Tr>
+                      <Table.Th>Reconstruction trace</Table.Th>
+                      <Table.Td>
+                        {reconstruction.traceComplete ? "Complete" : "Incomplete"}
+                        {reconstruction.compressions.length > 0
+                          ? ` · ${reconstruction.compressions
+                              .map(compressionName)
+                              .join(" / ")}`
+                          : " · no encapsulation"}
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
                 </>
               )}
             </Table.Tbody>
@@ -328,6 +359,27 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 </List.Item>
               ))}
             </List>
+          )}
+          {reconstruction && (
+            <Alert
+              color={reconstruction.traceComplete ? "gray" : "orange"}
+              title={
+                reconstruction.traceComplete
+                  ? "Full-image reconstruction — trace captured"
+                  : "Full-image reconstruction — not traceable"
+              }
+            >
+              <Stack gap="xs">
+                {reconstruction.traces.map((trace) => (
+                  <Text size="sm" key={trace.kind}>
+                    {trace.labels.join(" → ")}
+                  </Text>
+                ))}
+                <Text size="xs" c="dimmed">
+                  Writing remains disabled: {reconstruction.blockers.join(" ")}
+                </Text>
+              </Stack>
+            </Alert>
           )}
           <Button
             size="lg"
@@ -374,6 +426,12 @@ function spfLabel(profile: AmiSetupProfileReport) {
 
 function formatProfileValue(value: number) {
   return `0x${value.toString(16).toUpperCase().padStart(4, "0")}`;
+}
+
+function compressionName(compression: "none" | "standard" | "lzma") {
+  if (compression === "lzma") return "LZMA";
+  if (compression === "standard") return "EFI/Tiano";
+  return "uncompressed wrapper";
 }
 
 function containerLabel(container: FirmwareContainer) {
