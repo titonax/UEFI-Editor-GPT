@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { describe, expect, it, vi } from "vitest";
 import BiosImageUpload from "./BiosImageUpload";
+import type { PopulatedFiles } from "../FileUploads/fileModel";
 
 const extractAmiFirmwareBytes = vi.hoisted(() => vi.fn());
 
@@ -67,6 +68,7 @@ describe("complete firmware preflight", () => {
     );
     const hii = unifiedFormsPackage();
     const setupData = setupDataProfile();
+    const sourceImage = validFirmwareVolumeImage();
     extractAmiFirmwareBytes.mockResolvedValueOnce({
       hii,
       ifrText: "verbose IFR",
@@ -74,8 +76,33 @@ describe("complete firmware preflight", () => {
       setupData,
       formPackageCount: 1,
       extractionDepth: 2,
+      provenance: {
+        rootBufferId: 0,
+        sourceSize: sourceImage.length,
+        buffers: [{ id: 0, bytes: sourceImage, depth: 0 }],
+        artifacts: [
+          {
+            kind: "setup-hii",
+            bufferId: 0,
+            payloadStart: 0x40,
+            payloadEnd: 0x40 + hii.length,
+            sourceFile: {
+              bufferId: 0,
+              guid: "899407D7-99FE-43D8-9A21-79EC328CAC21",
+              volumeStart: 0,
+              volumeEnd: 0x100,
+              fileStart: 0x28,
+              bodyStart: 0x40,
+              end: 0x100,
+              headerSize: 24,
+            },
+          },
+        ],
+      },
     });
-    const onExtracted = vi.fn().mockResolvedValue(undefined);
+    const onExtracted = vi
+      .fn<(files: PopulatedFiles) => Promise<void>>()
+      .mockResolvedValue(undefined);
     const { container } = render(
       <MantineProvider>
         <BiosImageUpload onExtracted={onExtracted} />
@@ -85,7 +112,7 @@ describe("complete firmware preflight", () => {
     if (!input) throw new Error("Expected the firmware file input.");
     expect(input).not.toHaveAttribute("accept");
 
-    const image = validFirmwareVolumeImage();
+    const image = sourceImage;
     const file = new File([image], "board.F13d");
     Object.defineProperty(file, "arrayBuffer", {
       value: () => Promise.resolve(image.slice().buffer),
@@ -97,12 +124,17 @@ describe("complete firmware preflight", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Found · field \+0x04 0x0200/)).toBeInTheDocument();
     expect(screen.getByText(/2 nested layer/)).toBeInTheDocument();
+    expect(screen.getByText("Reconstruction trace")).toBeInTheDocument();
+    expect(
+      screen.getByText("Full-image reconstruction — trace captured"),
+    ).toBeInTheDocument();
     expect(extractAmiFirmwareBytes).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole("button", { name: "Start HII analysis" }));
     await waitFor(() => {
       expect(onExtracted).toHaveBeenCalledOnce();
     });
+    expect(onExtracted.mock.calls[0][0].firmwareSource?.fileName).toBe("board.F13d");
     expect(extractAmiFirmwareBytes).toHaveBeenCalledOnce();
   });
 });

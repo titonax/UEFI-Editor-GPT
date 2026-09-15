@@ -32,6 +32,8 @@ describe("firmware section parsing", () => {
     expect(encapsulatedFirmwareSection(bytes, section)).toEqual({
       bytes: new Uint8Array([0xaa, 0xbb, 0xcc]),
       compression: "standard",
+      payloadStart: 9,
+      payloadEnd: 12,
     });
   });
 
@@ -49,6 +51,10 @@ describe("firmware section parsing", () => {
     expect(encapsulatedFirmwareSection(bytes, section)).toEqual({
       bytes: new Uint8Array([0x11, 0x22, 0x33, 0x44]),
       compression: "lzma",
+      payloadStart: 24,
+      payloadEnd: 28,
+      definitionGuid: lzmaCustomDecompressGuid,
+      attributes: 1,
     });
   });
 
@@ -67,6 +73,10 @@ describe("firmware section parsing", () => {
     expect(encapsulatedFirmwareSection(bytes, section)).toEqual({
       bytes: new Uint8Array([0xaa, 0xbb, 0xcc]),
       compression: "lzma",
+      payloadStart: 28,
+      payloadEnd: 31,
+      definitionGuid: lzmaCustomDecompressGuid,
+      attributes: 1,
     });
   });
 
@@ -94,6 +104,10 @@ describe("firmware section parsing", () => {
     expect(encapsulatedFirmwareSection(bytes, section)).toEqual({
       bytes: new Uint8Array([0x5a, 0xa5]),
       compression: "none",
+      payloadStart: 24,
+      payloadEnd: 26,
+      definitionGuid: "11111111-2222-3333-4444-555555555555",
+      attributes: 0,
     });
   });
 });

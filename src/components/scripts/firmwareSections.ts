@@ -16,6 +16,10 @@ export type FirmwareCompression = "none" | "standard" | "lzma";
 export interface EncapsulatedFirmwareSection {
   bytes: Uint8Array;
   compression: FirmwareCompression;
+  payloadStart: number;
+  payloadEnd: number;
+  definitionGuid?: string;
+  attributes?: number;
 }
 
 /**
@@ -67,9 +71,12 @@ export function encapsulatedFirmwareSection(
             ? "lzma"
             : null;
     if (!compression) return null;
+    const payloadStart = metadata + 5;
     return {
-      bytes: bytes.slice(metadata + 5, section.end),
+      bytes: bytes.slice(payloadStart, section.end),
       compression,
+      payloadStart,
+      payloadEnd: section.end,
     };
   }
 
@@ -88,16 +95,24 @@ export function encapsulatedFirmwareSection(
     else if ((attributes & 0x01) === 0) compression = "none";
     if (!compression) return null;
 
+    const payloadStart = section.start + dataOffset;
     return {
-      bytes: bytes.slice(section.start + dataOffset, section.end),
+      bytes: bytes.slice(payloadStart, section.end),
       compression,
+      payloadStart,
+      payloadEnd: section.end,
+      definitionGuid,
+      attributes,
     };
   }
 
   if (section.type === 0x03) {
+    const payloadStart = section.start + section.headerSize;
     return {
-      bytes: bytes.slice(section.start + section.headerSize, section.end),
+      bytes: bytes.slice(payloadStart, section.end),
       compression: "none",
+      payloadStart,
+      payloadEnd: section.end,
     };
   }
 

@@ -18,6 +18,13 @@ import {
   readFirmwareSection,
   type FirmwareSection,
 } from "./firmwareSections";
+import type {
+  FirmwareArtifactKind,
+  FirmwareArtifactLocation,
+  FirmwareBufferNode,
+  FirmwareFileReference,
+  FirmwareProvenanceGraph,
+} from "./firmwareProvenance";
 
 const setupGuid = "899407D7-99FE-43D8-9A21-79EC328CAC21";
 const amitseGuid = "B1DA0ADF-4F77-4070-A88E-BFFE1C60529A";
@@ -31,6 +38,7 @@ export interface AptioIvArtifacts {
   setupData?: Uint8Array;
   formPackageCount: number;
   extractionDepth: number;
+  provenance: FirmwareProvenanceGraph;
 }
 
 const decompressorModules = new Map<string, Promise<WebAssembly.Module>>();
@@ -134,9 +142,14 @@ function findVolumes(bytes: Uint8Array) {
 }
 
 interface LocatedFile {
-  bytes: Uint8Array;
+  bufferId: number;
+  guid: string;
+  volumeStart: number;
+  volumeEnd: number;
+  fileStart: number;
   bodyStart: number;
   end: number;
+  headerSize: number;
   depth: number;
 }
 
@@ -144,6 +157,7 @@ interface FirmwareFileBounds {
   bodyStart: number;
   end: number;
   size: number;
+  headerSize: number;
 }
 
 function firmwareFileBounds(
@@ -162,12 +176,81 @@ function firmwareFileBounds(
     bodyStart: fileStart + headerSize,
     end: fileStart + size,
     size,
+    headerSize,
   };
 }
 
-function findFiles(bytes: Uint8Array, wantedGuids: Set<string>, depth: number) {
+/**
+ * A valid FV embedded in an FFS body must be reached through that file's
+ * encapsulation section. Treating it as a peer volume would lose the outer
+ * section and checksum ownership required by a future bottom-up rebuild.
+ */
+function findTopLevelVolumes(bytes: Uint8Array) {
+  const volumes = findVolumes(bytes);
+  const nested = new Set<number>();
+  for (const parentStart of volumes) {
+    const parentEnd = parentStart + readUint64AsNumber(bytes, parentStart + 0x20);
+    let fileStart = parentStart + align(readUint16(bytes, parentStart + 0x30), 8);
+    while (fileStart + 24 <= parentEnd) {
+      if (bytes.slice(fileStart, fileStart + 24).every((byte) => byte === 0xff)) break;
+      const file = firmwareFileBounds(bytes, fileStart, parentEnd);
+      if (!file) break;
+      for (const candidateStart of volumes) {
+        if (candidateStart === parentStart) continue;
+        const candidateEnd =
+          candidateStart + readUint64AsNumber(bytes, candidateStart + 0x20);
+        if (candidateStart >= file.bodyStart && candidateEnd <= file.end) {
+          nested.add(candidateStart);
+        }
+      }
+      fileStart = parentStart + align(fileStart - parentStart + file.size, 8);
+    }
+  }
+  return volumes.filter((start) => !nested.has(start));
+}
+
+interface ExtractionGraph {
+  nodes: Map<number, FirmwareBufferNode>;
+  decodedSections: Map<string, number>;
+  nextId: number;
+}
+
+function createExtractionGraph(image: Uint8Array): ExtractionGraph {
+  return {
+    nodes: new Map([[0, { id: 0, bytes: image, depth: 0 }]]),
+    decodedSections: new Map(),
+    nextId: 1,
+  };
+}
+
+function nodeBytes(graph: ExtractionGraph, bufferId: number) {
+  const node = graph.nodes.get(bufferId);
+  if (!node) {
+    throw new FirmwareError(
+      "PARSE_FAILED",
+      `Decoded firmware buffer ${String(bufferId)} is unavailable.`,
+    );
+  }
+  return node.bytes;
+}
+
+function fileReference(file: LocatedFile): FirmwareFileReference {
+  return {
+    bufferId: file.bufferId,
+    guid: file.guid,
+    volumeStart: file.volumeStart,
+    volumeEnd: file.volumeEnd,
+    fileStart: file.fileStart,
+    bodyStart: file.bodyStart,
+    end: file.end,
+    headerSize: file.headerSize,
+  };
+}
+
+function findFiles(node: FirmwareBufferNode, wantedGuids: Set<string>) {
+  const bytes = node.bytes;
   const found = new Map<string, LocatedFile>();
-  for (const volumeStart of findVolumes(bytes)) {
+  for (const volumeStart of findTopLevelVolumes(bytes)) {
     const volumeEnd = volumeStart + readUint64AsNumber(bytes, volumeStart + 0x20);
     let fileStart = volumeStart + align(readUint16(bytes, volumeStart + 0x30), 8);
     while (fileStart + 24 <= volumeEnd) {
@@ -177,10 +260,15 @@ function findFiles(bytes: Uint8Array, wantedGuids: Set<string>, depth: number) {
       const guid = readGuid(bytes, fileStart);
       if (wantedGuids.has(guid) && !found.has(guid)) {
         found.set(guid, {
-          bytes,
+          bufferId: node.id,
+          guid,
+          volumeStart,
+          volumeEnd,
+          fileStart,
           bodyStart: file.bodyStart,
           end: file.end,
-          depth,
+          headerSize: file.headerSize,
+          depth: node.depth,
         });
       }
       fileStart = volumeStart + align(fileStart - volumeStart + file.size, 8);
@@ -189,28 +277,72 @@ function findFiles(bytes: Uint8Array, wantedGuids: Set<string>, depth: number) {
   return found;
 }
 
-async function decodeEncapsulation(bytes: Uint8Array, section: FirmwareSection) {
-  const encapsulated = encapsulatedFirmwareSection(bytes, section);
+async function decodeEncapsulation(
+  graph: ExtractionGraph,
+  parent: FirmwareBufferNode,
+  section: FirmwareSection,
+  ownerFile?: LocatedFile,
+) {
+  const cacheKey = `${String(parent.id)}:${String(section.start)}:${String(section.end)}`;
+  const cachedId = graph.decodedSections.get(cacheKey);
+  if (cachedId !== undefined) return graph.nodes.get(cachedId) ?? null;
+
+  const encapsulated = encapsulatedFirmwareSection(parent.bytes, section);
   if (!encapsulated) return null;
-  return encapsulated.compression === "none"
-    ? encapsulated.bytes
-    : firmwareDecompress(encapsulated.bytes, encapsulated.compression);
+  const bytes =
+    encapsulated.compression === "none"
+      ? encapsulated.bytes
+      : firmwareDecompress(encapsulated.bytes, encapsulated.compression);
+  const decoded = await bytes;
+  const node: FirmwareBufferNode = {
+    id: graph.nextId++,
+    bytes: decoded,
+    depth: parent.depth + 1,
+    parent: {
+      parentBufferId: parent.id,
+      sectionStart: section.start,
+      sectionEnd: section.end,
+      sectionHeaderSize: section.headerSize,
+      sectionType: section.type,
+      payloadStart: encapsulated.payloadStart,
+      payloadEnd: encapsulated.payloadEnd,
+      compression: encapsulated.compression,
+      definitionGuid: encapsulated.definitionGuid,
+      attributes: encapsulated.attributes,
+      ownerFile: ownerFile ? fileReference(ownerFile) : undefined,
+    },
+  };
+  graph.nodes.set(node.id, node);
+  graph.decodedSections.set(cacheKey, node.id);
+  return node;
 }
 
-async function nestedBuffers(bytes: Uint8Array) {
-  const nested: Uint8Array[] = [];
-  for (const volumeStart of findVolumes(bytes)) {
+async function nestedBuffers(graph: ExtractionGraph, node: FirmwareBufferNode) {
+  const bytes = node.bytes;
+  const nested: FirmwareBufferNode[] = [];
+  for (const volumeStart of findTopLevelVolumes(bytes)) {
     const volumeEnd = volumeStart + readUint64AsNumber(bytes, volumeStart + 0x20);
     let fileStart = volumeStart + align(readUint16(bytes, volumeStart + 0x30), 8);
     while (fileStart + 24 <= volumeEnd) {
       if (bytes.slice(fileStart, fileStart + 24).every((byte) => byte === 0xff)) break;
       const file = firmwareFileBounds(bytes, fileStart, volumeEnd);
       if (!file) break;
+      const ownerFile: LocatedFile = {
+        bufferId: node.id,
+        guid: readGuid(bytes, fileStart),
+        volumeStart,
+        volumeEnd,
+        fileStart,
+        bodyStart: file.bodyStart,
+        end: file.end,
+        headerSize: file.headerSize,
+        depth: node.depth,
+      };
       let sectionStart = file.bodyStart;
       while (sectionStart + 4 <= file.end) {
         const section = readFirmwareSection(bytes, sectionStart, file.end);
         if (!section) break;
-        const child = await decodeEncapsulation(bytes, section);
+        const child = await decodeEncapsulation(graph, node, section, ownerFile);
         if (child) nested.push(child);
         sectionStart = align(section.end, 4);
       }
@@ -221,23 +353,24 @@ async function nestedBuffers(bytes: Uint8Array) {
 }
 
 async function locateFirmwareFiles(bytes: Uint8Array, wantedGuids: string[]) {
-  const queue = [{ bytes, depth: 0 }];
+  const graph = createExtractionGraph(bytes);
+  const root = graph.nodes.get(0);
+  if (!root) throw new FirmwareError("PARSE_FAILED", "Source image is unavailable.");
+  const queue = [root];
   const remaining = new Set(wantedGuids);
   const located = new Map<string, LocatedFile>();
   for (let index = 0; index < queue.length && index < 64; index++) {
     const current = queue[index];
-    const found = findFiles(current.bytes, remaining, current.depth);
+    const found = findFiles(current, remaining);
     for (const [guid, file] of found) {
       located.set(guid, file);
       remaining.delete(guid);
     }
     if (remaining.size === 0) break;
-    const children = await nestedBuffers(current.bytes);
-    queue.push(
-      ...children.map((child) => ({ bytes: child, depth: current.depth + 1 })),
-    );
+    const children = await nestedBuffers(graph, current);
+    queue.push(...children);
   }
-  return located;
+  return { graph, located };
 }
 
 type SectionPayloadLocator = (
@@ -245,31 +378,70 @@ type SectionPayloadLocator = (
   section: FirmwareSection,
 ) => number | null;
 
+interface LocatedPayload {
+  bytes: Uint8Array;
+  location: FirmwareArtifactLocation;
+}
+
 async function locateSectionPayload(
+  graph: ExtractionGraph,
   file: LocatedFile,
+  artifactKind: FirmwareArtifactKind,
   locatePayload: SectionPayloadLocator,
+  bufferId = file.bufferId,
+  sourceFile = fileReference(file),
   recursionDepth = 0,
-): Promise<Uint8Array | null> {
-  let sectionStart = file.bodyStart;
-  while (sectionStart + 4 <= file.end) {
-    const section = readFirmwareSection(file.bytes, sectionStart, file.end);
+  isFfsStream = true,
+): Promise<LocatedPayload | null> {
+  const bytes = nodeBytes(graph, bufferId);
+  const streamStart = bufferId === file.bufferId ? file.bodyStart : 0;
+  const streamEnd = bufferId === file.bufferId ? file.end : bytes.length;
+  let sectionStart = streamStart;
+  while (sectionStart + 4 <= streamEnd) {
+    const section = readFirmwareSection(bytes, sectionStart, streamEnd);
     if (!section) break;
-    const payloadStart = locatePayload(file.bytes, section);
+    const payloadStart = locatePayload(bytes, section);
     if (payloadStart !== null && payloadStart <= section.end) {
-      return file.bytes.slice(payloadStart, section.end);
+      return {
+        bytes: bytes.slice(payloadStart, section.end),
+        location: {
+          kind: artifactKind,
+          bufferId,
+          payloadStart,
+          payloadEnd: section.end,
+          sourceFile,
+        },
+      };
     }
     if (recursionDepth < 16) {
-      const nested = await decodeEncapsulation(file.bytes, section);
+      const parent = graph.nodes.get(bufferId);
+      if (!parent) {
+        throw new FirmwareError("PARSE_FAILED", "Decoded section parent is missing.");
+      }
+      const nested = await decodeEncapsulation(
+        graph,
+        parent,
+        section,
+        isFfsStream ? file : undefined,
+      );
       const result = nested
         ? await locateSectionPayload(
+            graph,
             {
-              bytes: nested,
+              ...file,
+              bufferId: nested.id,
+              fileStart: 0,
               bodyStart: 0,
-              end: nested.length,
-              depth: file.depth,
+              end: nested.bytes.length,
+              headerSize: 0,
+              depth: nested.depth,
             },
+            artifactKind,
             locatePayload,
+            nested.id,
+            sourceFile,
             recursionDepth + 1,
+            false,
           )
         : null;
       if (result) return result;
@@ -279,8 +451,8 @@ async function locateSectionPayload(
   return null;
 }
 
-async function locateHii(file: LocatedFile) {
-  return locateSectionPayload(file, (bytes, section) =>
+async function locateHii(graph: ExtractionGraph, file: LocatedFile) {
+  return locateSectionPayload(graph, file, "setup-hii", (bytes, section) =>
     section.type === 0x18 &&
     section.size >= section.headerSize + 16 &&
     readGuid(bytes, section.start + section.headerSize) === hiiGuid
@@ -289,8 +461,12 @@ async function locateHii(file: LocatedFile) {
   );
 }
 
-async function locateFreeformSection(file: LocatedFile, wantedGuid: string) {
-  return locateSectionPayload(file, (bytes, section) =>
+async function locateFreeformSection(
+  graph: ExtractionGraph,
+  file: LocatedFile,
+  wantedGuid: string,
+) {
+  return locateSectionPayload(graph, file, "setupdata", (bytes, section) =>
     section.type === 0x18 &&
     section.size >= section.headerSize + 16 &&
     readGuid(bytes, section.start + section.headerSize) === wantedGuid
@@ -299,8 +475,12 @@ async function locateFreeformSection(file: LocatedFile, wantedGuid: string) {
   );
 }
 
-async function locatePe32(file: LocatedFile) {
-  return locateSectionPayload(file, (_bytes, section) =>
+async function locatePe32(
+  graph: ExtractionGraph,
+  file: LocatedFile,
+  artifactKind: Extract<FirmwareArtifactKind, "setup-hii" | "amitse">,
+) {
+  return locateSectionPayload(graph, file, artifactKind, (_bytes, section) =>
     section.type === 0x10 ? section.start + section.headerSize : null,
   );
 }
@@ -352,10 +532,42 @@ async function runIfrExtractor(hii: Uint8Array) {
   return outputs.map(([, output]) => new TextDecoder().decode(output.data)).join("\n");
 }
 
+function retainArtifactBranches(
+  graph: ExtractionGraph,
+  artifacts: FirmwareArtifactLocation[],
+  sourceSize: number,
+): FirmwareProvenanceGraph {
+  const retained = new Set<number>([0]);
+  for (const artifact of artifacts) {
+    let bufferId = artifact.bufferId;
+    const visited = new Set<number>();
+    while (!visited.has(bufferId)) {
+      visited.add(bufferId);
+      retained.add(bufferId);
+      const parent = graph.nodes.get(bufferId)?.parent;
+      if (!parent) break;
+      bufferId = parent.parentBufferId;
+    }
+  }
+
+  return {
+    rootBufferId: 0,
+    sourceSize,
+    buffers: [...retained]
+      .sort((left, right) => left - right)
+      .flatMap((id) => {
+        const node = graph.nodes.get(id);
+        return node ? [node] : [];
+      }),
+    artifacts,
+  };
+}
+
 export async function extractAptioIvBytes(
   image: Uint8Array,
+  extractIfr: (hii: Uint8Array) => Promise<string> = runIfrExtractor,
 ): Promise<AptioIvArtifacts> {
-  const files = await locateFirmwareFiles(image, [
+  const { graph, located: files } = await locateFirmwareFiles(image, [
     setupGuid,
     amitseGuid,
     setupDataGuid,
@@ -367,7 +579,8 @@ export async function extractAptioIvBytes(
       "Setup FFS was not found after recursive decompression.",
     );
   }
-  const hii = (await locateHii(setup)) ?? (await locatePe32(setup));
+  const hii =
+    (await locateHii(graph, setup)) ?? (await locatePe32(graph, setup, "setup-hii"));
   if (!hii) {
     throw new FirmwareError(
       "PARSE_FAILED",
@@ -376,22 +589,26 @@ export async function extractAptioIvBytes(
   }
   const amitseFile = files.get(amitseGuid);
   const setupDataFile = files.get(setupDataGuid);
-  const amitse = amitseFile ? await locatePe32(amitseFile) : null;
+  const amitse = amitseFile ? await locatePe32(graph, amitseFile, "amitse") : null;
   let setupData = setupDataFile
-    ? await locateFreeformSection(setupDataFile, setupDataGuid)
+    ? await locateFreeformSection(graph, setupDataFile, setupDataGuid)
     : null;
   if (!setupData && amitseFile) {
-    setupData = await locateFreeformSection(amitseFile, setupDataGuid);
+    setupData = await locateFreeformSection(graph, amitseFile, setupDataGuid);
   }
-  const ifrText = await runIfrExtractor(hii);
+  const ifrText = await extractIfr(hii.bytes);
   const formPackageCount = (ifrText.match(/FormSet Guid:/g) ?? []).length;
+  const locations = [hii.location, amitse?.location, setupData?.location].filter(
+    (location): location is FirmwareArtifactLocation => location !== undefined,
+  );
   return {
-    hii,
+    hii: hii.bytes,
     ifrText,
-    amitse: amitse ?? undefined,
-    setupData: setupData ?? undefined,
+    amitse: amitse?.bytes,
+    setupData: setupData?.bytes,
     formPackageCount,
     extractionDepth: setup.depth,
+    provenance: retainArtifactBranches(graph, locations, image.length),
   };
 }
 
