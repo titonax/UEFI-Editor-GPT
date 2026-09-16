@@ -97,7 +97,7 @@ function RootVisibilityAnalysis({ data }: { data: Data }) {
         color={report.status === "ambiguous" ? "orange" : "gray"}
         title={
           report.status === "not-applicable"
-            ? "Root visibility vector — different HII layout"
+            ? "Root visibility — single-FormSet layout"
             : report.status === "ambiguous"
               ? "Root visibility vector — ambiguous"
               : "Root visibility vector — unresolved"

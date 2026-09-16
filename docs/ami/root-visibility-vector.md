@@ -17,11 +17,16 @@ SetupData page-list order.
 
 The detector was checked locally against 26 supplied images:
 
-| HII layout                                  | Samples | Result                               |
-| ------------------------------------------- | ------: | ------------------------------------ |
-| Multiple FormSets                           |      14 | 14 unique, code-corroborated vectors |
-| Single FormSet in the Aptio IV-labelled set |       1 | Mechanism not applicable             |
-| Single FormSet in the Aptio V-labelled set  |      11 | Mechanism not applicable             |
+| HII layout        | Samples | Result                               |
+| ----------------- | ------: | ------------------------------------ |
+| Multiple FormSets |      14 | 14 unique, code-corroborated vectors |
+| Single FormSet    |      12 | No per-FormSet vector required       |
+
+All 11 images in the Aptio V-labelled set happened to use the single-FormSet
+layout, as did one image in the Aptio IV-labelled set. This is a corpus
+correlation, not a generation rule. Detection is based only on the parsed HII
+layout and corroborating Setup code; it neither includes nor excludes a BIOS
+because it is labelled Aptio IV or Aptio V.
 
 Observed multi-FormSet profiles included:
 
@@ -38,7 +43,10 @@ SetupData evidence but is not an Aptio IV/V discriminator.
 
 The byte vector often appears near
 `71202EEE-5F53-40D9-AB3D-9E0C26D96657`, commonly catalogued as the AMITSE
-user-password-valid GUID. That relative placement is not invariant:
+user-password-valid GUID. The GUID was present in 23 of the 26 decoded Setup
+layouts: every multi-FormSet sample, but also nine single-FormSet samples that
+do not require this vector. Its presence therefore does not establish the
+visibility mechanism. Its relative placement is not invariant either:
 
 - several builds place the vector immediately before the GUID;
 - another places the page-record array between them;
@@ -51,7 +59,8 @@ select unrelated zero/one data.
 
 The application reports a vector only when all of these checks pass:
 
-1. IFR contains more than one FormSet.
+1. IFR contains more than one FormSet. A single-FormSet result describes that
+   layout only and makes no Aptio-generation inference.
 2. The retained Setup provenance leads to a valid x86-64 PE32+ section.
 3. Setup code loads a candidate byte vector and a companion page table with
    RIP-relative references.

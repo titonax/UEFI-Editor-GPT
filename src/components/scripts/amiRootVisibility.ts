@@ -466,7 +466,7 @@ export function inspectAmiRootVisibility(
       mechanism: "setup-pe32-root-byte-vector",
       confidence: "corroborated",
       reason:
-        "The HII uses a single FormSet. Its menus are Forms inside that FormSet, so the multi-FormSet root vector does not apply.",
+        "The HII uses one FormSet. Its menus are Forms inside that FormSet, so no per-FormSet root vector is required. This describes the HII layout; it does not identify or exclude an Aptio generation.",
       entries: [],
     };
   }

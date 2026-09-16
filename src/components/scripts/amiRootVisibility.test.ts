@@ -178,7 +178,7 @@ describe("AMI root visibility", () => {
     expect(report.entries).toEqual([]);
   });
 
-  it("marks a single-FormSet layout as a different mechanism", () => {
+  it("reports a single-FormSet layout without inferring an Aptio generation", () => {
     const report = inspectAmiRootVisibility(roots(1), {
       rootBufferId: 0,
       sourceSize: 0,
@@ -187,5 +187,6 @@ describe("AMI root visibility", () => {
     });
 
     expect(report.status).toBe("not-applicable");
+    expect(report.reason).toContain("does not identify or exclude an Aptio generation");
   });
 });
