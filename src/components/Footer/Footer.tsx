@@ -65,6 +65,9 @@ export default function Footer({
                       jsonData,
                       files.setupSctContainer.textContent,
                     );
+                    // Root-vector evidence is derived from the currently opened
+                    // firmware provenance and is never trusted from imported JSON.
+                    jsonData.rootVisibility = data.rootVisibility;
                     setData(jsonData);
                     onError("");
                   } else {

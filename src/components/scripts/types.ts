@@ -10,6 +10,7 @@ export interface Data {
   suppressions: Suppression[];
   ifrBinary?: IfrBinaryModel;
   ifrEdits?: IfrReferenceMove[];
+  rootVisibility?: AmiRootVisibilityReport;
   version: string;
   hashes: {
     setupTxt: string;
@@ -18,6 +19,36 @@ export interface Data {
     setupdataBin: string;
     offsetChecksum: string;
   };
+}
+
+export type AmiRootVisibilityStatus =
+  "detected" | "not-applicable" | "unresolved" | "ambiguous";
+
+export interface AmiRootVisibilityEntry {
+  rootIndex: number;
+  name: string;
+  formId: string;
+  formSetGuid?: string;
+  value: 0 | 1;
+  visible: boolean;
+  bufferOffset: number;
+}
+
+export interface AmiRootVisibilityReport {
+  status: AmiRootVisibilityStatus;
+  mechanism: "setup-pe32-root-byte-vector";
+  confidence: "corroborated" | "unresolved";
+  reason: string;
+  vector?: {
+    bufferId: number;
+    offset: number;
+    length: number;
+    codeReferenceOffset: number;
+    pageTableOffset: number;
+    countEvidence: "immediate" | "data";
+    landmarkOffset?: number;
+  };
+  entries: AmiRootVisibilityEntry[];
 }
 
 export interface Suppression {

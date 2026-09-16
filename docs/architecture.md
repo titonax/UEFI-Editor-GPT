@@ -23,28 +23,29 @@
 
 ## Module boundaries
 
-| Module                    | Responsibility                                              |
-| ------------------------- | ----------------------------------------------------------- |
-| `amiFirmwareImage.ts`     | Image inspection, container detection and Aptio evidence    |
-| `amiFirmwareExtractor.ts` | Generation-neutral entry point for shared extraction        |
-| `aptioIvExtractor.ts`     | Recursive FV/FFS extraction and WASM adapters               |
-| `firmwareSections.ts`     | PI section headers and safe encapsulation dispatch          |
-| `binaryReader.ts`         | Bounds-checked little-endian reads, GUIDs and alignment     |
-| `scripts.ts`              | Source validation and final IFR data-model assembly         |
-| `ifrTextParser.ts`        | Compatibility parsing of verbose IFRExtractor text          |
-| `menuDiscovery.ts`        | AMITSE menu matching and ordered source fallback            |
-| `setupData.ts`            | SetupData page-table and question metadata discovery        |
-| `ifrBinary.ts`            | Binary opcode spans, scope matching and HII provenance      |
-| `ifrEditing.ts`           | Transactional, fixed-size IFR editing primitives            |
-| `menuEditing.ts`          | Safe Ref moves, graph checks and IFR offset remapping       |
-| `ifrConditions.ts`        | Condition scope parsing, source classification and literals |
-| `visibility.ts`           | Pure visibility and branch summaries                        |
-| `menuTree.ts`             | GUID-aware graph construction and reachability              |
-| `hex.ts`                  | Validated hexadecimal conversion and bounded replacement    |
-| `checksum.ts`             | Source and offset integrity hashes                          |
-| `dataValidation.ts`       | Deep runtime validation of imported `data.json`             |
-| `patcher.ts`              | Pure patch planning plus the download adapter               |
-| `errors.ts`               | Stable domain error codes and user-facing messages          |
+| Module                    | Responsibility                                                |
+| ------------------------- | ------------------------------------------------------------- |
+| `amiFirmwareImage.ts`     | Image inspection, container detection and Aptio evidence      |
+| `amiFirmwareExtractor.ts` | Generation-neutral entry point for shared extraction          |
+| `aptioIvExtractor.ts`     | Recursive FV/FFS extraction and WASM adapters                 |
+| `firmwareSections.ts`     | PI section headers and safe encapsulation dispatch            |
+| `binaryReader.ts`         | Bounds-checked little-endian reads, GUIDs and alignment       |
+| `scripts.ts`              | Source validation and final IFR data-model assembly           |
+| `ifrTextParser.ts`        | Compatibility parsing of verbose IFRExtractor text            |
+| `menuDiscovery.ts`        | AMITSE menu matching and ordered source fallback              |
+| `setupData.ts`            | SetupData page-table and question metadata discovery          |
+| `ifrBinary.ts`            | Binary opcode spans, scope matching and HII provenance        |
+| `ifrEditing.ts`           | Transactional, fixed-size IFR editing primitives              |
+| `menuEditing.ts`          | Safe Ref moves, graph checks and IFR offset remapping         |
+| `ifrConditions.ts`        | Condition scope parsing, source classification and literals   |
+| `visibility.ts`           | Pure visibility and branch summaries                          |
+| `amiRootVisibility.ts`    | Code-corroborated AMI multi-FormSet root byte-vector analysis |
+| `menuTree.ts`             | GUID-aware graph construction and reachability                |
+| `hex.ts`                  | Validated hexadecimal conversion and bounded replacement      |
+| `checksum.ts`             | Source and offset integrity hashes                            |
+| `dataValidation.ts`       | Deep runtime validation of imported `data.json`               |
+| `patcher.ts`              | Pure patch planning plus the download adapter                 |
+| `errors.ts`               | Stable domain error codes and user-facing messages            |
 
 React components may orchestrate these modules, but domain modules must not
 display dialogs, mutate the DOM or reload the page.
@@ -56,6 +57,8 @@ display dialogs, mutate the DOM or reload the page.
 - A patch outside the source buffer is rejected.
 - Imported editor state must match the current source hashes and offset checksum.
 - Imported binary IFR analysis is discarded and rebuilt from the loaded SCT.
+- Imported root-vector analysis is discarded and rebuilt from the open firmware
+  provenance.
 - Binary IFR scopes must be balanced before their spans can be used for editing.
 - GUID-defined sections are opened only by a known processor, or when their PI
   attributes explicitly say that processing is not required.
