@@ -12,6 +12,7 @@ export interface Data {
   ifrEdits?: IfrReferenceMove[];
   rootVisibility?: AmiRootVisibilityReport;
   rootVisibilityEdits?: AmiRootVisibilityEdit[];
+  singleFormSetNavigation?: AmiSingleFormSetNavigationReport;
   version: string;
   hashes: {
     setupTxt: string;
@@ -64,6 +65,34 @@ export interface AmiRootVisibilityEdit {
   description: string;
 }
 
+export type AmiSingleFormSetNavigationStatus =
+  "detected" | "not-applicable" | "unresolved" | "ambiguous";
+
+export type AmiSingleFormSetPageRole =
+  "hub" | "direct-tab" | "descendant" | "registered-only";
+
+export interface AmiSingleFormSetPage {
+  name: string;
+  formId: string;
+  formSetGuid: string;
+  role: AmiSingleFormSetPageRole;
+  registeredInAmitse: boolean;
+  registrationOffsets: string[];
+  ifrReferenceOffset?: string;
+  parentFormIds: string[];
+}
+
+export interface AmiSingleFormSetNavigationReport {
+  status: AmiSingleFormSetNavigationStatus;
+  mechanism: "single-formset-ifr-hub";
+  confidence: "corroborated" | "ifr-only" | "unresolved";
+  reason: string;
+  formSetGuid?: string;
+  hubFormId?: string;
+  hubName?: string;
+  pages: AmiSingleFormSetPage[];
+}
+
 export interface Suppression {
   offset: string;
   active: boolean;
@@ -90,7 +119,7 @@ export type Menu = {
   formId: string;
   offset: string | null;
   formSetGuid?: string;
-  source?: "amitse" | "setupdata" | "formset";
+  source?: "amitse" | "setupdata" | "formset" | "ifr-hub";
   pageMask?: string;
   pageInfoOffset?: string;
 }[];

@@ -3,6 +3,53 @@ import { firmwareData, form, prompt } from "../../test/fixtures";
 import { buildMenuTree } from "./menuTree";
 
 describe("HII menu graph", () => {
+  it("keeps a single-FormSet hub as the root and exposes its tabs as movable Refs", () => {
+    const guid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
+    const data = firmwareData({
+      menu: [
+        {
+          name: "Setup",
+          formId: "0x1",
+          formSetGuid: guid,
+          offset: null,
+          source: "ifr-hub",
+        },
+      ],
+      forms: [
+        form({
+          name: "Setup",
+          formSetGuid: guid,
+          children: [
+            prompt({ type: "Ref", name: "Main", formId: "0x2", pageId: null }),
+          ],
+        }),
+        form({
+          name: "Main",
+          formId: "0x2",
+          formSetGuid: guid,
+          referencedIn: ["0x1"],
+        }),
+      ],
+    });
+
+    const tree = buildMenuTree(data);
+    expect(tree.roots).toHaveLength(1);
+    expect(tree.roots[0]).toMatchObject({
+      formId: "0x1",
+      rootSource: "ifr-navigation",
+      reachabilityLabel: "Single-FormSet IFR navigation hub",
+    });
+    expect(tree.roots[0]?.children[0]).toMatchObject({
+      formId: "0x2",
+      parentFormIndex: 0,
+      referenceChildIndex: 0,
+    });
+    expect(tree.profiles[0]).toMatchObject({
+      label: "Single-FormSet IFR navigation",
+      confidence: "high",
+    });
+  });
+
   it("keeps duplicate FormIds isolated by FormSet GUID", () => {
     const guidA = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
     const guidB = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB";

@@ -17,6 +17,7 @@ import {
   type IfrReferenceMove,
 } from "./ifrEditing";
 import type { Data, Form, RefPrompt } from "./types";
+import { refreshSingleFormSetNavigation } from "./singleFormSetNavigation";
 
 export interface MenuReferenceMoveRequest {
   sourceFormIndex: number;
@@ -532,6 +533,7 @@ export async function moveMenuReference(
       "The moved HII stream could not be reparsed with the Ref in its destination Form.",
     );
   }
+  refreshSingleFormSetNavigation(next, data.singleFormSetNavigation);
   next.hashes.offsetChecksum = await calculateJsonChecksum(
     next.menu,
     next.forms,

@@ -297,6 +297,78 @@ describe("HII menu reference moves", () => {
     expect(data.forms[0].children).toHaveLength(1);
   });
 
+  it("refreshes the single-FormSet tab inventory after moving a hub Ref", async () => {
+    const original = setupPackage();
+    const data = menuData();
+    data.menu = [
+      {
+        name: "Source",
+        formId: "0x1",
+        formSetGuid: guid,
+        offset: null,
+        source: "ifr-hub",
+      },
+    ];
+    data.formSetRoots = [
+      {
+        name: "Setup",
+        formId: "0x1",
+        formSetGuid: guid,
+        offset: null,
+        source: "formset",
+      },
+    ];
+    data.singleFormSetNavigation = {
+      status: "detected",
+      mechanism: "single-formset-ifr-hub",
+      confidence: "corroborated",
+      reason: "fixture",
+      formSetGuid: guid,
+      hubFormId: "0x1",
+      hubName: "Source",
+      pages: [
+        {
+          name: "Source",
+          formId: "0x1",
+          formSetGuid: guid,
+          role: "hub",
+          registeredInAmitse: false,
+          registrationOffsets: [],
+          parentFormIds: [],
+        },
+        {
+          name: "Target menu",
+          formId: "0x3",
+          formSetGuid: guid,
+          role: "direct-tab",
+          registeredInAmitse: true,
+          registrationOffsets: ["0x200"],
+          ifrReferenceOffset: "0x21",
+          parentFormIds: ["0x1"],
+        },
+      ],
+    };
+
+    const result = await moveMenuReference(data, bytesToHex(original), {
+      sourceFormIndex: 0,
+      referenceChildIndex: 0,
+      destinationFormIndex: 1,
+    });
+
+    expect(result.singleFormSetNavigation).toMatchObject({
+      status: "detected",
+      hubFormId: "0x1",
+    });
+    expect(
+      result.singleFormSetNavigation?.pages.find((page) => page.formId === "0x3"),
+    ).toMatchObject({
+      role: "registered-only",
+      registeredInAmitse: true,
+      parentFormIds: ["0x2"],
+    });
+    expect(result.menu).toEqual(data.menu);
+  });
+
   it("falls back to a unique FormId when text GUIDs do not match the binary", async () => {
     const data = menuData();
     for (const form of data.forms) delete form.ifrOffset;

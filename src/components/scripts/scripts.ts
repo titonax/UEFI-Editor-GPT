@@ -4,11 +4,11 @@ import { FirmwareError } from "./errors";
 import { hexToBytes } from "./hex";
 import { analyzeIfrBinary } from "./ifrBinary";
 import { parseIfrText } from "./ifrTextParser";
-import { discoverMenu } from "./menuDiscovery";
+import { analyzeMenuDiscovery } from "./menuDiscovery";
 import { inspectAmiRootVisibility } from "./amiRootVisibility";
 import type { Data } from "./types";
 
-export const dataSchemaVersion = "0.6.0";
+export const dataSchemaVersion = "0.7.0";
 /** @deprecated Use dataSchemaVersion when referring to the data.json format. */
 export const version = dataSchemaVersion;
 
@@ -73,7 +73,7 @@ export async function parseData(files: PopulatedFiles): Promise<Data> {
   setupTxt = setupTxt.replace(/[\r\n|\n|\r](?!0x[0-9A-F]{3})/g, "<br>");
 
   const parsedIfr = parseIfrText(setupTxt, setupData);
-  const menu = discoverMenu({
+  const menuDiscovery = analyzeMenuDiscovery({
     amitseSct,
     setupData,
     formSetIds: parsedIfr.formSetIds,
@@ -90,13 +90,14 @@ export async function parseData(files: PopulatedFiles): Promise<Data> {
 
   return {
     firmwareFamily: "ami-aptio",
-    menu,
+    menu: menuDiscovery.menu,
     formSetRoots: parsedIfr.formSetRoots,
     forms: parsedIfr.forms,
     varStores: parsedIfr.varStores,
     suppressions: parsedIfr.suppressions,
     ifrBinary: analyzeIfrBinary(hexToBytes(files.setupSctContainer.textContent)),
     rootVisibility,
+    singleFormSetNavigation: menuDiscovery.singleFormSetNavigation,
     version: dataSchemaVersion,
     hashes: {
       setupTxt: setupTxtHash,
@@ -104,7 +105,7 @@ export async function parseData(files: PopulatedFiles): Promise<Data> {
       amitseSct: amitseSctHash,
       setupdataBin: setupdataBinHash,
       offsetChecksum: await calculateJsonChecksum(
-        menu,
+        menuDiscovery.menu,
         parsedIfr.forms,
         parsedIfr.suppressions,
       ),

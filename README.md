@@ -21,6 +21,9 @@ a parallel demo application.
 - Accepts the four extracted Aptio V artefacts used by the original editor.
 - Builds a GUID-aware `FormSet → Form → Ref target` graph, including duplicate
   FormIds, detached graphs, cycles and broken references.
+- Detects single-FormSet IFR navigation hubs, lists their direct Ref tabs in
+  firmware order, and separates them from AMITSE-registered descendants or
+  registered-only pages.
 - Provides a resizable menu-tree pane with remembered width and full labels for
   wide or deeply nested HII hierarchies.
 - Records binary IFR opcode offsets, lengths, nested scopes and owning
@@ -79,6 +82,12 @@ the destination is structurally proven; package lengths are then rebalanced
 transactionally. Duplicate targets, graph cycles and conditional/nested
 references remain blocked with an explanation.
 
+For a detected single-FormSet navigation hub, its direct children are the
+current IFR tabs. Moving an existing page Ref to the hub promotes it; moving a
+direct tab Ref under another existing Form demotes it. The inventory updates
+from the pending graph. AMITSE registration is shown as corroborating evidence,
+not treated as proof that a page is a top-level tab.
+
 For a detected multi-FormSet root vector, press the desired-state button beside
 any root to alternate between `Visible (01)` and `Hidden (00)`. The original BIOS
 state remains visible beside it. Pressing the button back to the original value
@@ -117,7 +126,7 @@ GUID-aware tree construction, broken references and binary patch preconditions.
 Coverage thresholds are enforced by `npm run check` and pull-request CI.
 
 The application release is `0.5.0`; exported `data.json` files use schema
-`0.6.0`. Those versions are independent so application releases do not
+`0.7.0`. Those versions are independent so application releases do not
 unnecessarily invalidate saved editor state.
 
 ## Design rules
@@ -134,6 +143,8 @@ See [architecture](docs/architecture.md) and
 [AMI comparison corpus](docs/ami/sample-corpus.md) for the evidence model,
 [root visibility analysis](docs/ami/root-visibility-vector.md) for the
 multi-FormSet byte-vector invariants,
+[single-FormSet IFR navigation](docs/ami/single-formset-ifr-navigation.md) for
+the hub/tab/registration invariants,
 [full-image reconstruction](docs/ami/full-image-reconstruction.md) for the
 read/write safety boundary, and
 [contributing](CONTRIBUTING.md) for the module boundaries and review checklist.

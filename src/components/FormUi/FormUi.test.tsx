@@ -110,4 +110,72 @@ describe("root visibility controls", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Pending change")).not.toBeInTheDocument();
   });
+
+  it("separates direct IFR tabs from AMITSE-registered descendants", () => {
+    const guid = "7B59104A-C00D-4158-87FF-F04D6396A915";
+    const data = firmwareData({
+      menu: [
+        {
+          name: "Setup",
+          formId: "0x2711",
+          formSetGuid: guid,
+          offset: null,
+          source: "ifr-hub",
+        },
+      ],
+      forms: [
+        form({ name: "Setup", formId: "0x2711", formSetGuid: guid }),
+        form({ name: "Main", formId: "0x2714", formSetGuid: guid }),
+        form({ name: "Security", formId: "0x2716", formSetGuid: guid }),
+      ],
+      singleFormSetNavigation: {
+        status: "detected",
+        mechanism: "single-formset-ifr-hub",
+        confidence: "corroborated",
+        reason: "The Setup entry is the IFR hub.",
+        formSetGuid: guid,
+        hubFormId: "0x2711",
+        hubName: "Setup",
+        pages: [
+          {
+            name: "Setup",
+            formId: "0x2711",
+            formSetGuid: guid,
+            role: "hub",
+            registeredInAmitse: true,
+            registrationOffsets: ["0x100"],
+            parentFormIds: [],
+          },
+          {
+            name: "Main",
+            formId: "0x2714",
+            formSetGuid: guid,
+            role: "direct-tab",
+            registeredInAmitse: true,
+            registrationOffsets: ["0x120"],
+            ifrReferenceOffset: "0x44953",
+            parentFormIds: ["0x2711"],
+          },
+          {
+            name: "Security",
+            formId: "0x2716",
+            formSetGuid: guid,
+            role: "descendant",
+            registeredInAmitse: true,
+            registrationOffsets: ["0x140"],
+            parentFormIds: ["0x2714"],
+          },
+        ],
+      },
+    });
+
+    render(<Harness initial={data} />);
+
+    expect(
+      screen.getByText("Single-FormSet navigation — IFR hub detected"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Current top-level tab")).toBeInTheDocument();
+    expect(screen.getByText("Registered descendant")).toBeInTheDocument();
+    expect(screen.getAllByText("IFR navigation hub").length).toBeGreaterThan(0);
+  });
 });
