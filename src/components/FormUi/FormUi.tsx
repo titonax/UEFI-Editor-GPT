@@ -240,6 +240,110 @@ function RootVisibilityAnalysis({
   );
 }
 
+const singleFormSetRoleMeta = {
+  hub: { label: "IFR navigation hub", color: "blue" },
+  "direct-tab": { label: "Current top-level tab", color: "green" },
+  descendant: { label: "Registered descendant", color: "violet" },
+  "registered-only": { label: "Registered only", color: "gray" },
+} as const;
+
+function SingleFormSetNavigationAnalysis({ data }: { data: Data }) {
+  const report = data.singleFormSetNavigation;
+  if (!report || report.status === "not-applicable") return null;
+  if (report.status !== "detected") {
+    return (
+      <Alert
+        color={report.status === "ambiguous" ? "orange" : "gray"}
+        title={
+          report.status === "ambiguous"
+            ? "Single-FormSet navigation — ambiguous"
+            : "Single-FormSet navigation — unresolved"
+        }
+      >
+        {report.reason}
+      </Alert>
+    );
+  }
+
+  const tabs = report.pages.filter((page) => page.role === "direct-tab");
+  const registrations = report.pages.filter((page) => page.registeredInAmitse);
+  const registeredNonTabs = registrations.filter((page) => page.role !== "direct-tab");
+  return (
+    <Alert
+      color={report.confidence === "corroborated" ? "blue" : "cyan"}
+      title="Single-FormSet navigation — IFR hub detected"
+    >
+      <Stack gap="xs">
+        <Text size="sm">{report.reason}</Text>
+        <Group gap="xs">
+          <Badge color="blue">Hub {report.hubFormId}</Badge>
+          <Badge color="green">{String(tabs.length)} current tabs</Badge>
+          <Badge color="cyan">{String(registrations.length)} AMITSE pages</Badge>
+          {registeredNonTabs.length > 0 && (
+            <Badge color="gray">
+              {String(registeredNonTabs.length)} registered non-tabs
+            </Badge>
+          )}
+        </Group>
+        <Table striped withColumnBorders>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Page</Table.Th>
+              <Table.Th>Form Id</Table.Th>
+              <Table.Th>IFR role</Table.Th>
+              <Table.Th>AMITSE evidence</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {report.pages.map((page) => {
+              const role = singleFormSetRoleMeta[page.role];
+              return (
+                <Table.Tr key={`${page.formSetGuid}:${page.formId}`}>
+                  <Table.Td>{page.name}</Table.Td>
+                  <Table.Td>{page.formId}</Table.Td>
+                  <Table.Td>
+                    <Badge color={role.color} variant="light">
+                      {role.label}
+                    </Badge>
+                    {page.ifrReferenceOffset && (
+                      <Text size="xs" c="dimmed" mt={3}>
+                        Direct Ref {page.ifrReferenceOffset}
+                      </Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    {page.registeredInAmitse ? (
+                      <>
+                        <Badge color="cyan" variant="outline">
+                          Registered
+                        </Badge>
+                        <Text size="xs" c="dimmed" mt={3}>
+                          {page.registrationOffsets.join(", ")}
+                        </Text>
+                      </>
+                    ) : (
+                      <Badge color="gray" variant="outline">
+                        Not found
+                      </Badge>
+                    )}
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
+        <Text size="xs" c="dimmed">
+          In this layout, top-level visibility is structural: move an existing Ref to
+          the hub to promote that page to a tab, or move a direct tab Ref under another
+          existing Form to demote it. The tree and this inventory update from the
+          pending IFR graph. No FormSet is created, and AMITSE registration by itself
+          never promotes a page.
+        </Text>
+      </Stack>
+    </Alert>
+  );
+}
+
 function ConditionDetails({
   child,
   data,
@@ -621,6 +725,7 @@ export default function FormUi({
     return (
       <Stack>
         <RootVisibilityAnalysis data={data} setData={setData} />
+        <SingleFormSetNavigationAnalysis data={data} />
         <Table striped withColumnBorders>
           <Table.Thead>
             <Table.Tr>
@@ -677,9 +782,11 @@ export default function FormUi({
                       label={
                         entry.source === "setupdata"
                           ? `This root is registered in the AMITSE SetupData page list${entry.pageMask ? ` with page selector ${entry.pageMask}` : ""}.`
-                          : entry.source === "amitse" || entry.offset !== null
-                            ? "This root is present in the AMITSE executable menu table."
-                            : "This is the entry form declared by its HII FormSet. It is structural evidence, not a runtime visibility condition."
+                          : entry.source === "ifr-hub"
+                            ? "This is the single FormSet entry and IFR navigation hub. Its direct Ref children define the current top-level tabs."
+                            : entry.source === "amitse" || entry.offset !== null
+                              ? "This root is present in the AMITSE executable menu table."
+                              : "This is the entry form declared by its HII FormSet. It is structural evidence, not a runtime visibility condition."
                       }
                       multiline
                       w={360}
@@ -688,17 +795,21 @@ export default function FormUi({
                         color={
                           entry.source === "setupdata"
                             ? "cyan"
-                            : entry.source === "amitse" || entry.offset !== null
-                              ? "green"
-                              : "blue"
+                            : entry.source === "ifr-hub"
+                              ? "blue"
+                              : entry.source === "amitse" || entry.offset !== null
+                                ? "green"
+                                : "blue"
                         }
                         variant="light"
                       >
                         {entry.source === "setupdata"
                           ? `SetupData page ${entry.pageMask ?? ""}`
-                          : entry.source === "amitse" || entry.offset !== null
-                            ? "AMITSE menu"
-                            : "HII FormSet entry"}
+                          : entry.source === "ifr-hub"
+                            ? "IFR navigation hub"
+                            : entry.source === "amitse" || entry.offset !== null
+                              ? "AMITSE menu"
+                              : "HII FormSet entry"}
                       </Badge>
                     </Tooltip>
                     {data.rootVisibility?.status !== "detected" &&

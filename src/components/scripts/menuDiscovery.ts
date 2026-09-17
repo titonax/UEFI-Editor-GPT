@@ -1,13 +1,17 @@
 import { decimalToHex as decToHexString } from "./hex";
 import { discoverSetupDataMenu } from "./setupData";
-import type { Forms, Menu } from "./types";
+import {
+  inspectSingleFormSetNavigation,
+  singleFormSetHubMenu,
+} from "./singleFormSetNavigation";
+import type { AmiSingleFormSetNavigationReport, Forms, Menu } from "./types";
 
 export interface FormSetMetadata {
   guid: string;
   title: string;
 }
 
-interface MenuDiscoveryInput {
+export interface MenuDiscoveryInput {
   amitseSct: string;
   setupData: string;
   formSetIds: Set<string>;
@@ -16,21 +20,27 @@ interface MenuDiscoveryInput {
   forms: Forms;
 }
 
-export function discoverMenu({
+export interface MenuDiscoveryResult {
+  menu: Menu;
+  singleFormSetNavigation: AmiSingleFormSetNavigationReport;
+}
+
+export function discoverAmitseRegistrations({
   amitseSct,
-  setupData,
   formSetIds,
   formSetMetadata,
-  formSetRoots,
   forms,
-}: MenuDiscoveryInput): Menu {
+}: Pick<
+  MenuDiscoveryInput,
+  "amitseSct" | "formSetIds" | "formSetMetadata" | "forms"
+>): Menu {
   const matches = [...formSetIds].flatMap((formSetId) =>
     [...amitseSct.matchAll(new RegExp(formSetId + "(.{4})", "gi"))].map((match) => ({
       match,
       formSetId,
     })),
   );
-  const discoveredMenu: Menu = matches.flatMap(({ match, formSetId }) => {
+  return matches.flatMap(({ match, formSetId }) => {
     const hexEntry = decToHexString(
       parseInt(match[1].slice(2) + match[1].slice(0, 2), 16),
     );
@@ -53,6 +63,20 @@ export function discoverMenu({
       },
     ];
   });
+}
+
+export function analyzeMenuDiscovery(input: MenuDiscoveryInput): MenuDiscoveryResult {
+  const { setupData, formSetRoots } = input;
+  const discoveredMenu = discoverAmitseRegistrations(input);
+  const singleFormSetNavigation = inspectSingleFormSetNavigation(
+    formSetRoots,
+    input.forms,
+    discoveredMenu,
+  );
+  const hubMenu = singleFormSetHubMenu(singleFormSetNavigation);
+  if (hubMenu.length > 0) {
+    return { menu: hubMenu, singleFormSetNavigation };
+  }
 
   const setupDataMenu = discoverSetupDataMenu(formSetRoots, setupData).map((entry) => {
     const executableEntry = discoveredMenu.find(
@@ -65,9 +89,17 @@ export function discoverMenu({
     };
   });
 
-  return setupDataMenu.length > 0
-    ? setupDataMenu
-    : discoveredMenu.length > 0
-      ? discoveredMenu
-      : formSetRoots;
+  return {
+    menu:
+      setupDataMenu.length > 0
+        ? setupDataMenu
+        : discoveredMenu.length > 0
+          ? discoveredMenu
+          : formSetRoots,
+    singleFormSetNavigation,
+  };
+}
+
+export function discoverMenu(input: MenuDiscoveryInput): Menu {
+  return analyzeMenuDiscovery(input).menu;
 }

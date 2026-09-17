@@ -9,7 +9,8 @@ import { desiredAmiRootVisibility } from "../scripts/amiRootVisibilityEditing";
 export type ReachabilityStatus =
   "root" | "reachable" | "detached" | "external" | "unresolved" | "broken";
 
-export type RootSource = "amitse" | "setupdata" | "hii-formset" | "inferred";
+export type RootSource =
+  "amitse" | "setupdata" | "hii-formset" | "ifr-navigation" | "inferred";
 
 export interface MenuProfile {
   id: string;
@@ -158,6 +159,27 @@ function canonicalMenuRole(label: string) {
 function inferMenuProfiles(roots: MenuTreeNode[]): MenuProfile[] {
   if (roots.length === 0) {
     return [];
+  }
+
+  if (roots.length === 1 && roots[0].rootSource === "ifr-navigation") {
+    const profile: MenuProfile = {
+      id: "single-formset-ifr-navigation",
+      label: "Single-FormSet IFR navigation",
+      assessment: "unresolved",
+      confidence: "high",
+      evidence: [
+        "The HII FormSet entry is the navigation hub. Its direct IFR Ref opcodes define the current top-level tabs; AMITSE registration is supporting evidence only.",
+      ],
+      roots,
+    };
+    function assignProfile(node: MenuTreeNode) {
+      node.profileId = profile.id;
+      node.profileLabel = profile.label;
+      node.profileAssessment = profile.assessment;
+      for (const child of node.children) assignProfile(child);
+    }
+    assignProfile(roots[0]);
+    return [profile];
   }
 
   const groups: MenuTreeNode[][] = [];
@@ -474,15 +496,19 @@ export function buildMenuTree(data: Data): MenuTree {
       const rootSource: RootSource =
         entry.source === "setupdata"
           ? "setupdata"
-          : entry.source === "amitse" || entry.offset !== null
-            ? "amitse"
-            : "hii-formset";
+          : entry.source === "ifr-hub"
+            ? "ifr-navigation"
+            : entry.source === "amitse" || entry.offset !== null
+              ? "amitse"
+              : "hii-formset";
       const reachabilityLabel =
         rootSource === "setupdata"
           ? "AMITSE SetupData page"
-          : rootSource === "amitse"
-            ? "AMITSE executable root"
-            : "HII FormSet entry";
+          : rootSource === "ifr-navigation"
+            ? "Single-FormSet IFR navigation hub"
+            : rootSource === "amitse"
+              ? "AMITSE executable root"
+              : "HII FormSet entry";
 
       if (formIndex < 0) {
         return {
@@ -536,7 +562,9 @@ export function buildMenuTree(data: Data): MenuTree {
         entry.pageMask,
         rootSource === "setupdata"
           ? `Registered as a top-level AMITSE SetupData page${entry.pageMask ? ` with selector ${entry.pageMask}` : ""}. It has ${String(form.referencedIn.length)} incoming and ${String(form.children.filter((child) => child.type === "Ref").length)} outgoing IFR Ref(s); its parent is the AMITSE menu profile, not another HII form.`
-          : "Registered as a top-level menu entry; it does not require an IFR Ref parent.",
+          : rootSource === "ifr-navigation"
+            ? `Declared as the HII FormSet entry and proven as the navigation hub by ${String(form.children.filter((child) => child.type === "Ref").length)} direct IFR Ref(s). Those direct children, not every AMITSE registration, are the current top-level tabs.`
+            : "Registered as a top-level menu entry; it does not require an IFR Ref parent.",
       );
       if (vectorEntry) {
         node.rootVisibilityOriginal = vectorEntry.value;

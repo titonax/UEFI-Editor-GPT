@@ -7,7 +7,7 @@ describe("data.json validation", () => {
     const data = firmwareData();
     data.forms[0].ifrOffset = "0x20";
     expect(parseDataFile(JSON.stringify(data))).toMatchObject({
-      version: "0.6.0",
+      version: "0.7.0",
       forms: [{ ifrOffset: "0x20" }],
     });
   });
@@ -61,11 +61,19 @@ describe("data.json validation", () => {
         reason: "untrusted",
         entries: [],
       },
+      singleFormSetNavigation: {
+        status: "detected",
+        mechanism: "single-formset-ifr-hub",
+        confidence: "corroborated",
+        reason: "untrusted",
+        pages: [],
+      },
     };
 
     const parsed = parseDataFile(JSON.stringify(imported));
     expect(parsed.ifrBinary).toBeUndefined();
     expect(parsed.rootVisibility).toBeUndefined();
+    expect(parsed.singleFormSetNavigation).toBeUndefined();
   });
 
   it("preserves valid IFR edit plans and rejects malformed ones", () => {

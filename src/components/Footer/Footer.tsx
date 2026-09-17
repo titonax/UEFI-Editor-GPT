@@ -14,6 +14,7 @@ import { parseDataFile } from "../scripts/dataValidation";
 import { errorMessage } from "../scripts/errors";
 import { hydrateIfrBinary } from "../scripts/menuEditing";
 import { assertAmiRootVisibilityEditsMatch } from "../scripts/amiRootVisibilityEditing";
+import { refreshSingleFormSetNavigation } from "../scripts/singleFormSetNavigation";
 import type { Data } from "../scripts/types";
 import s from "./Footer.module.css";
 
@@ -72,6 +73,10 @@ export default function Footer({
                     assertAmiRootVisibilityEditsMatch(
                       jsonData.rootVisibilityEdits,
                       jsonData.rootVisibility,
+                    );
+                    refreshSingleFormSetNavigation(
+                      jsonData,
+                      data.singleFormSetNavigation,
                     );
                     setData(jsonData);
                     onError("");

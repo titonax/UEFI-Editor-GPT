@@ -12,8 +12,9 @@
    source ownership without changing the source buffer.
 4. The compatibility text parser produces `Data`: FormSets, forms, prompts,
    conditions, VarStores, menu roots, source hashes and offsets.
-5. `menuTree.ts` builds the navigable graph without collapsing identical
-   FormIds from different FormSets.
+5. Single-FormSet navigation analysis separates the IFR hub and its direct tabs
+   from AMITSE registration evidence. `menuTree.ts` then builds the navigable
+   graph without collapsing identical FormIds from different FormSets.
 6. `visibility.ts` classifies gates and propagates parent visibility.
 7. Root-vector controls keep immutable detected bytes separate from reversible,
    provenance-bound desired-state plans.
@@ -35,6 +36,7 @@
 | `scripts.ts`                  | Source validation and final IFR data-model assembly           |
 | `ifrTextParser.ts`            | Compatibility parsing of verbose IFRExtractor text            |
 | `menuDiscovery.ts`            | AMITSE menu matching and ordered source fallback              |
+| `singleFormSetNavigation.ts`  | IFR-hub tab detection and AMITSE role separation              |
 | `setupData.ts`                | SetupData page-table and question metadata discovery          |
 | `ifrBinary.ts`                | Binary opcode spans, scope matching and HII provenance        |
 | `ifrEditing.ts`               | Transactional, fixed-size IFR editing primitives              |
@@ -62,6 +64,8 @@ display dialogs, mutate the DOM or reload the page.
 - Imported binary IFR analysis is discarded and rebuilt from the loaded SCT.
 - Imported root-vector analysis is discarded and rebuilt from the open firmware
   provenance.
+- Imported single-FormSet navigation analysis is discarded and rebuilt from the
+  opened IFR graph plus the current source's AMITSE registration evidence.
 - Imported root-visibility plans must match the rebuilt vector buffer, byte
   offset, expected value and FormSet identity before they are accepted.
 - Binary IFR scopes must be balanced before their spans can be used for editing.
@@ -77,11 +81,14 @@ display dialogs, mutate the DOM or reload the page.
 - Aptio IV and generation-unresolved binary export remain disabled while their
   write/reinsertion paths are not proven safe.
 - Runtime/HW classification is evidence, not proof of the current machine state.
+- In a single-FormSet hub layout, only direct hub Refs are classified as tabs.
+  AMITSE registration alone never creates a navigation root.
 
 ## Versioning
 
 The npm/package version describes the application release and is currently
 `0.5.0`. `dataSchemaVersion` describes the persisted `data.json` contract and
-is `0.6.0`; it stores provenance-bound pending root-visibility changes without
-trusting imported binary analysis. The two versions are intentionally
+is `0.7.0`; it distinguishes single-FormSet IFR navigation hubs from AMITSE
+page registration and stores provenance-bound pending root-visibility changes
+without trusting imported binary analysis. The two versions are intentionally
 independent.
