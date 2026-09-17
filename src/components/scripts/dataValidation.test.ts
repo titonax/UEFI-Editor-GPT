@@ -7,7 +7,7 @@ describe("data.json validation", () => {
     const data = firmwareData();
     data.forms[0].ifrOffset = "0x20";
     expect(parseDataFile(JSON.stringify(data))).toMatchObject({
-      version: "0.5.0",
+      version: "0.6.0",
       forms: [{ ifrOffset: "0x20" }],
     });
   });
@@ -19,7 +19,7 @@ describe("data.json validation", () => {
 
   it("rejects malformed and incomplete data", () => {
     expect(() => parseDataFile("{")).toThrow(/not valid JSON/);
-    expect(() => parseDataFile(JSON.stringify({ version: "0.5.0" }))).toThrow(
+    expect(() => parseDataFile(JSON.stringify({ version: "0.6.0" }))).toThrow(
       /firmwareFamily/,
     );
   });
@@ -102,5 +102,33 @@ describe("data.json validation", () => {
     if (!patch) throw new Error("Expected a container patch fixture.");
     patch.replacement = [0x1e];
     expect(() => parseDataFile(JSON.stringify(malformedPatch))).toThrow(/ifrEdits/);
+  });
+
+  it("preserves structurally valid root visibility plans and rejects ambiguity", () => {
+    const edit = {
+      kind: "set-root-visibility" as const,
+      rootIndex: 1,
+      formId: "0x402",
+      formSetGuid: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
+      bufferId: 4,
+      bufferOffset: 0x120,
+      expected: 0 as const,
+      replacement: 1 as const,
+      description: "Show root FormSet Advanced",
+    };
+    const imported = firmwareData({ rootVisibilityEdits: [edit] });
+    expect(parseDataFile(JSON.stringify(imported)).rootVisibilityEdits).toEqual([edit]);
+
+    const duplicate = firmwareData({ rootVisibilityEdits: [edit, { ...edit }] });
+    expect(() => parseDataFile(JSON.stringify(duplicate))).toThrow(
+      /rootVisibilityEdits/,
+    );
+
+    const noChange = firmwareData({
+      rootVisibilityEdits: [{ ...edit, replacement: 0 }],
+    });
+    expect(() => parseDataFile(JSON.stringify(noChange))).toThrow(
+      /rootVisibilityEdits/,
+    );
   });
 });

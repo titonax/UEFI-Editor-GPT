@@ -179,4 +179,70 @@ describe("HII menu graph", () => {
       "Probable fallback SetupData root",
     );
   });
+
+  it("distinguishes original and desired AMITSE root visibility", () => {
+    const root = {
+      name: "Advanced",
+      formId: "0x402",
+      formSetGuid: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
+      offset: null,
+      source: "setupdata" as const,
+    };
+    const data = firmwareData({
+      menu: [root],
+      forms: [
+        form({
+          name: root.name,
+          formId: root.formId,
+          formSetGuid: root.formSetGuid,
+        }),
+      ],
+      rootVisibility: {
+        status: "detected",
+        mechanism: "setup-pe32-root-byte-vector",
+        confidence: "corroborated",
+        reason: "test vector",
+        vector: {
+          bufferId: 3,
+          offset: 0x100,
+          length: 1,
+          codeReferenceOffset: 0x20,
+          pageTableOffset: 0x200,
+          countEvidence: "immediate",
+        },
+        entries: [
+          {
+            rootIndex: 0,
+            name: root.name,
+            formId: root.formId,
+            formSetGuid: root.formSetGuid,
+            value: 0,
+            visible: false,
+            bufferOffset: 0x100,
+          },
+        ],
+      },
+      rootVisibilityEdits: [
+        {
+          kind: "set-root-visibility",
+          rootIndex: 0,
+          formId: root.formId,
+          formSetGuid: root.formSetGuid,
+          bufferId: 3,
+          bufferOffset: 0x100,
+          expected: 0,
+          replacement: 1,
+          description: "Show root FormSet Advanced",
+        },
+      ],
+    });
+
+    expect(buildMenuTree(data).roots[0]).toMatchObject({
+      status: "visible",
+      statusLabel: "Pending: root will be visible",
+      rootVisibilityOriginal: 0,
+      rootVisibilityDesired: 1,
+      rootVisibilityPending: true,
+    });
+  });
 });

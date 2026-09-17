@@ -4,6 +4,7 @@ import {
   combineVisibility,
   visibilityLabel,
 } from "../scripts/visibility";
+import { desiredAmiRootVisibility } from "../scripts/amiRootVisibilityEditing";
 
 export type ReachabilityStatus =
   "root" | "reachable" | "detached" | "external" | "unresolved" | "broken";
@@ -45,6 +46,9 @@ export interface MenuTreeNode {
   outgoingReferenceCount: number;
   parentageLabel: string;
   conditionSummary?: string;
+  rootVisibilityOriginal?: 0 | 1;
+  rootVisibilityDesired?: 0 | 1;
+  rootVisibilityPending?: boolean;
   parentFormIndex?: number;
   referenceChildIndex?: number;
 }
@@ -87,6 +91,22 @@ function findFormIndex(data: Data, formId: string, formSetGuid?: string) {
     .map((form, index) => ({ form, index }))
     .filter(({ form }) => normalizedFormId(form.formId) === normalized);
   return candidates.length === 1 ? (candidates[0]?.index ?? -1) : -1;
+}
+
+function rootVisibilityEntry(data: Data, root: Data["menu"][number]) {
+  const report = data.rootVisibility;
+  if (report?.status !== "detected") return undefined;
+  if (root.formSetGuid) {
+    return report.entries.find((entry) =>
+      sameGuid(entry.formSetGuid, root.formSetGuid),
+    );
+  }
+  const matches = report.entries.filter(
+    (entry) =>
+      normalizedFormId(entry.formId) === normalizedFormId(root.formId) &&
+      entry.name === root.name,
+  );
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 function conditionDescriptions(visibility: ReturnType<typeof childVisibility>) {
@@ -445,6 +465,12 @@ export function buildMenuTree(data: Data): MenuTree {
   const roots = rootEntries
     .map((entry, menuIndex): MenuTreeNode | null => {
       const formIndex = findFormIndex(data, entry.formId, entry.formSetGuid);
+      const vectorEntry = rootVisibilityEntry(data, entry);
+      const desiredRootState = vectorEntry
+        ? desiredAmiRootVisibility(data, vectorEntry)
+        : undefined;
+      const rootStatePending =
+        vectorEntry !== undefined && desiredRootState !== vectorEntry.value;
       const rootSource: RootSource =
         entry.source === "setupdata"
           ? "setupdata"
@@ -485,18 +511,26 @@ export function buildMenuTree(data: Data): MenuTree {
       }
 
       const form = data.forms[formIndex];
-      return buildFormNode(
+      const node = buildFormNode(
         formIndex,
         `root-${String(menuIndex)}-${normalizedFormId(entry.formId)}`,
         entry.name.length > 0 ? entry.name : (form.formSetTitle ?? form.name),
         new Set(),
-        "visible",
+        desiredRootState === 0 ? "hidden" : "visible",
         "root",
         [],
         false,
         false,
         false,
-        "No visibility gate",
+        vectorEntry
+          ? rootStatePending
+            ? desiredRootState === 1
+              ? "Pending: root will be visible"
+              : "Pending: root will be hidden"
+            : vectorEntry.value === 1
+              ? "Visible in AMITSE root vector"
+              : "Hidden by AMITSE root vector"
+          : "No visibility gate",
         reachabilityLabel,
         rootSource,
         entry.pageMask,
@@ -504,6 +538,12 @@ export function buildMenuTree(data: Data): MenuTree {
           ? `Registered as a top-level AMITSE SetupData page${entry.pageMask ? ` with selector ${entry.pageMask}` : ""}. It has ${String(form.referencedIn.length)} incoming and ${String(form.children.filter((child) => child.type === "Ref").length)} outgoing IFR Ref(s); its parent is the AMITSE menu profile, not another HII form.`
           : "Registered as a top-level menu entry; it does not require an IFR Ref parent.",
       );
+      if (vectorEntry) {
+        node.rootVisibilityOriginal = vectorEntry.value;
+        node.rootVisibilityDesired = desiredRootState;
+        node.rootVisibilityPending = rootStatePending;
+      }
+      return node;
     })
     .filter((node): node is MenuTreeNode => node !== null);
 

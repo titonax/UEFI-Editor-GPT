@@ -36,6 +36,9 @@ a parallel demo application.
 - Reports runtime/HW, access-policy and UI-state evidence without presenting an
   inference as a confirmed fact.
 - Limits `Force visible` to `SuppressIf`; other conditions remain read-only.
+- Shows the original code-corroborated AMITSE root state separately from a
+  reversible desired `Visible (01)` / `Hidden (00)` state. Root changes are
+  saved as provenance-bound pending plans and reflected in the menu tree.
 - Exports validated `data.json` snapshots and controlled Aptio V binary patches.
 
 > Full-image reinsertion/export remains disabled until deterministic
@@ -62,19 +65,25 @@ For the extracted-file workflow, provide:
 
 The tree uses these states:
 
-| State  | Meaning                                            |
-| ------ | -------------------------------------------------- |
-| Green  | No active IFR visibility gate was found            |
-| Red    | `SuppressIf` can hide the item                     |
-| Orange | `GrayOutIf` or `DisableIf` can make it unavailable |
-| Gray   | Evidence is insufficient for a stronger conclusion |
-| Pink   | The graph contains a broken reference              |
+| State  | Meaning                                              |
+| ------ | ---------------------------------------------------- |
+| Green  | No active IFR gate, or desired root state is visible |
+| Red    | `SuppressIf` or the AMITSE root vector hides it      |
+| Orange | `GrayOutIf` or `DisableIf` can make it unavailable   |
+| Gray   | Evidence is insufficient for a stronger conclusion   |
+| Pink   | The graph contains a broken reference                |
 
 To move a submenu, use the move button on its tree row and choose the new parent
 Form. Direct, non-scoped `Ref` opcodes may cross existing Forms Packages when
 the destination is structurally proven; package lengths are then rebalanced
 transactionally. Duplicate targets, graph cycles and conditional/nested
 references remain blocked with an explanation.
+
+For a detected multi-FormSet root vector, press the desired-state button beside
+any root to alternate between `Visible (01)` and `Hidden (00)`. The original BIOS
+state remains visible beside it. Pressing the button back to the original value
+removes that pending change. These plans are included in `data.json`, but
+full-image export remains blocked until reconstruction can apply and verify them.
 
 ## Development
 
@@ -108,7 +117,7 @@ GUID-aware tree construction, broken references and binary patch preconditions.
 Coverage thresholds are enforced by `npm run check` and pull-request CI.
 
 The application release is `0.5.0`; exported `data.json` files use schema
-`0.5.0`. Those versions are independent so application releases do not
+`0.6.0`. Those versions are independent so application releases do not
 unnecessarily invalidate saved editor state.
 
 ## Design rules

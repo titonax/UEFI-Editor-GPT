@@ -200,7 +200,9 @@ export default function Navigation({
                 {node.pageMask ? ` ${node.pageMask}` : ""}
               </span>
             )}
-            {(node.status === "hidden" || node.status === "conditional") && (
+            {(node.status === "hidden" ||
+              node.status === "conditional" ||
+              node.rootVisibilityPending) && (
               <span className={`${s.statusLabel} ${gateClass}`}>
                 {node.statusLabel}
               </span>
