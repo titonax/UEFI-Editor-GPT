@@ -52,6 +52,32 @@ three registered pages that are not direct hub tabs. In particular, `Security`
 (`0x2716`) is registered but is an IFR descendant of `Main` (`0x2714`). Treating
 every AMITSE GUID/FormId match as a root incorrectly promotes it.
 
+## ROG STRIX Z390-E GAMING regression sample
+
+A second supplied capsule identifies itself internally as
+`ROG-STRIX-Z390-E-GAMING` and `SZ390E.CAP`. It exercises the same navigation
+architecture with different FormIds and one additional direct tab:
+
+| Property       | Result                                                             |
+| -------------- | ------------------------------------------------------------------ |
+| Bytes          | 16,781,312                                                         |
+| SHA-256        | `9344b904cd319b3d385ffdf74d232a5e3999a2963cc74937af95a631a87f1454` |
+| Outer layout   | `0x1000` vendor capsule header plus a 16 MiB firmware image        |
+| HII FormSets   | 1                                                                  |
+| FormSet GUID   | `7B59104A-C00D-4158-87FF-F04D6396A915`                             |
+| Parsed Forms   | 229                                                                |
+| Parsed Refs    | 294                                                                |
+| Navigation hub | `Setup`, FormId `0x2710`                                           |
+
+The hub's nine direct Refs are `My Favorites` (`0x2712`), `Main` (`0x2713`),
+`Ai Tweaker` (`0x2714`), `Advanced` (`0x2715`), `Monitor` (`0x2716`), `Chipset`
+(`0x2717`), `Boot` (`0x2718`), `Tool` (`0x2719`) and `Exit` (`0x271A`). AMITSE
+corroborates every direct tab. It also registers `Security` (`0x27E5`), which is
+an IFR descendant of `Main`, and a detached `Exit` (`0x271B`); neither is
+promoted to a top-level tab. This independently reproduces the detector's key
+rule: IFR hub parentage defines navigation while AMITSE registration only
+corroborates it.
+
 ## Detector invariants
 
 The application reports this layout only when:
@@ -81,3 +107,9 @@ recomputes the tab inventory. AMITSE registration is preserved as evidence and
 is not rewritten merely because IFR parentage changed. Full-image reinsertion
 remains blocked until the enclosing PE/FFS/compression path can be rebuilt and
 independently re-extracted.
+
+The inventory exposes this distinction directly: a current direct tab can be
+relocated away from the hub, and a uniquely referenced descendant can be moved
+back to the hub. An AMITSE-only registration stays disabled when no unique IFR
+Ref exists; the application will not invent an opcode merely to make that page
+movable.

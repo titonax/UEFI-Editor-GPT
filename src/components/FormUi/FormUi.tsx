@@ -16,6 +16,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedState } from "@mantine/hooks";
 import type {
+  AmiSingleFormSetPage,
   ConditionSource,
   Data,
   FormChildren,
@@ -28,7 +29,13 @@ import {
   conditionsForChild,
   summarizeFormBranch,
 } from "../scripts/visibility";
-import { buildMenuTree, findNodePath } from "../Navigation/menuTree";
+import {
+  buildMenuTree,
+  findNodePath,
+  type MenuTree,
+  type MenuTreeNode,
+} from "../Navigation/menuTree";
+import MenuMoveDialog from "../Navigation/MenuMoveDialog";
 import {
   desiredAmiRootVisibility,
   toggleAmiRootVisibility,
@@ -86,6 +93,74 @@ const visibilityColors = {
   orphaned: "red",
   broken: "pink",
 } as const;
+
+function sameFormIdentity(
+  formId: string,
+  formSetGuid: string | undefined,
+  expectedFormId: string,
+  expectedFormSetGuid: string | undefined,
+) {
+  return (
+    Number.parseInt(formId) === Number.parseInt(expectedFormId) &&
+    (formSetGuid ?? "").toLowerCase() === (expectedFormSetGuid ?? "").toLowerCase()
+  );
+}
+
+function collectMovableNodes(tree: MenuTree, formIndex: number) {
+  const matches: MenuTreeNode[] = [];
+  const visit = (nodes: MenuTreeNode[]) => {
+    for (const node of nodes) {
+      if (
+        node.formIndex === formIndex &&
+        node.parentFormIndex !== undefined &&
+        node.referenceChildIndex !== undefined
+      ) {
+        matches.push(node);
+      }
+      visit(node.children);
+    }
+  };
+  visit([...tree.roots, ...tree.orphans]);
+  return matches;
+}
+
+function movableNodeForSingleFormSetPage(
+  data: Data,
+  tree: MenuTree,
+  page: AmiSingleFormSetPage,
+) {
+  const formIndex = data.forms.findIndex((form) =>
+    sameFormIdentity(form.formId, form.formSetGuid, page.formId, page.formSetGuid),
+  );
+  if (formIndex < 0) return undefined;
+
+  let matches = collectMovableNodes(tree, formIndex);
+  if (page.ifrReferenceOffset) {
+    matches = matches.filter((node) => {
+      if (
+        node.parentFormIndex === undefined ||
+        node.referenceChildIndex === undefined
+      ) {
+        return false;
+      }
+      const child =
+        data.forms[node.parentFormIndex]?.children[node.referenceChildIndex];
+      return child?.type === "Ref" && child.ifrOffset === page.ifrReferenceOffset;
+    });
+  } else if (page.parentFormIds.length === 1) {
+    matches = matches.filter((node) => {
+      const parent =
+        node.parentFormIndex === undefined
+          ? undefined
+          : data.forms[node.parentFormIndex];
+      return (
+        parent !== undefined &&
+        Number.parseInt(parent.formId) === Number.parseInt(page.parentFormIds[0])
+      );
+    });
+  }
+  return matches.length === 1 ? matches[0] : undefined;
+}
 
 function formatBufferOffset(offset: number) {
   return "0x" + offset.toString(16).toUpperCase();
@@ -247,7 +322,17 @@ const singleFormSetRoleMeta = {
   "registered-only": { label: "Registered only", color: "gray" },
 } as const;
 
-function SingleFormSetNavigationAnalysis({ data }: { data: Data }) {
+function SingleFormSetNavigationAnalysis({
+  data,
+  tree,
+  canEdit,
+  onMovePage,
+}: {
+  data: Data;
+  tree: MenuTree;
+  canEdit: boolean;
+  onMovePage: (page: AmiSingleFormSetPage, node: MenuTreeNode) => void;
+}) {
   const report = data.singleFormSetNavigation;
   if (!report || report.status === "not-applicable") return null;
   if (report.status !== "detected") {
@@ -292,11 +377,42 @@ function SingleFormSetNavigationAnalysis({ data }: { data: Data }) {
               <Table.Th>Form Id</Table.Th>
               <Table.Th>IFR role</Table.Th>
               <Table.Th>AMITSE evidence</Table.Th>
+              <Table.Th>Tab placement</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {report.pages.map((page) => {
               const role = singleFormSetRoleMeta[page.role];
+              const movableNode = movableNodeForSingleFormSetPage(data, tree, page);
+              const disabled = !canEdit || movableNode === undefined;
+              const control =
+                page.role === "hub"
+                  ? {
+                      label: "Navigation hub",
+                      color: "blue",
+                      explanation:
+                        "The hub itself cannot be hidden through its own child Ref list.",
+                    }
+                  : page.role === "direct-tab"
+                    ? {
+                        label: "Visible tab · hide/move",
+                        color: "green",
+                        explanation:
+                          "Move this existing Ref away from the Setup hub to remove it from the top-level tabs.",
+                      }
+                    : page.role === "descendant"
+                      ? {
+                          label: "Not a tab · promote/move",
+                          color: "violet",
+                          explanation:
+                            "Move this existing Ref to the Setup hub to make it a top-level tab, or choose another proven parent.",
+                        }
+                      : {
+                          label: "No IFR Ref",
+                          color: "gray",
+                          explanation:
+                            "AMITSE registers this page, but no unique existing IFR Ref is available to move safely.",
+                        };
               return (
                 <Table.Tr key={`${page.formSetGuid}:${page.formId}`}>
                   <Table.Td>{page.name}</Table.Td>
@@ -327,17 +443,47 @@ function SingleFormSetNavigationAnalysis({ data }: { data: Data }) {
                       </Badge>
                     )}
                   </Table.Td>
+                  <Table.Td>
+                    <Tooltip
+                      label={
+                        !canEdit
+                          ? "The original Setup binary is required to validate and apply a fixed-size Ref move."
+                          : control.explanation
+                      }
+                      multiline
+                      w={340}
+                    >
+                      <Button
+                        size="compact-xs"
+                        color={control.color}
+                        variant={page.role === "direct-tab" ? "filled" : "light"}
+                        disabled={page.role === "hub" || disabled}
+                        aria-label={
+                          page.role === "direct-tab"
+                            ? `Hide or relocate ${page.name} top-level tab`
+                            : page.role === "descendant"
+                              ? `Promote or relocate ${page.name} as top-level tab`
+                              : control.label
+                        }
+                        onClick={() => {
+                          if (movableNode) onMovePage(page, movableNode);
+                        }}
+                      >
+                        {control.label}
+                      </Button>
+                    </Tooltip>
+                  </Table.Td>
                 </Table.Tr>
               );
             })}
           </Table.Tbody>
         </Table>
         <Text size="xs" c="dimmed">
-          In this layout, top-level visibility is structural: move an existing Ref to
-          the hub to promote that page to a tab, or move a direct tab Ref under another
-          existing Form to demote it. The tree and this inventory update from the
-          pending IFR graph. No FormSet is created, and AMITSE registration by itself
-          never promotes a page.
+          Here, “visible as a tab” is structural. Use Visible tab · hide/move to
+          relocate a direct hub Ref under another existing Form, or Not a tab ·
+          promote/move to return an existing descendant Ref to the hub. The tree and
+          this inventory update from the pending IFR graph. No FormSet or new menu is
+          created, and AMITSE registration by itself never promotes a page.
         </Text>
       </Stack>
     </Alert>
@@ -674,6 +820,7 @@ const TableRow = React.memo(
 interface FormUiProps {
   data: Data;
   setData: Updater<Data>;
+  originalSetupSct?: string;
   currentFormIndex: number;
   setCurrentFormIndex: React.Dispatch<React.SetStateAction<number>>;
 }
@@ -681,11 +828,17 @@ interface FormUiProps {
 export default function FormUi({
   data,
   setData,
+  originalSetupSct,
   currentFormIndex,
   setCurrentFormIndex,
 }: FormUiProps) {
   const [search, setSearch] = useDebouncedState("", 200);
   const semanticTree = React.useMemo(() => buildMenuTree(data), [data]);
+  const [menuMove, setMenuMove] = React.useState<{
+    node: MenuTreeNode;
+    intent: "demote-tab" | "promote-tab";
+    initialDestinationFormIndex?: number;
+  } | null>(null);
 
   function handleRefClick(formId: string, formSetGuid?: string) {
     const sourceFormSetGuid =
@@ -722,10 +875,53 @@ export default function FormUi({
   }
 
   if (currentFormIndex === -1) {
+    const navigation = data.singleFormSetNavigation;
+    const hubFormIndex =
+      navigation?.status === "detected" &&
+      navigation.hubFormId &&
+      navigation.formSetGuid
+        ? data.forms.findIndex((form) =>
+            sameFormIdentity(
+              form.formId,
+              form.formSetGuid,
+              navigation.hubFormId ?? "",
+              navigation.formSetGuid,
+            ),
+          )
+        : -1;
     return (
       <Stack>
+        {menuMove && originalSetupSct !== undefined && (
+          <MenuMoveDialog
+            data={data}
+            tree={semanticTree}
+            node={menuMove.node}
+            opened
+            originalSetupSct={originalSetupSct}
+            setData={setData}
+            initialDestinationFormIndex={menuMove.initialDestinationFormIndex}
+            intent={menuMove.intent}
+            onClose={() => {
+              setMenuMove(null);
+            }}
+          />
+        )}
         <RootVisibilityAnalysis data={data} setData={setData} />
-        <SingleFormSetNavigationAnalysis data={data} />
+        <SingleFormSetNavigationAnalysis
+          data={data}
+          tree={semanticTree}
+          canEdit={originalSetupSct !== undefined}
+          onMovePage={(page, node) => {
+            setMenuMove({
+              node,
+              intent: page.role === "direct-tab" ? "demote-tab" : "promote-tab",
+              initialDestinationFormIndex:
+                page.role === "descendant" && hubFormIndex >= 0
+                  ? hubFormIndex
+                  : undefined,
+            });
+          }}
+        />
         <Table striped withColumnBorders>
           <Table.Thead>
             <Table.Tr>
