@@ -14,6 +14,8 @@ interface MenuMoveDialogProps {
   originalSetupSct: string;
   setData: Updater<Data>;
   onClose: () => void;
+  initialDestinationFormIndex?: number;
+  intent?: "move" | "demote-tab" | "promote-tab";
 }
 
 export default function MenuMoveDialog({
@@ -24,8 +26,14 @@ export default function MenuMoveDialog({
   originalSetupSct,
   setData,
   onClose,
+  initialDestinationFormIndex,
+  intent = "move",
 }: MenuMoveDialogProps) {
-  const [destination, setDestination] = React.useState<string | null>(null);
+  const [destination, setDestination] = React.useState<string | null>(() =>
+    initialDestinationFormIndex === undefined
+      ? null
+      : String(initialDestinationFormIndex),
+  );
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
@@ -103,6 +111,20 @@ export default function MenuMoveDialog({
     destination === null
       ? undefined
       : compatibilityByIndex.get(Number.parseInt(destination, 10));
+  const selectedIsSafe =
+    selectedCompatibility?.compatibility.startsWith("safe-") ?? false;
+  const title =
+    intent === "demote-tab"
+      ? "Hide or relocate top-level tab"
+      : intent === "promote-tab"
+        ? "Promote or relocate HII menu"
+        : "Move HII menu";
+  const actionLabel =
+    intent === "demote-tab"
+      ? "Remove from top level"
+      : intent === "promote-tab"
+        ? "Apply placement"
+        : "Move menu";
 
   async function applyMove() {
     if (
@@ -129,7 +151,7 @@ export default function MenuMoveDialog({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Move HII menu" centered>
+    <Modal opened={opened} onClose={onClose} title={title} centered>
       <Stack gap="md">
         <div>
           <Text size="sm" fw={600}>
@@ -170,6 +192,22 @@ export default function MenuMoveDialog({
           a graph cycle remain disabled.
         </Text>
 
+        {intent === "demote-tab" && (
+          <Alert color="yellow" title="Top-level tab removal">
+            Select its new existing parent. Moving the Ref away from the proven Setup
+            hub removes this page from the top-level tabs; the page remains reachable
+            wherever it is placed.
+          </Alert>
+        )}
+
+        {intent === "promote-tab" && (
+          <Alert color="blue" title="Top-level tab promotion">
+            The proven Setup hub is preselected when it is a safe destination. Moving
+            the existing Ref there promotes this page without creating a FormSet or a
+            new menu.
+          </Alert>
+        )}
+
         {error.length > 0 && (
           <Alert color="red" title="The menu could not be moved">
             {error}
@@ -182,10 +220,10 @@ export default function MenuMoveDialog({
           </Button>
           <Button
             onClick={() => void applyMove()}
-            disabled={destination === null}
+            disabled={destination === null || !selectedIsSafe}
             loading={busy}
           >
-            Move menu
+            {actionLabel}
           </Button>
         </Group>
       </Stack>

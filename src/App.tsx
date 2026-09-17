@@ -83,6 +83,9 @@ export default function App({
           <AppShell.Header>
             <Header
               data={data}
+              fileName={
+                files.firmwareSource?.fileName ?? files.setupSctContainer.file.name
+              }
               currentFormIndex={currentFormIndex}
               setCurrentFormIndex={setCurrentFormIndex}
             />
@@ -100,6 +103,7 @@ export default function App({
             <FormUi
               data={data}
               setData={setData}
+              originalSetupSct={files.setupSctContainer.textContent}
               currentFormIndex={currentFormIndex}
               setCurrentFormIndex={setCurrentFormIndex}
             />

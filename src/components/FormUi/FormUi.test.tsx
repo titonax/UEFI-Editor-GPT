@@ -2,7 +2,7 @@ import { MantineProvider } from "@mantine/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useImmer } from "use-immer";
 import { describe, expect, it, vi } from "vitest";
-import { firmwareData, form } from "../../test/fixtures";
+import { firmwareData, form, prompt } from "../../test/fixtures";
 import type { Data } from "../scripts/types";
 import FormUi from "./FormUi";
 
@@ -68,6 +68,7 @@ function Harness({ initial }: { initial: Data }) {
       <FormUi
         data={data}
         setData={setData}
+        originalSetupSct="00"
         currentFormIndex={-1}
         setCurrentFormIndex={() => undefined}
       />
@@ -124,8 +125,34 @@ describe("root visibility controls", () => {
         },
       ],
       forms: [
-        form({ name: "Setup", formId: "0x2711", formSetGuid: guid }),
-        form({ name: "Main", formId: "0x2714", formSetGuid: guid }),
+        form({
+          name: "Setup",
+          formId: "0x2711",
+          formSetGuid: guid,
+          children: [
+            prompt({
+              type: "Ref",
+              name: "Main",
+              formId: "0x2714",
+              ifrOffset: "0x44953",
+              pageId: null,
+            }),
+          ],
+        }),
+        form({
+          name: "Main",
+          formId: "0x2714",
+          formSetGuid: guid,
+          referencedIn: ["0x2711"],
+          children: [
+            prompt({
+              type: "Ref",
+              name: "Security",
+              formId: "0x2716",
+              pageId: null,
+            }),
+          ],
+        }),
         form({ name: "Security", formId: "0x2716", formSetGuid: guid }),
       ],
       singleFormSetNavigation: {
@@ -177,5 +204,14 @@ describe("root visibility controls", () => {
     expect(screen.getByText("Current top-level tab")).toBeInTheDocument();
     expect(screen.getByText("Registered descendant")).toBeInTheDocument();
     expect(screen.getAllByText("IFR navigation hub").length).toBeGreaterThan(0);
+    const hideMain = screen.getByRole("button", {
+      name: "Hide or relocate Main top-level tab",
+    });
+    expect(hideMain).toBeEnabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Promote or relocate Security as top-level tab",
+      }),
+    ).toBeEnabled();
   });
 });
