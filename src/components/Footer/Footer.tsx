@@ -13,6 +13,7 @@ import {
 import { parseDataFile } from "../scripts/dataValidation";
 import { errorMessage } from "../scripts/errors";
 import { hydrateIfrBinary } from "../scripts/menuEditing";
+import { assertAmiRootVisibilityEditsMatch } from "../scripts/amiRootVisibilityEditing";
 import type { Data } from "../scripts/types";
 import s from "./Footer.module.css";
 
@@ -68,6 +69,10 @@ export default function Footer({
                     // Root-vector evidence is derived from the currently opened
                     // firmware provenance and is never trusted from imported JSON.
                     jsonData.rootVisibility = data.rootVisibility;
+                    assertAmiRootVisibilityEditsMatch(
+                      jsonData.rootVisibilityEdits,
+                      jsonData.rootVisibility,
+                    );
                     setData(jsonData);
                     onError("");
                   } else {
@@ -116,13 +121,18 @@ export default function Footer({
             size="xs"
             variant="default"
             leftSection={<IconDownload />}
-            disabled={data.firmwareFamily !== "aptio-v"}
+            disabled={
+              data.firmwareFamily !== "aptio-v" ||
+              (data.rootVisibilityEdits?.length ?? 0) > 0
+            }
             title={
-              data.firmwareFamily === "aptio-iv"
-                ? "Aptio IV export is disabled until safe reinsertion is implemented"
-                : data.firmwareFamily === "ami-aptio"
-                  ? "Export is disabled until the firmware generation and write path are proven"
-                  : undefined
+              (data.rootVisibilityEdits?.length ?? 0) > 0
+                ? "Root visibility changes require the verified full-image reconstruction path"
+                : data.firmwareFamily === "aptio-iv"
+                  ? "Aptio IV export is disabled until safe reinsertion is implemented"
+                  : data.firmwareFamily === "ami-aptio"
+                    ? "Export is disabled until the firmware generation and write path are proven"
+                    : undefined
             }
             onClick={() => {
               try {

@@ -1,6 +1,7 @@
 import { FirmwareError } from "./errors";
 import type { IfrReferenceMove } from "./ifrEditing";
 import type {
+  AmiRootVisibilityEdit,
   CheckBoxPrompt,
   Data,
   Default,
@@ -285,6 +286,35 @@ function isIfrEdits(value: unknown): value is IfrReferenceMove[] | undefined {
   );
 }
 
+function isRootVisibilityValue(value: unknown): value is 0 | 1 {
+  return value === 0 || value === 1;
+}
+
+function isAmiRootVisibilityEdit(value: unknown): value is AmiRootVisibilityEdit {
+  return (
+    isRecord(value) &&
+    value.kind === "set-root-visibility" &&
+    isNonNegativeInteger(value.rootIndex) &&
+    isString(value.formId) &&
+    isOptionalString(value.formSetGuid) &&
+    isNonNegativeInteger(value.bufferId) &&
+    isNonNegativeInteger(value.bufferOffset) &&
+    isRootVisibilityValue(value.expected) &&
+    isRootVisibilityValue(value.replacement) &&
+    value.expected !== value.replacement &&
+    isString(value.description)
+  );
+}
+
+function isAmiRootVisibilityEdits(
+  value: unknown,
+): value is AmiRootVisibilityEdit[] | undefined {
+  if (value === undefined) return true;
+  if (!Array.isArray(value) || !value.every(isAmiRootVisibilityEdit)) return false;
+  const roots = value.map((edit) => edit.rootIndex);
+  return new Set(roots).size === roots.length;
+}
+
 function invalidData(message: string): never {
   throw new FirmwareError("INVALID_INPUT", `data.json ${message}.`);
 }
@@ -331,6 +361,9 @@ export function parseDataFile(text: string): Data {
   if (!isIfrEdits(value.ifrEdits)) {
     invalidData("has invalid ifrEdits");
   }
+  if (!isAmiRootVisibilityEdits(value.rootVisibilityEdits)) {
+    invalidData("has invalid rootVisibilityEdits");
+  }
 
   return {
     firmwareFamily: value.firmwareFamily,
@@ -340,6 +373,7 @@ export function parseDataFile(text: string): Data {
     varStores: value.varStores,
     suppressions: value.suppressions,
     ifrEdits: value.ifrEdits,
+    rootVisibilityEdits: value.rootVisibilityEdits,
     version: value.version,
     hashes: value.hashes,
   };

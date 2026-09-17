@@ -78,7 +78,13 @@ assigned.
 ## Editing boundary
 
 The reported offsets belong to a retained decoded Setup buffer. They are not
-assumed to be raw flash offsets. A future write operation must:
+assumed to be raw flash offsets. The editor may record a reversible desired
+state for a root, but it keeps that pending plan separate from the immutable
+state detected in the source BIOS. Each plan stores the expected byte, desired
+byte, FormSet identity, decoded buffer and offset. Returning a root to its
+original state removes the pending plan.
+
+A future full-image write operation must:
 
 1. record the expected old byte;
 2. change only one selected vector byte;
@@ -89,4 +95,5 @@ assumed to be raw flash offsets. A future write operation must:
    change and all unaffected regions.
 
 Until that reconstruction path is implemented and independently verified, the
-root-vector analysis remains read-only.
+buttons change only the pending plan. Extracted-file export rejects these plans
+instead of silently omitting them.

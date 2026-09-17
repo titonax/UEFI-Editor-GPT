@@ -11,6 +11,7 @@ export interface Data {
   ifrBinary?: IfrBinaryModel;
   ifrEdits?: IfrReferenceMove[];
   rootVisibility?: AmiRootVisibilityReport;
+  rootVisibilityEdits?: AmiRootVisibilityEdit[];
   version: string;
   hashes: {
     setupTxt: string;
@@ -49,6 +50,18 @@ export interface AmiRootVisibilityReport {
     landmarkOffset?: number;
   };
   entries: AmiRootVisibilityEntry[];
+}
+
+export interface AmiRootVisibilityEdit {
+  kind: "set-root-visibility";
+  rootIndex: number;
+  formId: string;
+  formSetGuid?: string;
+  bufferId: number;
+  bufferOffset: number;
+  expected: 0 | 1;
+  replacement: 0 | 1;
+  description: string;
 }
 
 export interface Suppression {

@@ -6,6 +6,28 @@ import { planIfrReferenceMove } from "./ifrEditing";
 import { buildFirmwarePatches } from "./patcher";
 
 describe("firmware patch builder", () => {
+  it("refuses to silently omit pending full-image root visibility changes", () => {
+    expect(() =>
+      buildFirmwarePatches(
+        firmwareData({
+          rootVisibilityEdits: [
+            {
+              kind: "set-root-visibility",
+              rootIndex: 0,
+              formId: "0x402",
+              bufferId: 1,
+              bufferOffset: 0x100,
+              expected: 0,
+              replacement: 1,
+              description: "Show root FormSet Advanced",
+            },
+          ],
+        }),
+        { setupSct: "", amitseSct: "", setupdataBin: "" },
+      ),
+    ).toThrow(/verified full-image reconstruction path/);
+  });
+
   it("moves the matching End opcode when a SuppressIf is disabled", () => {
     const data = firmwareData({
       suppressions: [condition({ active: false })],

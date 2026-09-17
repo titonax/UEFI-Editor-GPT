@@ -135,6 +135,12 @@ export function buildFirmwarePatches(
   data: Data,
   sources: PatchSources,
 ): PatchedFirmware {
+  if ((data.rootVisibilityEdits?.length ?? 0) > 0) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "Root visibility changes require the verified full-image reconstruction path and cannot be exported as extracted UEFI files.",
+    );
+  }
   const structuralBytes = replayIfrEdits(data, sources.setupSct);
   const structuralHex = bytesToHex(structuralBytes);
   const structuralLog = (data.ifrEdits ?? [])
