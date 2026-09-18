@@ -4,6 +4,98 @@ import { inspectSingleFormSetNavigation } from "./singleFormSetNavigation";
 import type { Menu } from "./types";
 
 describe("single-FormSet IFR navigation", () => {
+  it("keeps same-hub constant-suppressed tabs in IFR order without AMITSE", () => {
+    const formSetGuid = "7B59104A-C00D-4158-87FF-F04D6396A915";
+    const suppressionOffset = "0x2A709";
+    const hub = form({
+      name: "Setup",
+      formId: "0x2710",
+      formSetGuid,
+      children: [
+        prompt({
+          type: "Ref",
+          name: "Main",
+          formId: "0x271B",
+          ifrOffset: "0x2A6FA",
+          pageId: null,
+        }),
+        prompt({
+          type: "Ref",
+          name: "Advanced",
+          formId: "0x271C",
+          ifrOffset: "0x2A70D",
+          conditions: [suppressionOffset],
+          suppressIf: [suppressionOffset],
+          pageId: null,
+        }),
+        prompt({
+          type: "Ref",
+          name: "Boot",
+          formId: "0x271F",
+          ifrOffset: "0x2A75D",
+          pageId: null,
+        }),
+      ],
+    });
+    const forms = [
+      hub,
+      form({ name: "Main", formId: "0x271B", formSetGuid }),
+      form({ name: "Advanced", formId: "0x271C", formSetGuid }),
+      form({ name: "Boot", formId: "0x271F", formSetGuid }),
+    ];
+
+    const report = inspectSingleFormSetNavigation(
+      [
+        {
+          name: "Setup",
+          formId: hub.formId,
+          formSetGuid,
+          offset: null,
+          source: "formset",
+        },
+      ],
+      forms,
+      [],
+      undefined,
+      [
+        {
+          offset: suppressionOffset,
+          start: "0x2A70D",
+          end: "0x2A71C",
+          active: true,
+          kind: "SuppressIf",
+          expression: "True",
+          constant: true,
+          source: "constant",
+          formSetGuid,
+        },
+      ],
+    );
+
+    expect(report).toMatchObject({
+      status: "detected",
+      confidence: "ifr-only",
+      hubFormId: "0x2710",
+    });
+    expect(
+      report.pages.map((page) => ({
+        formId: page.formId,
+        role: page.role,
+        registeredInAmitse: page.registeredInAmitse,
+      })),
+    ).toEqual([
+      { formId: "0x2710", role: "hub", registeredInAmitse: false },
+      { formId: "0x271B", role: "direct-tab", registeredInAmitse: false },
+      { formId: "0x271C", role: "suppressed-tab", registeredInAmitse: false },
+      { formId: "0x271F", role: "direct-tab", registeredInAmitse: false },
+    ]);
+    expect(report.pages[2]).toMatchObject({
+      ifrReferenceOffset: "0x2A70D",
+      suppressionOffset,
+      parentFormIds: ["0x2710"],
+    });
+  });
+
   it("reproduces the supplied ROG STRIX Z390-E tab graph", () => {
     const formSetGuid = "7B59104A-C00D-4158-87FF-F04D6396A915";
     const tabs = [
