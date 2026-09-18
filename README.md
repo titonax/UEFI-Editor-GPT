@@ -26,7 +26,7 @@ a parallel demo application.
   registered-only pages.
 - Gives single-FormSet tabs separate **Hide**, **Show** and **Move** actions.
   Hide/Show parks or restores the existing Ref through a proven constant-true
-  `SuppressIf` scope without changing the HII size.
+  `SuppressIf` scope without changing the HII size or its remembered tab position.
 - Provides a resizable menu-tree pane with remembered width and full labels for
   wide or deeply nested HII hierarchies.
 - Records binary IFR opcode offsets, lengths, nested scopes and owning

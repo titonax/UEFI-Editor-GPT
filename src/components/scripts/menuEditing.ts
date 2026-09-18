@@ -364,6 +364,7 @@ interface PlannedTabVisibilityMove {
   destinationFormIndex: number;
   referenceSpan: IfrOpcodeSpan;
   destinationContainer: IfrOpcodeSpan;
+  destinationChildIndex?: number;
   move: IfrReferenceMove;
   suppressionOffset?: string;
 }
@@ -523,6 +524,47 @@ function planTopLevelTabVisibility(
         "The hidden Ref and navigation hub are not in the same Forms Package.",
       );
     }
+    const hiddenPageIndex = navigation.pages.findIndex(
+      (page) =>
+        parsedId(page.formId, "Navigation page") ===
+          parsedId(reference.formId, "Reference target FormId") &&
+        sameGuid(
+          page.formSetGuid,
+          reference.targetFormSetGuid ?? sourceForm.formSetGuid,
+        ),
+    );
+    const nextDirectPage =
+      hiddenPageIndex < 0
+        ? undefined
+        : navigation.pages
+            .slice(hiddenPageIndex + 1)
+            .find((page) => page.role === "direct-tab");
+    let destinationChildIndex: number | undefined;
+    let destinationBefore: IfrOpcodeSpan | undefined;
+    if (nextDirectPage) {
+      destinationChildIndex = destinationForm.children.findIndex(
+        (child) =>
+          child.type === "Ref" &&
+          parsedId(child.formId, "Reference target FormId") ===
+            parsedId(nextDirectPage.formId, "Navigation page") &&
+          sameGuid(
+            child.targetFormSetGuid ?? destinationForm.formSetGuid,
+            nextDirectPage.formSetGuid,
+          ),
+      );
+      const anchor = destinationForm.children[destinationChildIndex];
+      if (destinationChildIndex < 0 || anchor?.type !== "Ref") {
+        throw new FirmwareError(
+          "PATCH_FAILED",
+          "The original tab position could not be matched to the navigation hub.",
+        );
+      }
+      destinationBefore = findReferenceSpan(
+        sourcePackage,
+        destinationContainer,
+        anchor,
+      );
+    }
     return {
       sourceForm,
       destinationForm,
@@ -530,11 +572,13 @@ function planTopLevelTabVisibility(
       destinationFormIndex,
       referenceSpan,
       destinationContainer,
+      destinationChildIndex,
       move: planIfrReferenceScopeMove(
         currentBytes,
         referenceSpan,
         sourceContainer,
         destinationContainer,
+        destinationBefore,
       ),
     };
   }
@@ -740,7 +784,12 @@ export async function toggleTopLevelTabVisibility(
     movedReference.conditions = [suppressionOffset];
     movedReference.suppressIf = [suppressionOffset];
   }
-  next.forms[planned.destinationFormIndex].children.push(movedReference);
+  const destinationChildren = next.forms[planned.destinationFormIndex].children;
+  destinationChildren.splice(
+    planned.destinationChildIndex ?? destinationChildren.length,
+    0,
+    movedReference,
+  );
   next.ifrEdits = [...(next.ifrEdits ?? []), move];
   rebuildIncomingReferences(next);
   next.ifrBinary = analyzeIfrBinary(moved.bytes);

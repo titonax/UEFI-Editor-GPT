@@ -343,6 +343,36 @@ function registrationsFromReport(
   );
 }
 
+function preserveKnownPageOrder(
+  report: AmiSingleFormSetNavigationReport,
+  evidence: AmiSingleFormSetNavigationReport,
+) {
+  if (report.status !== "detected" || evidence.status !== "detected") return;
+  const previousOrder = new Map(
+    evidence.pages.map((page, index) => [
+      formKey(page.formId, page.formSetGuid),
+      index,
+    ]),
+  );
+  report.pages = report.pages
+    .map((page, naturalIndex) => ({ page, naturalIndex }))
+    .sort((left, right) => {
+      const leftOrder = previousOrder.get(
+        formKey(left.page.formId, left.page.formSetGuid),
+      );
+      const rightOrder = previousOrder.get(
+        formKey(right.page.formId, right.page.formSetGuid),
+      );
+      if (leftOrder !== undefined && rightOrder !== undefined) {
+        return leftOrder - rightOrder;
+      }
+      if (leftOrder !== undefined) return -1;
+      if (rightOrder !== undefined) return 1;
+      return left.naturalIndex - right.naturalIndex;
+    })
+    .map(({ page }) => page);
+}
+
 export function refreshSingleFormSetNavigation(
   data: Data,
   evidence: AmiSingleFormSetNavigationReport | undefined = data.singleFormSetNavigation,
@@ -368,6 +398,7 @@ export function refreshSingleFormSetNavigation(
     evidence.status === "detected" ? evidence.hubFormId : undefined,
     data.suppressions,
   );
+  preserveKnownPageOrder(report, evidence);
   data.singleFormSetNavigation = report;
   const menu = singleFormSetHubMenu(report);
   if (menu.length > 0) data.menu = menu;
