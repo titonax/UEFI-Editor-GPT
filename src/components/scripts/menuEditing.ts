@@ -433,10 +433,7 @@ function directTrueSuppressionHost(
   const expression = pkg.opcodes.find(
     (span) => span.parentOffset === condition.offset && span.offset === condition.end,
   );
-  const containsReference = pkg.opcodes.some(
-    (span) => span.opcode === IFR_OPCODE.REF && span.parentOffset === condition.offset,
-  );
-  return expression?.opcode === IFR_OPCODE.TRUE && containsReference;
+  return expression?.opcode === IFR_OPCODE.TRUE;
 }
 
 function planTopLevelTabVisibility(
@@ -506,7 +503,11 @@ function planTopLevelTabVisibility(
       );
     }
     const duplicate = destinationForm.children.some(
-      (child) =>
+      (child, childIndex) =>
+        !(
+          destinationFormIndex === request.sourceFormIndex &&
+          childIndex === request.referenceChildIndex
+        ) &&
         child.type === "Ref" &&
         targetIndexForReference(data, destinationForm, child) ===
           targetIndexForReference(data, sourceForm, reference),
@@ -615,11 +616,7 @@ function planTopLevelTabVisibility(
       conditionSpan.ownerFormSetGuid,
     );
     const destinationForm = data.forms[destinationFormIndex];
-    if (
-      !destinationForm ||
-      destinationFormIndex === targetIndex ||
-      destinationFormIndex === request.sourceFormIndex
-    ) {
+    if (!destinationForm || destinationFormIndex === targetIndex) {
       return [];
     }
     const destinationFormSpan = findFormSpan(
@@ -631,7 +628,11 @@ function planTopLevelTabVisibility(
       return [];
     }
     const duplicate = destinationForm.children.some(
-      (child) =>
+      (child, childIndex) =>
+        !(
+          destinationFormIndex === request.sourceFormIndex &&
+          childIndex === request.referenceChildIndex
+        ) &&
         child.type === "Ref" &&
         targetIndexForReference(data, destinationForm, child) === targetIndex,
     );
@@ -652,7 +653,7 @@ function planTopLevelTabVisibility(
   if (!host) {
     throw new FirmwareError(
       "PATCH_FAILED",
-      "No existing constant-true SuppressIf scope used for hidden Refs is available in this Forms Package.",
+      "No existing direct constant-true SuppressIf scope is available in this Forms Package.",
     );
   }
 
@@ -785,8 +786,14 @@ export async function toggleTopLevelTabVisibility(
     movedReference.suppressIf = [suppressionOffset];
   }
   const destinationChildren = next.forms[planned.destinationFormIndex].children;
+  const destinationChildIndex =
+    planned.destinationChildIndex !== undefined &&
+    planned.destinationFormIndex === request.sourceFormIndex &&
+    request.referenceChildIndex < planned.destinationChildIndex
+      ? planned.destinationChildIndex - 1
+      : planned.destinationChildIndex;
   destinationChildren.splice(
-    planned.destinationChildIndex ?? destinationChildren.length,
+    destinationChildIndex ?? destinationChildren.length,
     0,
     movedReference,
   );

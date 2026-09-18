@@ -86,8 +86,10 @@ display dialogs, mutate the DOM or reload the page.
 - Aptio IV and generation-unresolved binary export remain disabled while their
   write/reinsertion paths are not proven safe.
 - Runtime/HW classification is evidence, not proof of the current machine state.
-- In a single-FormSet hub layout, only direct hub Refs are classified as tabs.
-  AMITSE registration alone never creates a navigation root.
+- In a single-FormSet hub layout, direct hub Refs and hub Refs inside proven
+  constant-true `SuppressIf` scopes are classified in physical IFR order.
+  AMITSE registration alone never creates a navigation root and is not required
+  to retain a structurally suppressed hub tab.
 
 ## Versioning
 

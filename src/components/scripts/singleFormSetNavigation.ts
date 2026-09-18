@@ -257,12 +257,36 @@ export function inspectSingleFormSetNavigation(
   };
 
   appendPage(hub, "hub", hub.name || root.name);
-  for (const { reference, matches } of directTargets) {
+  for (const reference of references(hub)) {
+    const targetGuid = reference.targetFormSetGuid ?? hub.formSetGuid;
+    if (!sameGuid(targetGuid, formSetGuid)) continue;
+    const direct = directTargets.find((target) => target.reference === reference);
+    if (direct) {
+      appendPage(
+        direct.matches[0],
+        "direct-tab",
+        reference.name || direct.matches[0].name,
+        reference.ifrOffset,
+      );
+      continue;
+    }
+
+    const matches = matchingForms(forms, reference.formId, formSetGuid);
+    if (matches.length !== 1) continue;
+    const key = formKey(matches[0].formId, formSetGuid);
+    if (directKeySet.has(key)) continue;
+    const suppressed = (suppressedReferences.get(key) ?? []).filter(({ owner }) =>
+      formMatches(owner, hub.formId, formSetGuid),
+    );
+    const current = suppressed.find((entry) => entry.reference === reference);
+    if (!current || suppressed.length !== 1) continue;
     appendPage(
       matches[0],
-      "direct-tab",
+      "suppressed-tab",
       reference.name || matches[0].name,
       reference.ifrOffset,
+      [hub.formId],
+      current.suppressionOffset,
     );
   }
 
@@ -305,7 +329,7 @@ export function inspectSingleFormSetNavigation(
     status: "detected",
     mechanism: "single-formset-ifr-hub",
     confidence,
-    reason: `The FormSet entry ${hub.name || hub.formId} (${hub.formId}) is the IFR navigation hub: ${String(tabs.length)} direct Ref${tabs.length === 1 ? "" : "s"} define the current top-level tabs. AMITSE corroborates ${String(corroboratedTabs)} of them${suppressedTabs > 0 ? ` and ${String(suppressedTabs)} registered page${suppressedTabs === 1 ? " is" : "s are"} inside constant-true SuppressIf scopes` : ""}; ${String(registeredNonTabs)} registered page${registeredNonTabs === 1 ? " is" : "s are"} not a current tab, and registration alone is not treated as tab visibility.`,
+    reason: `The FormSet entry ${hub.name || hub.formId} (${hub.formId}) is the IFR navigation hub: ${String(tabs.length)} direct Ref${tabs.length === 1 ? "" : "s"} define the current top-level tabs${suppressedTabs > 0 ? `, and ${String(suppressedTabs)} hub Ref${suppressedTabs === 1 ? " is" : "s are"} inside constant-true SuppressIf scopes` : ""}. AMITSE corroborates ${String(corroboratedTabs)} current tab${corroboratedTabs === 1 ? "" : "s"}; ${String(registeredNonTabs)} registered page${registeredNonTabs === 1 ? " is" : "s are"} not a current tab, and registration alone is not treated as tab visibility.`,
     formSetGuid,
     hubFormId: hub.formId,
     hubName: hub.name || root.name,

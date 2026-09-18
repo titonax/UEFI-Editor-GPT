@@ -89,21 +89,24 @@ The application reports this layout only when:
 5. direct target identities are unique;
 6. tab order comes from Ref order, never from AMITSE occurrence order.
 
-AMITSE matches are collapsed by FormSet GUID and FormId while retaining every
-registration offset. Registered pages are then labelled as the hub, a direct
-tab, a page referenced inside a constant-true `SuppressIf`, a reachable
-descendant, or registered-only. Missing or duplicate direct targets make the
-result ambiguous and disable the stronger classification.
+Constant-suppressed Refs that belong directly to the hub are classified from
+IFR and retained in their physical Ref order even when AMITSE has no matching
+registration. AMITSE matches are collapsed by FormSet GUID and FormId while
+retaining every registration offset, then used to corroborate the hub pages or
+classify reachable descendants and registered-only pages. Missing or duplicate
+direct targets make the result ambiguous and disable the stronger
+classification.
 
 ## Editing boundary
 
 This layout needs no new FormSet and no guessed visibility byte. Three distinct
 operations are exposed:
 
-- **Hide** moves the existing hub `Ref` into an existing, constant-true
-  `SuppressIf` scope that already contains hidden `Ref` statements. The
-  destination expression, scope boundaries, owner Form and original bytes must
-  all be proven before the button is enabled.
+- **Hide** moves the existing hub `Ref` into an existing, direct constant-true
+  `SuppressIf` scope. That scope may be in the hub itself or another Form and
+  may become empty after its last hidden Ref is shown. The destination
+  expression, scope boundaries, owner Form and original bytes must all be
+  proven before the button is enabled.
 - **Show** returns that same suppressed `Ref` directly to the proven hub, before
   its original next tab when that ordering anchor still exists.
 - **Move** relocates the `Ref` under another existing Form and keeps the page
@@ -130,3 +133,8 @@ The PRIME Z370-P sample was exercised end-to-end by hiding its final `Exit`
 tab and showing it again. Both intermediate streams reparsed without
 diagnostics, remained exactly 1,457,088 bytes, and the final HII byte stream
 matched the original byte-for-byte.
+
+The FNCML357 sample has no matching AMITSE page registrations, but its hub IFR
+contains nine direct tabs and four interleaved constant-suppressed tabs. The
+structural inventory exposes all nine **Hide** actions and all four **Show**
+actions without treating the absent AMITSE evidence as a blocker.

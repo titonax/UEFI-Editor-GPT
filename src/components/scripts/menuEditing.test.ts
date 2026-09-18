@@ -413,6 +413,200 @@ function tabVisibilityFixture() {
   return { bytes, data };
 }
 
+function sameHubTabVisibilityFixture() {
+  const opcodes = [
+    ...formSetOpcode(1),
+    ...formOpcode(1),
+    ...refOpcode(3, 0x10),
+    IFR_OPCODE.SUPPRESS_IF,
+    0x82,
+    IFR_OPCODE.TRUE,
+    2,
+    ...refOpcode(4, 0x20),
+    ...end,
+    ...refOpcode(5, 0x11),
+    ...end,
+    ...formOpcode(3),
+    0x03,
+    2,
+    ...end,
+    ...formOpcode(4),
+    0x03,
+    2,
+    ...end,
+    ...formOpcode(5),
+    0x03,
+    2,
+    ...end,
+    ...end,
+  ];
+  const bytes = new Uint8Array(formsPackage(opcodes));
+  const model = analyzeIfrBinary(bytes);
+  const spans = model.packages[0].opcodes;
+  const formSpans = (formId: number) =>
+    spans.find((span) => span.opcode === IFR_OPCODE.FORM && span.formId === formId);
+  const refs = spans.filter((span) => span.opcode === IFR_OPCODE.REF);
+  const suppression = spans.find((span) => span.opcode === IFR_OPCODE.SUPPRESS_IF);
+  const hubSpan = formSpans(1);
+  const mainSpan = formSpans(3);
+  const advancedSpan = formSpans(4);
+  const bootSpan = formSpans(5);
+  if (
+    !hubSpan ||
+    !mainSpan ||
+    !advancedSpan ||
+    !bootSpan ||
+    !suppression ||
+    refs.length !== 3 ||
+    suppression.matchingEndOffset === null
+  ) {
+    throw new Error("Expected the same-hub tab fixture to parse.");
+  }
+  const offset = (value: number) => `0x${value.toString(16)}`;
+  const data = firmwareData({
+    menu: [
+      {
+        name: "Setup",
+        formId: "0x1",
+        formSetGuid: formSetA,
+        offset: null,
+        source: "ifr-hub",
+      },
+    ],
+    formSetRoots: [
+      {
+        name: "Setup",
+        formId: "0x1",
+        formSetGuid: formSetA,
+        offset: null,
+        source: "formset",
+      },
+    ],
+    forms: [
+      form({
+        name: "Setup",
+        formId: "0x1",
+        formSetGuid: formSetA,
+        ifrOffset: offset(hubSpan.offset),
+        children: [
+          prompt({
+            type: "Ref",
+            name: "Main",
+            questionId: "0x10",
+            formId: "0x3",
+            ifrOffset: offset(refs[0].offset),
+            pageId: null,
+          }),
+          prompt({
+            type: "Ref",
+            name: "Advanced",
+            questionId: "0x20",
+            formId: "0x4",
+            ifrOffset: offset(refs[1].offset),
+            pageId: null,
+            conditions: [offset(suppression.offset)],
+            suppressIf: [offset(suppression.offset)],
+          }),
+          prompt({
+            type: "Ref",
+            name: "Boot",
+            questionId: "0x11",
+            formId: "0x5",
+            ifrOffset: offset(refs[2].offset),
+            pageId: null,
+          }),
+        ],
+      }),
+      form({
+        name: "Main",
+        formId: "0x3",
+        formSetGuid: formSetA,
+        ifrOffset: offset(mainSpan.offset),
+        referencedIn: ["0x1"],
+      }),
+      form({
+        name: "Advanced",
+        formId: "0x4",
+        formSetGuid: formSetA,
+        ifrOffset: offset(advancedSpan.offset),
+        referencedIn: ["0x1"],
+      }),
+      form({
+        name: "Boot",
+        formId: "0x5",
+        formSetGuid: formSetA,
+        ifrOffset: offset(bootSpan.offset),
+        referencedIn: ["0x1"],
+      }),
+    ],
+    suppressions: [
+      {
+        offset: offset(suppression.offset),
+        start: offset(suppression.end + 2),
+        end: offset(suppression.matchingEndOffset),
+        active: true,
+        kind: "SuppressIf",
+        expression: "True",
+        constant: true,
+        source: "constant",
+        formSetGuid: formSetA,
+      },
+    ],
+    singleFormSetNavigation: {
+      status: "detected",
+      mechanism: "single-formset-ifr-hub",
+      confidence: "ifr-only",
+      reason: "same-hub fixture",
+      formSetGuid: formSetA,
+      hubFormId: "0x1",
+      hubName: "Setup",
+      pages: [
+        {
+          name: "Setup",
+          formId: "0x1",
+          formSetGuid: formSetA,
+          role: "hub",
+          registeredInAmitse: false,
+          registrationOffsets: [],
+          parentFormIds: [],
+        },
+        {
+          name: "Main",
+          formId: "0x3",
+          formSetGuid: formSetA,
+          role: "direct-tab",
+          registeredInAmitse: false,
+          registrationOffsets: [],
+          ifrReferenceOffset: offset(refs[0].offset),
+          parentFormIds: ["0x1"],
+        },
+        {
+          name: "Advanced",
+          formId: "0x4",
+          formSetGuid: formSetA,
+          role: "suppressed-tab",
+          registeredInAmitse: false,
+          registrationOffsets: [],
+          ifrReferenceOffset: offset(refs[1].offset),
+          suppressionOffset: offset(suppression.offset),
+          parentFormIds: ["0x1"],
+        },
+        {
+          name: "Boot",
+          formId: "0x5",
+          formSetGuid: formSetA,
+          role: "direct-tab",
+          registeredInAmitse: false,
+          registrationOffsets: [],
+          ifrReferenceOffset: offset(refs[2].offset),
+          parentFormIds: ["0x1"],
+        },
+      ],
+    },
+  });
+  return { bytes, data };
+}
+
 function menuData() {
   const bytes = setupPackage();
   const suppressOffset = bytes.indexOf(0x0a, 45);
@@ -461,6 +655,60 @@ function menuData() {
 }
 
 describe("HII menu reference moves", () => {
+  it("shows and re-hides a same-hub tab without AMITSE or changing IFR size", async () => {
+    const { bytes, data } = sameHubTabVisibilityFixture();
+    const originalPageOrder = data.singleFormSetNavigation?.pages.map(
+      (page) => page.formId,
+    );
+    expect(
+      analyzeTopLevelTabVisibilityToggle(data, bytesToHex(bytes), {
+        sourceFormIndex: 0,
+        referenceChildIndex: 0,
+        visible: false,
+      }),
+    ).toMatchObject({ available: true });
+    expect(
+      analyzeTopLevelTabVisibilityToggle(data, bytesToHex(bytes), {
+        sourceFormIndex: 0,
+        referenceChildIndex: 1,
+        visible: true,
+      }),
+    ).toMatchObject({ available: true });
+
+    const shown = await toggleTopLevelTabVisibility(data, bytesToHex(bytes), {
+      sourceFormIndex: 0,
+      referenceChildIndex: 1,
+      visible: true,
+    });
+    expect(shown.forms[0].children.map((child) => child.name)).toEqual([
+      "Main",
+      "Advanced",
+      "Boot",
+    ]);
+    expect(
+      shown.singleFormSetNavigation?.pages.find((page) => page.formId === "0x4"),
+    ).toMatchObject({ role: "direct-tab", registeredInAmitse: false });
+    expect(shown.singleFormSetNavigation?.pages.map((page) => page.formId)).toEqual(
+      originalPageOrder,
+    );
+    const shownBytes = replayIfrEdits(shown, bytesToHex(bytes));
+    expect(shownBytes).toHaveLength(bytes.length);
+    expect(analyzeIfrBinary(shownBytes).diagnostics).toEqual([]);
+
+    const rehidden = await toggleTopLevelTabVisibility(shown, bytesToHex(bytes), {
+      sourceFormIndex: 0,
+      referenceChildIndex: 1,
+      visible: false,
+    });
+    expect(
+      rehidden.singleFormSetNavigation?.pages.find((page) => page.formId === "0x4"),
+    ).toMatchObject({ role: "suppressed-tab", registeredInAmitse: false });
+    expect(rehidden.singleFormSetNavigation?.pages.map((page) => page.formId)).toEqual(
+      originalPageOrder,
+    );
+    expect(replayIfrEdits(rehidden, bytesToHex(bytes))).toEqual(bytes);
+  });
+
   it("hides a hub tab in an existing true SuppressIf and shows it again", async () => {
     const { bytes, data } = tabVisibilityFixture();
     const originalPageOrder = data.singleFormSetNavigation?.pages.map(
