@@ -80,6 +80,7 @@ export async function parseData(files: PopulatedFiles): Promise<Data> {
     formSetMetadata: parsedIfr.formSetMetadata,
     formSetRoots: parsedIfr.formSetRoots,
     forms: parsedIfr.forms,
+    suppressions: parsedIfr.suppressions,
   });
   const rootVisibility = files.firmwareSource
     ? inspectAmiRootVisibility(

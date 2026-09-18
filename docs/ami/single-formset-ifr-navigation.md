@@ -91,16 +91,26 @@ The application reports this layout only when:
 
 AMITSE matches are collapsed by FormSet GUID and FormId while retaining every
 registration offset. Registered pages are then labelled as the hub, a direct
-tab, a reachable descendant, or registered-only. Missing or duplicate direct
-targets make the result ambiguous and disable the stronger classification.
+tab, a page referenced inside a constant-true `SuppressIf`, a reachable
+descendant, or registered-only. Missing or duplicate direct targets make the
+result ambiguous and disable the stronger classification.
 
 ## Editing boundary
 
-This layout needs no new FormSet and no guessed visibility byte. A page is
-promoted by moving its existing direct `Ref` to the proven hub; a current tab is
-demoted by moving its hub `Ref` under another existing Form. The existing
-fixed-size IFR move planner remains responsible for scope, duplicate, cycle,
-package-boundary and byte-precondition checks.
+This layout needs no new FormSet and no guessed visibility byte. Three distinct
+operations are exposed:
+
+- **Hide** moves the existing hub `Ref` into an existing, constant-true
+  `SuppressIf` scope that already contains hidden `Ref` statements. The
+  destination expression, scope boundaries, owner Form and original bytes must
+  all be proven before the button is enabled.
+- **Show** returns that same suppressed `Ref` directly to the proven hub.
+- **Move** relocates the `Ref` under another existing Form and keeps the page
+  reachable there.
+
+All three are fixed-size structural moves. They neither add opcodes nor change
+the HII byte length. The move planner remains responsible for scope,
+duplicate, package-boundary and byte-precondition checks.
 
 After every pending move the application rebuilds graph parentage and
 recomputes the tab inventory. AMITSE registration is preserved as evidence and
@@ -108,8 +118,13 @@ is not rewritten merely because IFR parentage changed. Full-image reinsertion
 remains blocked until the enclosing PE/FFS/compression path can be rebuilt and
 independently re-extracted.
 
-The inventory exposes this distinction directly: a current direct tab can be
-relocated away from the hub, and a uniquely referenced descendant can be moved
-back to the hub. An AMITSE-only registration stays disabled when no unique IFR
-Ref exists; the application will not invent an opcode merely to make that page
-movable.
+The inventory exposes this distinction directly: a current direct tab has
+separate **Hide** and **Move…** buttons; a proven suppressed page has a
+**Show** button; and a uniquely referenced descendant can be promoted or moved.
+An AMITSE-only registration stays disabled when no unique IFR Ref exists; the
+application will not invent an opcode merely to make that page editable.
+
+The PRIME Z370-P sample was exercised end-to-end by hiding its final `Exit`
+tab and showing it again. Both intermediate streams reparsed without
+diagnostics, remained exactly 1,457,088 bytes, and the final HII byte stream
+matched the original byte-for-byte.

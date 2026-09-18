@@ -204,10 +204,15 @@ describe("root visibility controls", () => {
     expect(screen.getByText("Current top-level tab")).toBeInTheDocument();
     expect(screen.getByText("Registered descendant")).toBeInTheDocument();
     expect(screen.getAllByText("IFR navigation hub").length).toBeGreaterThan(0);
-    const hideMain = screen.getByRole("button", {
-      name: "Hide or relocate Main top-level tab",
+    expect(
+      screen.getByRole("button", {
+        name: "Hide Main top-level tab",
+      }),
+    ).toBeDisabled();
+    const moveMain = screen.getByRole("button", {
+      name: "Move Main top-level tab",
     });
-    expect(hideMain).toBeEnabled();
+    expect(moveMain).toBeEnabled();
     expect(
       screen.getByRole("button", {
         name: "Promote or relocate Security as top-level tab",

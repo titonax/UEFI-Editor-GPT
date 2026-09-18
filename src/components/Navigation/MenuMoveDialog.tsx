@@ -115,13 +115,13 @@ export default function MenuMoveDialog({
     selectedCompatibility?.compatibility.startsWith("safe-") ?? false;
   const title =
     intent === "demote-tab"
-      ? "Hide or relocate top-level tab"
+      ? "Move top-level tab"
       : intent === "promote-tab"
         ? "Promote or relocate HII menu"
         : "Move HII menu";
   const actionLabel =
     intent === "demote-tab"
-      ? "Remove from top level"
+      ? "Move tab"
       : intent === "promote-tab"
         ? "Apply placement"
         : "Move menu";
@@ -193,10 +193,9 @@ export default function MenuMoveDialog({
         </Text>
 
         {intent === "demote-tab" && (
-          <Alert color="yellow" title="Top-level tab removal">
-            Select its new existing parent. Moving the Ref away from the proven Setup
-            hub removes this page from the top-level tabs; the page remains reachable
-            wherever it is placed.
+          <Alert color="blue" title="Top-level tab move">
+            Select its new existing parent. This is distinct from Hide: the page will
+            remain reachable wherever its Ref is placed.
           </Alert>
         )}
 

@@ -10,9 +10,11 @@ import { FirmwareError } from "./errors";
 
 export const IFR_OPCODE = {
   FORM: 0x01,
+  SUPPRESS_IF: 0x0a,
   FORM_SET: 0x0e,
   REF: 0x0f,
   END: 0x29,
+  TRUE: 0x46,
 } as const;
 
 const HII_PACKAGE_FORMS = 0x02;

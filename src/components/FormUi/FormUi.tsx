@@ -40,6 +40,11 @@ import {
   desiredAmiRootVisibility,
   toggleAmiRootVisibility,
 } from "../scripts/amiRootVisibilityEditing";
+import {
+  analyzeTopLevelTabVisibilityToggle,
+  toggleTopLevelTabVisibility,
+} from "../scripts/menuEditing";
+import { errorMessage } from "../scripts/errors";
 
 const conditionSourceMeta: Record<
   ConditionSource,
@@ -318,6 +323,7 @@ function RootVisibilityAnalysis({
 const singleFormSetRoleMeta = {
   hub: { label: "IFR navigation hub", color: "blue" },
   "direct-tab": { label: "Current top-level tab", color: "green" },
+  "suppressed-tab": { label: "Suppressed top-level page", color: "red" },
   descendant: { label: "Registered descendant", color: "violet" },
   "registered-only": { label: "Registered only", color: "gray" },
 } as const;
@@ -326,13 +332,19 @@ function SingleFormSetNavigationAnalysis({
   data,
   tree,
   canEdit,
+  originalSetupSct,
+  setData,
   onMovePage,
 }: {
   data: Data;
   tree: MenuTree;
   canEdit: boolean;
+  originalSetupSct?: string;
+  setData: Updater<Data>;
   onMovePage: (page: AmiSingleFormSetPage, node: MenuTreeNode) => void;
 }) {
+  const [visibilityBusy, setVisibilityBusy] = React.useState("");
+  const [visibilityError, setVisibilityError] = React.useState("");
   const report = data.singleFormSetNavigation;
   if (!report || report.status === "not-applicable") return null;
   if (report.status !== "detected") {
@@ -385,6 +397,24 @@ function SingleFormSetNavigationAnalysis({
               const role = singleFormSetRoleMeta[page.role];
               const movableNode = movableNodeForSingleFormSetPage(data, tree, page);
               const disabled = !canEdit || movableNode === undefined;
+              const visibilityRequest =
+                movableNode?.parentFormIndex !== undefined &&
+                movableNode.referenceChildIndex !== undefined &&
+                (page.role === "direct-tab" || page.role === "suppressed-tab")
+                  ? {
+                      sourceFormIndex: movableNode.parentFormIndex,
+                      referenceChildIndex: movableNode.referenceChildIndex,
+                      visible: page.role === "suppressed-tab",
+                    }
+                  : undefined;
+              const visibilityAvailability =
+                originalSetupSct !== undefined && visibilityRequest
+                  ? analyzeTopLevelTabVisibilityToggle(
+                      data,
+                      originalSetupSct,
+                      visibilityRequest,
+                    )
+                  : undefined;
               const control =
                 page.role === "hub"
                   ? {
@@ -395,24 +425,31 @@ function SingleFormSetNavigationAnalysis({
                     }
                   : page.role === "direct-tab"
                     ? {
-                        label: "Visible tab · hide/move",
+                        label: "Move…",
                         color: "green",
                         explanation:
-                          "Move this existing Ref away from the Setup hub to remove it from the top-level tabs.",
+                          "Move this existing Ref from the Setup hub to another existing Form.",
                       }
-                    : page.role === "descendant"
+                    : page.role === "suppressed-tab"
                       ? {
-                          label: "Not a tab · promote/move",
-                          color: "violet",
+                          label: "Hidden by SuppressIf",
+                          color: "red",
                           explanation:
-                            "Move this existing Ref to the Setup hub to make it a top-level tab, or choose another proven parent.",
+                            "This registered page has a Ref inside a constant-true SuppressIf scope.",
                         }
-                      : {
-                          label: "No IFR Ref",
-                          color: "gray",
-                          explanation:
-                            "AMITSE registers this page, but no unique existing IFR Ref is available to move safely.",
-                        };
+                      : page.role === "descendant"
+                        ? {
+                            label: "Not a tab · promote/move",
+                            color: "violet",
+                            explanation:
+                              "Move this existing Ref to the Setup hub to make it a top-level tab, or choose another proven parent.",
+                          }
+                        : {
+                            label: "No IFR Ref",
+                            color: "gray",
+                            explanation:
+                              "AMITSE registers this page, but no unique existing IFR Ref is available to move safely.",
+                          };
               return (
                 <Table.Tr key={`${page.formSetGuid}:${page.formId}`}>
                   <Table.Td>{page.name}</Table.Td>
@@ -444,46 +481,104 @@ function SingleFormSetNavigationAnalysis({
                     )}
                   </Table.Td>
                   <Table.Td>
-                    <Tooltip
-                      label={
-                        !canEdit
-                          ? "The original Setup binary is required to validate and apply a fixed-size Ref move."
-                          : control.explanation
-                      }
-                      multiline
-                      w={340}
-                    >
-                      <Button
-                        size="compact-xs"
-                        color={control.color}
-                        variant={page.role === "direct-tab" ? "filled" : "light"}
-                        disabled={page.role === "hub" || disabled}
-                        aria-label={
-                          page.role === "direct-tab"
-                            ? `Hide or relocate ${page.name} top-level tab`
-                            : page.role === "descendant"
-                              ? `Promote or relocate ${page.name} as top-level tab`
-                              : control.label
-                        }
-                        onClick={() => {
-                          if (movableNode) onMovePage(page, movableNode);
-                        }}
-                      >
-                        {control.label}
-                      </Button>
-                    </Tooltip>
+                    <Group gap={5} wrap="nowrap">
+                      {(page.role === "direct-tab" ||
+                        page.role === "suppressed-tab") && (
+                        <Tooltip
+                          label={
+                            !canEdit
+                              ? "The original Setup binary is required."
+                              : (visibilityAvailability?.reason ??
+                                "The visibility edit is unavailable.")
+                          }
+                          multiline
+                          w={360}
+                        >
+                          <Button
+                            size="compact-xs"
+                            color={page.role === "direct-tab" ? "red" : "green"}
+                            variant="filled"
+                            disabled={disabled || !visibilityAvailability?.available}
+                            loading={
+                              visibilityBusy === `${page.formSetGuid}:${page.formId}`
+                            }
+                            aria-label={
+                              page.role === "direct-tab"
+                                ? `Hide ${page.name} top-level tab`
+                                : `Show ${page.name} as top-level tab`
+                            }
+                            onClick={() => {
+                              if (!visibilityRequest || !originalSetupSct) return;
+                              const key = `${page.formSetGuid}:${page.formId}`;
+                              setVisibilityBusy(key);
+                              setVisibilityError("");
+                              void toggleTopLevelTabVisibility(
+                                data,
+                                originalSetupSct,
+                                visibilityRequest,
+                              )
+                                .then((next) => {
+                                  setData(next);
+                                })
+                                .catch((reason: unknown) => {
+                                  setVisibilityError(errorMessage(reason));
+                                })
+                                .finally(() => {
+                                  setVisibilityBusy("");
+                                });
+                            }}
+                          >
+                            {page.role === "direct-tab" ? "Hide" : "Show"}
+                          </Button>
+                        </Tooltip>
+                      )}
+                      {page.role !== "suppressed-tab" && (
+                        <Tooltip
+                          label={
+                            !canEdit
+                              ? "The original Setup binary is required to validate and apply a fixed-size Ref move."
+                              : control.explanation
+                          }
+                          multiline
+                          w={340}
+                        >
+                          <Button
+                            size="compact-xs"
+                            color={control.color}
+                            variant="light"
+                            disabled={page.role === "hub" || disabled}
+                            aria-label={
+                              page.role === "direct-tab"
+                                ? `Move ${page.name} top-level tab`
+                                : page.role === "descendant"
+                                  ? `Promote or relocate ${page.name} as top-level tab`
+                                  : control.label
+                            }
+                            onClick={() => {
+                              if (movableNode) onMovePage(page, movableNode);
+                            }}
+                          >
+                            {control.label}
+                          </Button>
+                        </Tooltip>
+                      )}
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               );
             })}
           </Table.Tbody>
         </Table>
+        {visibilityError && (
+          <Alert color="red" title="The tab visibility could not be changed">
+            {visibilityError}
+          </Alert>
+        )}
         <Text size="xs" c="dimmed">
-          Here, “visible as a tab” is structural. Use Visible tab · hide/move to
-          relocate a direct hub Ref under another existing Form, or Not a tab ·
-          promote/move to return an existing descendant Ref to the hub. The tree and
-          this inventory update from the pending IFR graph. No FormSet or new menu is
-          created, and AMITSE registration by itself never promotes a page.
+          Hide parks the existing hub Ref inside a proven constant-true SuppressIf; Show
+          returns that same Ref to the hub. Move keeps the page reachable under another
+          existing Form. All three operations preserve the HII byte length; no FormSet
+          or new menu is created.
         </Text>
       </Stack>
     </Alert>
@@ -911,6 +1006,8 @@ export default function FormUi({
           data={data}
           tree={semanticTree}
           canEdit={originalSetupSct !== undefined}
+          originalSetupSct={originalSetupSct}
+          setData={setData}
           onMovePage={(page, node) => {
             setMenuMove({
               node,

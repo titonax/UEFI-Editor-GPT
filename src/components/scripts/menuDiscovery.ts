@@ -4,7 +4,12 @@ import {
   inspectSingleFormSetNavigation,
   singleFormSetHubMenu,
 } from "./singleFormSetNavigation";
-import type { AmiSingleFormSetNavigationReport, Forms, Menu } from "./types";
+import type {
+  AmiSingleFormSetNavigationReport,
+  Forms,
+  Menu,
+  Suppression,
+} from "./types";
 
 export interface FormSetMetadata {
   guid: string;
@@ -18,6 +23,7 @@ export interface MenuDiscoveryInput {
   formSetMetadata: Map<string, FormSetMetadata>;
   formSetRoots: Menu;
   forms: Forms;
+  suppressions?: Suppression[];
 }
 
 export interface MenuDiscoveryResult {
@@ -72,6 +78,8 @@ export function analyzeMenuDiscovery(input: MenuDiscoveryInput): MenuDiscoveryRe
     formSetRoots,
     input.forms,
     discoveredMenu,
+    undefined,
+    input.suppressions,
   );
   const hubMenu = singleFormSetHubMenu(singleFormSetNavigation);
   if (hubMenu.length > 0) {
