@@ -1,5 +1,5 @@
 import { saveAs } from "file-saver";
-import type { PopulatedFiles } from "../FileUploads/fileModel";
+import type { PopulatedFiles } from "../firmwareFiles";
 import { FirmwareError } from "./errors";
 import {
   bytesToHex,

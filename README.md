@@ -21,7 +21,6 @@ a parallel demo application.
 - Enumerates repeated Setup/AMITSE/SetupData contexts by decoded buffer and
   firmware volume. Multi-slot images require an explicit local context choice;
   equally plausible modules are never combined by GUID alone.
-- Accepts the four extracted Aptio V artefacts used by the original editor.
 - Builds a GUID-aware `FormSet → Form → Ref target` graph, including duplicate
   FormIds, detached graphs, cycles and broken references.
 - Detects single-FormSet IFR navigation hubs, lists their direct Ref tabs in
@@ -55,7 +54,7 @@ a parallel demo application.
 
 > Full-image reinsertion/export remains disabled until deterministic
 > recompression, bottom-up rebuilding, checksum handling and independent
-> re-extraction verification are implemented. Extracted-file Aptio V export is
+> re-extraction verification are implemented. Artifact-level Aptio V export is
 > separate. Generating a BIOS that merely _looks_ valid is deliberately not.
 
 ## Usage
@@ -68,13 +67,6 @@ analysed menu tree. Shared Setup, AMITSE, NVAR and FFS structures are not treate
 as proof of Aptio IV or V; unresolved images remain clearly marked and
 full-image export stays disabled. If several coherent firmware contexts are
 present, select the intended slot before starting the HII tree.
-
-For the extracted-file workflow, provide:
-
-1. Setup HII/SCT.
-2. Verbose IFRExtractor-RS 1.6.1 output.
-3. AMITSE PE32/SCT.
-4. SetupData BIN.
 
 The tree uses these states:
 

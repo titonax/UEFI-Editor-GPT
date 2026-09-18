@@ -1,5 +1,5 @@
 import { buildMenuTree, type MenuTreeNode } from "../Navigation/menuTree";
-import type { PopulatedFiles } from "../FileUploads/fileModel";
+import type { PopulatedFiles } from "../firmwareFiles";
 import {
   inspectAmiFirmwareBytes,
   inspectAmiSetupProfile,
