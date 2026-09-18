@@ -49,6 +49,9 @@ a parallel demo application.
   reversible desired `Visible (01)` / `Hidden (00)` state. Root changes are
   saved as provenance-bound pending plans and reflected in the menu tree.
 - Exports validated `data.json` snapshots and controlled Aptio V binary patches.
+- Runs a multi-file compatibility corpus entirely in a browser Worker, analyses
+  every coherent firmware context sequentially, and exports metadata-only JSON
+  and CSV reports with per-layer results and exact edit blockers.
 
 > Full-image reinsertion/export remains disabled until deterministic
 > recompression, bottom-up rebuilding, checksum handling and independent
@@ -102,6 +105,15 @@ state remains visible beside it. Pressing the button back to the original value
 removes that pending change. These plans are included in `data.json`, but
 full-image export remains blocked until reconstruction can apply and verify them.
 
+For compatibility measurement, use **Local firmware corpus runner** on the
+landing page and select several complete images. The runner processes one image
+at a time in a Web Worker, hashes it locally, analyses every coherent Setup
+context and reports extraction, HII, navigation, editability and reconstruction
+as separate stages. Percentages therefore keep their denominators visible:
+navigation and HII edit rates are measured only among successfully extracted
+images. The JSON report preserves the detailed evidence; the CSV contains a
+flat per-image summary. Neither export contains firmware bytes.
+
 ## Development
 
 Requires Node.js 20 or newer.
@@ -149,6 +161,8 @@ unnecessarily invalidate saved editor state.
 
 See [architecture](docs/architecture.md) and
 [AMI comparison corpus](docs/ami/sample-corpus.md) for the evidence model,
+[local corpus runner](docs/ami/local-corpus-runner.md) for the report schema and
+compatibility denominators,
 [root visibility analysis](docs/ami/root-visibility-vector.md) for the
 multi-FormSet byte-vector invariants,
 [single-FormSet IFR navigation](docs/ami/single-formset-ifr-navigation.md) for
