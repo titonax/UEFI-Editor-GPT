@@ -12,6 +12,7 @@ import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
 import { IconBrandGithub } from "@tabler/icons-react";
 import BiosImageUpload from "./components/BiosImageUpload/BiosImageUpload";
+import CorpusRunner from "./components/CorpusRunner/CorpusRunner";
 import { parseData } from "./components/scripts/scripts";
 
 const emptyData: Data = {
@@ -124,6 +125,8 @@ export default function App({
               setData(parsed);
             }}
           />
+          <Divider label="Or measure a local firmware corpus" />
+          <CorpusRunner />
           <Divider label="Or load previously extracted HII artefacts" />
           <Text c="dimmed" size="sm" ta="center">
             Manual compatibility mode for existing Setup, IFR, AMITSE and SetupData

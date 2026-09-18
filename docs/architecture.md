@@ -25,6 +25,10 @@
 9. `patcher.ts` replays structural edits, validates every target and builds
    modified byte arrays.
 10. Only after a complete patch succeeds are the files offered for download.
+11. The corpus runner performs the same read-only pipeline in a dedicated Web
+    Worker. It analyses files and coherent firmware contexts sequentially, then
+    returns metadata-only reports to the UI; source firmware bytes never cross a
+    network boundary or enter a report.
 
 ## Module boundaries
 
@@ -53,6 +57,9 @@
 | `dataValidation.ts`           | Deep runtime validation of imported `data.json`               |
 | `patcher.ts`                  | Pure patch planning plus the download adapter                 |
 | `errors.ts`                   | Stable domain error codes and user-facing messages            |
+| `corpusAnalysis.ts`           | Layered local extraction, navigation and editing assessment   |
+| `corpusTypes.ts`              | Versioned corpus result and Worker message contracts          |
+| `corpusReport.ts`             | Coverage denominators plus metadata-only JSON/CSV export      |
 
 React components may orchestrate these modules, but domain modules must not
 display dialogs, mutate the DOM or reload the page.
@@ -90,6 +97,12 @@ display dialogs, mutate the DOM or reload the page.
   constant-true `SuppressIf` scopes are classified in physical IFR order.
   AMITSE registration alone never creates a navigation root and is not required
   to retain a structurally suppressed hub tab.
+- Corpus percentages retain their numerator and denominator. Extraction is
+  measured over selected files; navigation and editability are measured over
+  successfully extracted files. Full-image readiness is never inferred from a
+  complete provenance trace.
+- Corpus exports may include filenames, hashes, structural counts and diagnostic
+  text, but never source, decoded or extracted firmware bytes.
 
 ## Versioning
 
