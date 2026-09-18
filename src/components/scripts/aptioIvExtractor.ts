@@ -20,7 +20,9 @@ import {
 } from "./firmwareSections";
 import type {
   FirmwareArtifactKind,
+  FirmwareArtifactCoherence,
   FirmwareArtifactLocation,
+  FirmwareArtifactSetSummary,
   FirmwareBufferNode,
   FirmwareFileReference,
   FirmwareProvenanceGraph,
@@ -38,7 +40,13 @@ export interface AptioIvArtifacts {
   setupData?: Uint8Array;
   formPackageCount: number;
   extractionDepth: number;
+  artifactSets: FirmwareArtifactSetSummary[];
+  selectedArtifactSetId: string;
   provenance: FirmwareProvenanceGraph;
+}
+
+export interface AptioIvExtractionOptions {
+  artifactSetId?: string;
 }
 
 const decompressorModules = new Map<string, Promise<WebAssembly.Module>>();
@@ -249,7 +257,7 @@ function fileReference(file: LocatedFile): FirmwareFileReference {
 
 function findFiles(node: FirmwareBufferNode, wantedGuids: Set<string>) {
   const bytes = node.bytes;
-  const found = new Map<string, LocatedFile>();
+  const found: LocatedFile[] = [];
   for (const volumeStart of findTopLevelVolumes(bytes)) {
     const volumeEnd = volumeStart + readUint64AsNumber(bytes, volumeStart + 0x20);
     let fileStart = volumeStart + align(readUint16(bytes, volumeStart + 0x30), 8);
@@ -258,8 +266,8 @@ function findFiles(node: FirmwareBufferNode, wantedGuids: Set<string>) {
       const file = firmwareFileBounds(bytes, fileStart, volumeEnd);
       if (!file) break;
       const guid = readGuid(bytes, fileStart);
-      if (wantedGuids.has(guid) && !found.has(guid)) {
-        found.set(guid, {
+      if (wantedGuids.has(guid)) {
+        found.push({
           bufferId: node.id,
           guid,
           volumeStart,
@@ -357,20 +365,150 @@ async function locateFirmwareFiles(bytes: Uint8Array, wantedGuids: string[]) {
   const root = graph.nodes.get(0);
   if (!root) throw new FirmwareError("PARSE_FAILED", "Source image is unavailable.");
   const queue = [root];
-  const remaining = new Set(wantedGuids);
-  const located = new Map<string, LocatedFile>();
+  const wanted = new Set(wantedGuids);
+  const located = new Map(wantedGuids.map((guid) => [guid, [] as LocatedFile[]]));
   for (let index = 0; index < queue.length && index < 64; index++) {
     const current = queue[index];
-    const found = findFiles(current, remaining);
-    for (const [guid, file] of found) {
-      located.set(guid, file);
-      remaining.delete(guid);
+    const found = findFiles(current, wanted);
+    for (const file of found) {
+      located.get(file.guid)?.push(file);
     }
-    if (remaining.size === 0) break;
     const children = await nestedBuffers(graph, current);
     queue.push(...children);
   }
   return { graph, located };
+}
+
+interface CompanionMatch {
+  file?: LocatedFile;
+  coherence?: Exclude<FirmwareArtifactCoherence, "setup-only">;
+  warning?: string;
+}
+
+const coherenceRank: Record<
+  Exclude<FirmwareArtifactCoherence, "setup-only">,
+  number
+> = {
+  "same-firmware-volume": 0,
+  "same-decoded-buffer": 1,
+  "shared-encapsulation-branch": 2,
+};
+
+function bufferLineage(graph: ExtractionGraph, bufferId: number) {
+  const lineage: number[] = [];
+  const visited = new Set<number>();
+  let currentId = bufferId;
+  while (!visited.has(currentId)) {
+    visited.add(currentId);
+    lineage.push(currentId);
+    const parent = graph.nodes.get(currentId)?.parent;
+    if (!parent) break;
+    currentId = parent.parentBufferId;
+  }
+  return lineage.reverse();
+}
+
+function sharedLineageDepth(
+  graph: ExtractionGraph,
+  leftBufferId: number,
+  rightBufferId: number,
+) {
+  const left = bufferLineage(graph, leftBufferId);
+  const right = bufferLineage(graph, rightBufferId);
+  let depth = 0;
+  while (depth < left.length && depth < right.length && left[depth] === right[depth]) {
+    depth++;
+  }
+  return depth;
+}
+
+function companionRelationship(
+  graph: ExtractionGraph,
+  setup: LocatedFile,
+  candidate: LocatedFile,
+) {
+  if (
+    setup.bufferId === candidate.bufferId &&
+    setup.volumeStart === candidate.volumeStart
+  ) {
+    return {
+      coherence: "same-firmware-volume" as const,
+      sharedDepth: Number.MAX_SAFE_INTEGER,
+    };
+  }
+  if (setup.bufferId === candidate.bufferId) {
+    return {
+      coherence: "same-decoded-buffer" as const,
+      sharedDepth: Number.MAX_SAFE_INTEGER,
+    };
+  }
+  return {
+    coherence: "shared-encapsulation-branch" as const,
+    sharedDepth: sharedLineageDepth(graph, setup.bufferId, candidate.bufferId),
+  };
+}
+
+function selectCompanion(
+  graph: ExtractionGraph,
+  setup: LocatedFile,
+  candidates: LocatedFile[],
+  label: string,
+): CompanionMatch {
+  if (candidates.length === 0) {
+    return { warning: `${label} was not found for this Setup context.` };
+  }
+  const ranked = candidates
+    .map((file) => ({ file, ...companionRelationship(graph, setup, file) }))
+    .filter(
+      (candidate) =>
+        candidate.coherence !== "shared-encapsulation-branch" ||
+        candidate.sharedDepth > 1,
+    )
+    .sort(
+      (left, right) =>
+        coherenceRank[left.coherence] - coherenceRank[right.coherence] ||
+        right.sharedDepth - left.sharedDepth,
+    );
+  if (ranked.length === 0) {
+    return {
+      warning: `${label} does not share a decoded buffer or encapsulation branch with this Setup context.`,
+    };
+  }
+  const best = ranked[0];
+  const tied = ranked.filter(
+    (candidate) =>
+      candidate.coherence === best.coherence &&
+      candidate.sharedDepth === best.sharedDepth,
+  );
+  if (tied.length !== 1) {
+    return {
+      warning: `${label} has ${String(tied.length)} equally plausible matches; none was attached across firmware contexts.`,
+    };
+  }
+  return {
+    file: best.file,
+    coherence: best.coherence,
+    warning:
+      best.coherence === "same-decoded-buffer"
+        ? `${label} is the only buffer-level match outside this Setup firmware volume; verify the selected firmware context before editing.`
+        : best.coherence === "shared-encapsulation-branch"
+          ? `${label} is the only branch-level match; verify the selected firmware context before editing.`
+          : undefined,
+  };
+}
+
+function artifactSetId(file: LocatedFile) {
+  return `buffer-${String(file.bufferId)}-fv-${file.volumeStart.toString(16)}-ffs-${file.fileStart.toString(16)}`;
+}
+
+function artifactSetCoherence(matches: CompanionMatch[]): FirmwareArtifactCoherence {
+  const relationships = matches.flatMap((match) =>
+    match.coherence ? [match.coherence] : [],
+  );
+  if (relationships.length === 0) return "setup-only";
+  return relationships.sort(
+    (left, right) => coherenceRank[right] - coherenceRank[left],
+  )[0];
 }
 
 type SectionPayloadLocator = (
@@ -485,6 +623,102 @@ async function locatePe32(
   );
 }
 
+interface LocatedArtifactSet {
+  summary: FirmwareArtifactSetSummary;
+  setup: LocatedFile;
+  hii: LocatedPayload;
+  amitse: LocatedPayload | null;
+  setupData: LocatedPayload | null;
+}
+
+async function locateArtifactSets(
+  graph: ExtractionGraph,
+  files: Map<string, LocatedFile[]>,
+) {
+  const setups = [...(files.get(setupGuid) ?? [])].sort(
+    (left, right) =>
+      left.depth - right.depth ||
+      left.bufferId - right.bufferId ||
+      left.volumeStart - right.volumeStart ||
+      left.fileStart - right.fileStart,
+  );
+  const sets: LocatedArtifactSet[] = [];
+  for (const setup of setups) {
+    const hii =
+      (await locateHii(graph, setup)) ?? (await locatePe32(graph, setup, "setup-hii"));
+    if (!hii) continue;
+
+    const amitseMatch = selectCompanion(
+      graph,
+      setup,
+      files.get(amitseGuid) ?? [],
+      "AMITSE",
+    );
+    let setupDataMatch = selectCompanion(
+      graph,
+      setup,
+      files.get(setupDataGuid) ?? [],
+      "SetupData",
+    );
+    const warnings = [amitseMatch.warning].filter((warning): warning is string =>
+      Boolean(warning),
+    );
+    const amitse = amitseMatch.file
+      ? await locatePe32(graph, amitseMatch.file, "amitse")
+      : null;
+    if (amitseMatch.file && !amitse) {
+      warnings.push("The paired AMITSE FFS does not contain a PE32 section.");
+    }
+    let setupData = setupDataMatch.file
+      ? await locateFreeformSection(graph, setupDataMatch.file, setupDataGuid)
+      : null;
+    if (!setupData && amitseMatch.file) {
+      const embedded = await locateFreeformSection(
+        graph,
+        amitseMatch.file,
+        setupDataGuid,
+      );
+      if (embedded) {
+        setupData = embedded;
+        setupDataMatch = {
+          file: amitseMatch.file,
+          coherence: amitseMatch.coherence,
+        };
+      }
+    }
+    if (setupDataMatch.warning && !setupData) warnings.push(setupDataMatch.warning);
+    if (setupDataMatch.warning && setupData) {
+      warnings.push(setupDataMatch.warning);
+    }
+    if (setupDataMatch.file && !setupData) {
+      warnings.push(
+        "The paired SetupData source does not contain the expected freeform section.",
+      );
+    }
+    const id = artifactSetId(setup);
+    const coherence = artifactSetCoherence([amitseMatch, setupDataMatch]);
+    sets.push({
+      summary: {
+        id,
+        label: "",
+        coherence,
+        setupFile: fileReference(setup),
+        amitseFile: amitse ? amitse.location.sourceFile : undefined,
+        setupDataFile: setupData ? setupData.location.sourceFile : undefined,
+        warnings,
+      },
+      setup,
+      hii,
+      amitse,
+      setupData,
+    });
+  }
+  for (const [index, set] of sets.entries()) {
+    set.summary.label = `Firmware context ${String(index + 1)} · layer ${String(set.setup.depth)} · buffer ${String(set.setup.bufferId)} · FV 0x${set.setup.volumeStart.toString(16).toUpperCase()}`;
+  }
+  return sets;
+}
+
 async function runIfrExtractor(hii: Uint8Array) {
   const directory = new Map<string, WasiFile>();
   directory.set("setup.bin", new WasiFile(hii));
@@ -566,52 +800,63 @@ function retainArtifactBranches(
 export async function extractAptioIvBytes(
   image: Uint8Array,
   extractIfr: (hii: Uint8Array) => Promise<string> = runIfrExtractor,
+  options: AptioIvExtractionOptions = {},
 ): Promise<AptioIvArtifacts> {
   const { graph, located: files } = await locateFirmwareFiles(image, [
     setupGuid,
     amitseGuid,
     setupDataGuid,
   ]);
-  const setup = files.get(setupGuid);
-  if (!setup) {
+  const setupFiles = files.get(setupGuid) ?? [];
+  if (setupFiles.length === 0) {
     throw new FirmwareError(
       "PARSE_FAILED",
       "Setup FFS was not found after recursive decompression.",
     );
   }
-  const hii =
-    (await locateHii(graph, setup)) ?? (await locatePe32(graph, setup, "setup-hii"));
-  if (!hii) {
+  const sets = await locateArtifactSets(graph, files);
+  if (sets.length === 0) {
     throw new FirmwareError(
       "PARSE_FAILED",
-      "Neither a Setup HII package nor a Setup PE32 section was found.",
+      "No Setup context contains a usable HII package or Setup PE32 section.",
     );
   }
-  const amitseFile = files.get(amitseGuid);
-  const setupDataFile = files.get(setupDataGuid);
-  const amitse = amitseFile ? await locatePe32(graph, amitseFile, "amitse") : null;
-  let setupData = setupDataFile
-    ? await locateFreeformSection(graph, setupDataFile, setupDataGuid)
-    : null;
-  if (!setupData && amitseFile) {
-    setupData = await locateFreeformSection(graph, amitseFile, setupDataGuid);
+  const selected = options.artifactSetId
+    ? sets.find((set) => set.summary.id === options.artifactSetId)
+    : sets[0];
+  if (!selected) {
+    throw new FirmwareError(
+      "INVALID_INPUT",
+      "The selected firmware context no longer exists in this image.",
+    );
   }
-  const ifrText = await extractIfr(hii.bytes);
+  const ifrText = await extractIfr(selected.hii.bytes);
   const formPackageCount = (ifrText.match(/FormSet Guid:/g) ?? []).length;
-  const locations = [hii.location, amitse?.location, setupData?.location].filter(
-    (location): location is FirmwareArtifactLocation => location !== undefined,
-  );
+  const locations = [
+    selected.hii.location,
+    selected.amitse?.location,
+    selected.setupData?.location,
+  ].filter((location): location is FirmwareArtifactLocation => location !== undefined);
   return {
-    hii: hii.bytes,
+    hii: selected.hii.bytes,
     ifrText,
-    amitse: amitse?.bytes,
-    setupData: setupData?.bytes,
+    amitse: selected.amitse?.bytes,
+    setupData: selected.setupData?.bytes,
     formPackageCount,
-    extractionDepth: setup.depth,
+    extractionDepth: selected.setup.depth,
+    artifactSets: sets.map((set) => set.summary),
+    selectedArtifactSetId: selected.summary.id,
     provenance: retainArtifactBranches(graph, locations, image.length),
   };
 }
 
-export async function extractAptioIvArtifacts(file: File): Promise<AptioIvArtifacts> {
-  return extractAptioIvBytes(new Uint8Array(await file.arrayBuffer()));
+export async function extractAptioIvArtifacts(
+  file: File,
+  options: AptioIvExtractionOptions = {},
+): Promise<AptioIvArtifacts> {
+  return extractAptioIvBytes(
+    new Uint8Array(await file.arrayBuffer()),
+    runIfrExtractor,
+    options,
+  );
 }

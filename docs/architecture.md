@@ -6,8 +6,10 @@
    artefacts. Complete images are not decompressed until the user starts HII
    analysis explicitly.
 2. The shared AMI extractor locates firmware volumes and recursively
-   decompresses encapsulated sections. IV/V is an evidence-backed profile, not
-   a prerequisite for parsing the common PI/HII structures.
+   decompresses encapsulated sections. Repeated Setup GUIDs are kept as separate
+   buffer/FV contexts and paired only with unambiguous AMITSE/SetupData evidence.
+   IV/V is an evidence-backed profile, not a prerequisite for parsing the common
+   PI/HII structures.
 3. The binary IFR parser records Forms Packages, opcode spans, nested scopes and
    source ownership without changing the source buffer.
 4. The compatibility text parser produces `Data`: FormSets, forms, prompts,
@@ -71,6 +73,9 @@ display dialogs, mutate the DOM or reload the page.
 - Binary IFR scopes must be balanced before their spans can be used for editing.
 - GUID-defined sections are opened only by a known processor, or when their PI
   attributes explicitly say that processing is not required.
+- Repeated Setup, AMITSE or SetupData GUIDs must retain decoded-buffer and FV
+  identity. Equally plausible companions are left unattached, and multiple
+  usable Setup contexts require an explicit user selection.
 - Binary patches must match their expected source bytes and may not overlap.
 - Ref moves preserve the complete Setup HII size. A cross-package move must
   prove both Forms Package boundaries and compatible Package List provenance;

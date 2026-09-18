@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import BiosImageUpload from "./BiosImageUpload";
 import type { PopulatedFiles } from "../FileUploads/fileModel";
 
@@ -57,6 +57,18 @@ function setupDataProfile() {
 }
 
 describe("complete firmware preflight", () => {
+  beforeEach(() => {
+    extractAmiFirmwareBytes.mockReset();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe = vi.fn();
+        unobserve = vi.fn();
+        disconnect = vi.fn();
+      },
+    );
+  });
+
   it("deep-scans once, reports $SPF and reuses artifacts for the HII tree", async () => {
     vi.stubGlobal(
       "matchMedia",
@@ -76,6 +88,25 @@ describe("complete firmware preflight", () => {
       setupData,
       formPackageCount: 1,
       extractionDepth: 2,
+      artifactSets: [
+        {
+          id: "buffer-0-fv-0-ffs-28",
+          label: "Firmware context 1 · layer 2 · buffer 0 · FV 0x0",
+          coherence: "same-firmware-volume",
+          setupFile: {
+            bufferId: 0,
+            guid: "899407D7-99FE-43D8-9A21-79EC328CAC21",
+            volumeStart: 0,
+            volumeEnd: 0x100,
+            fileStart: 0x28,
+            bodyStart: 0x40,
+            end: 0x100,
+            headerSize: 24,
+          },
+          warnings: [],
+        },
+      ],
+      selectedArtifactSetId: "buffer-0-fv-0-ffs-28",
       provenance: {
         rootBufferId: 0,
         sourceSize: sourceImage.length,
@@ -135,6 +166,94 @@ describe("complete firmware preflight", () => {
       expect(onExtracted).toHaveBeenCalledOnce();
     });
     expect(onExtracted.mock.calls[0][0].firmwareSource?.fileName).toBe("board.F13d");
+    expect(extractAmiFirmwareBytes).toHaveBeenCalledOnce();
+  });
+
+  it("requires an explicit slot choice when repeated Setup contexts exist", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockReturnValue({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    );
+    const hii = unifiedFormsPackage();
+    const sourceImage = validFirmwareVolumeImage();
+    const setupFile = {
+      bufferId: 0,
+      guid: "899407D7-99FE-43D8-9A21-79EC328CAC21",
+      volumeStart: 0,
+      volumeEnd: 0x100,
+      fileStart: 0x28,
+      bodyStart: 0x40,
+      end: 0x100,
+      headerSize: 24,
+    };
+    extractAmiFirmwareBytes.mockResolvedValueOnce({
+      hii,
+      ifrText: "verbose IFR",
+      formPackageCount: 1,
+      extractionDepth: 2,
+      artifactSets: [
+        {
+          id: "slot-1",
+          label: "Firmware context 1 · layer 2 · buffer 4 · FV 0x0",
+          coherence: "same-firmware-volume",
+          setupFile,
+          warnings: [],
+        },
+        {
+          id: "slot-2",
+          label: "Firmware context 2 · layer 2 · buffer 9 · FV 0x0",
+          coherence: "same-firmware-volume",
+          setupFile: { ...setupFile, bufferId: 9 },
+          warnings: [],
+        },
+      ],
+      selectedArtifactSetId: "slot-1",
+      provenance: {
+        rootBufferId: 0,
+        sourceSize: sourceImage.length,
+        buffers: [{ id: 0, bytes: sourceImage, depth: 0 }],
+        artifacts: [
+          {
+            kind: "setup-hii",
+            bufferId: 0,
+            payloadStart: 0x40,
+            payloadEnd: 0x40 + hii.length,
+            sourceFile: setupFile,
+          },
+        ],
+      },
+    });
+    const onExtracted = vi
+      .fn<(files: PopulatedFiles) => Promise<void>>()
+      .mockResolvedValue(undefined);
+    const { container } = render(
+      <MantineProvider>
+        <BiosImageUpload onExtracted={onExtracted} />
+      </MantineProvider>,
+    );
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Expected the firmware file input.");
+    const file = new File([sourceImage], "dual-slot.bin");
+    Object.defineProperty(file, "arrayBuffer", {
+      value: () => Promise.resolve(sourceImage.slice().buffer),
+    });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(
+      await screen.findByText("Multiple firmware contexts detected"),
+    ).toBeInTheDocument();
+    const start = screen.getByText("Start HII analysis").closest("button");
+    if (!start) throw new Error("Expected the Start HII analysis button.");
+    expect(start).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Firmware context / slot"), {
+      target: { value: "slot-1" },
+    });
+    await waitFor(() => expect(start).toBeEnabled());
     expect(extractAmiFirmwareBytes).toHaveBeenCalledOnce();
   });
 });

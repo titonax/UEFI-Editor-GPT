@@ -6,6 +6,7 @@ import {
   FileInput,
   Group,
   List,
+  NativeSelect,
   Progress,
   Stack,
   Table,
@@ -54,16 +55,21 @@ function toHex(bytes: Uint8Array) {
 
 export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   const operation = React.useRef(0);
+  const firmwareBytes = React.useRef<Uint8Array | null>(null);
+  const artifactCache = React.useRef(new Map<string, AmiFirmwareArtifacts>());
   const [file, setFile] = React.useState<File | null>(null);
   const [report, setReport] = React.useState<AmiFirmwareImageReport | null>(null);
   const [artifacts, setArtifacts] = React.useState<AmiFirmwareArtifacts | null>(null);
   const [profile, setProfile] = React.useState<AmiSetupProfileReport | null>(null);
+  const [selectedArtifactSetId, setSelectedArtifactSetId] = React.useState<
+    string | null
+  >(null);
   const [loading, setLoading] = React.useState(false);
   const [stage, setStage] = React.useState("");
   const [error, setError] = React.useState("");
 
   const startAnalysis = async () => {
-    if (!artifacts) return;
+    if (!artifacts || !selectedArtifactSetId) return;
     const currentOperation = operation.current;
     setLoading(true);
     setError("");
@@ -119,6 +125,9 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
     setReport(null);
     setArtifacts(null);
     setProfile(null);
+    setSelectedArtifactSetId(null);
+    firmwareBytes.current = null;
+    artifactCache.current.clear();
     setError("");
     if (!selected) return;
     if (selected.size > MAX_FIRMWARE_BYTES) {
@@ -131,6 +140,7 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
       setStage("Reading the firmware locally…");
       const image = new Uint8Array(await selected.arrayBuffer());
       if (currentOperation !== operation.current) return;
+      firmwareBytes.current = image;
 
       setStage("Validating firmware volumes and the outer container…");
       const imageReport = inspectAmiFirmwareBytes(image);
@@ -147,6 +157,45 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
       if (currentOperation !== operation.current) return;
       setArtifacts(extracted);
       setProfile(setupProfile);
+      artifactCache.current.set(extracted.selectedArtifactSetId, extracted);
+      setSelectedArtifactSetId(
+        extracted.artifactSets.length === 1 ? extracted.selectedArtifactSetId : null,
+      );
+    } catch (reason: unknown) {
+      if (currentOperation === operation.current) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      }
+    } finally {
+      if (currentOperation === operation.current) {
+        setLoading(false);
+        setStage("");
+      }
+    }
+  };
+
+  const selectArtifactSet = async (artifactSetId: string | null) => {
+    if (!artifactSetId || !firmwareBytes.current) return;
+    if (artifacts?.selectedArtifactSetId === artifactSetId) {
+      setSelectedArtifactSetId(artifactSetId);
+      return;
+    }
+    const currentOperation = operation.current;
+    setLoading(true);
+    setError("");
+    try {
+      setStage("Loading the selected firmware context…");
+      const cached = artifactCache.current.get(artifactSetId);
+      const extracted =
+        cached ??
+        (await extractAmiFirmwareBytes(firmwareBytes.current, undefined, {
+          artifactSetId,
+        }));
+      if (currentOperation !== operation.current) return;
+      const setupProfile = inspectAmiSetupProfile(extracted.hii, extracted.setupData);
+      artifactCache.current.set(artifactSetId, extracted);
+      setArtifacts(extracted);
+      setProfile(setupProfile);
+      setSelectedArtifactSetId(artifactSetId);
     } catch (reason: unknown) {
       if (currentOperation === operation.current) {
         setError(reason instanceof Error ? reason.message : String(reason));
@@ -173,6 +222,9 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   const reconstruction = artifacts
     ? assessFirmwareReconstruction(artifacts.provenance)
     : null;
+  const selectedArtifactSet = artifacts?.artifactSets.find(
+    (candidate) => candidate.id === artifacts.selectedArtifactSetId,
+  );
 
   return (
     <Stack>
@@ -303,6 +355,22 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                     </Table.Td>
                   </Table.Tr>
                   <Table.Tr>
+                    <Table.Th>Firmware contexts</Table.Th>
+                    <Table.Td>
+                      {String(artifacts.artifactSets.length)} coherent Setup set
+                      {artifacts.artifactSets.length === 1 ? "" : "s"}
+                    </Table.Td>
+                  </Table.Tr>
+                  {selectedArtifactSet && (
+                    <Table.Tr>
+                      <Table.Th>Previewed context</Table.Th>
+                      <Table.Td>
+                        {selectedArtifactSet.label} ·{" "}
+                        {coherenceLabel(selectedArtifactSet.coherence)}
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                  <Table.Tr>
                     <Table.Th>$SPF SetupData</Table.Th>
                     <Table.Td>{spfLabel(profile)}</Table.Td>
                   </Table.Tr>
@@ -346,6 +414,46 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
               is absent.
             </Alert>
           )}
+          {artifacts && artifacts.artifactSets.length > 1 && (
+            <Alert color="orange" title="Multiple firmware contexts detected">
+              <Stack gap="xs">
+                <Text size="sm">
+                  This image contains repeated AMI Setup modules in separate decoded
+                  buffers or firmware volumes. Choose the context to analyse; Setup,
+                  AMITSE and SetupData will never be mixed across equally plausible
+                  slots.
+                </Text>
+                <NativeSelect
+                  label="Firmware context / slot"
+                  data={[
+                    {
+                      value: "",
+                      label: "Choose one context",
+                      disabled: true,
+                    },
+                    ...artifacts.artifactSets.map((candidate) => ({
+                      value: candidate.id,
+                      label: candidate.label,
+                    })),
+                  ]}
+                  value={selectedArtifactSetId ?? ""}
+                  disabled={loading}
+                  onChange={(event) =>
+                    void selectArtifactSet(event.currentTarget.value || null)
+                  }
+                />
+              </Stack>
+            </Alert>
+          )}
+          {selectedArtifactSet && selectedArtifactSet.warnings.length > 0 && (
+            <Alert color="yellow" title="Firmware context caveats">
+              <List size="sm" spacing="xs">
+                {selectedArtifactSet.warnings.map((warning) => (
+                  <List.Item key={warning}>{warning}</List.Item>
+                ))}
+              </List>
+            </Alert>
+          )}
           {evidence.length > 0 && (
             <List size="sm" spacing="xs">
               {evidence.map((entry) => (
@@ -384,7 +492,9 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
           <Button
             size="lg"
             leftSection={<IconPlayerPlay />}
-            disabled={loading || !artifacts || !profile}
+            disabled={
+              loading || !artifacts || !profile || selectedArtifactSetId === null
+            }
             onClick={() => void startAnalysis()}
           >
             Start HII analysis
@@ -432,6 +542,17 @@ function compressionName(compression: "none" | "standard" | "lzma") {
   if (compression === "lzma") return "LZMA";
   if (compression === "standard") return "EFI/Tiano";
   return "uncompressed wrapper";
+}
+
+function coherenceLabel(
+  coherence: NonNullable<AmiFirmwareArtifacts["artifactSets"]>[number]["coherence"],
+) {
+  if (coherence === "same-firmware-volume") return "same firmware volume";
+  if (coherence === "same-decoded-buffer") return "same decoded buffer";
+  if (coherence === "shared-encapsulation-branch") {
+    return "shared encapsulation branch";
+  }
+  return "Setup only";
 }
 
 function containerLabel(container: FirmwareContainer) {
