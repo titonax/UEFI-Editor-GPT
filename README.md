@@ -18,6 +18,9 @@ a parallel demo application.
 - Retains the exact source-buffer, encapsulation-section and owning-FFS path for
   each extracted artefact, while keeping full-image writing disabled until every
   reconstruction invariant is available.
+- Enumerates repeated Setup/AMITSE/SetupData contexts by decoded buffer and
+  firmware volume. Multi-slot images require an explicit local context choice;
+  equally plausible modules are never combined by GUID alone.
 - Accepts the four extracted Aptio V artefacts used by the original editor.
 - Builds a GUID-aware `FormSet → Form → Ref target` graph, including duplicate
   FormIds, detached graphs, cycles and broken references.
@@ -60,7 +63,8 @@ IFRExtractor WebAssembly analysis locally, then explains its evidence and the
 captured reconstruction path. Press **Start HII analysis** to open the already
 analysed menu tree. Shared Setup, AMITSE, NVAR and FFS structures are not treated
 as proof of Aptio IV or V; unresolved images remain clearly marked and
-full-image export stays disabled.
+full-image export stays disabled. If several coherent firmware contexts are
+present, select the intended slot before starting the HII tree.
 
 For the extracted-file workflow, provide:
 
