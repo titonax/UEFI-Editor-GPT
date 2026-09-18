@@ -104,12 +104,14 @@ operations are exposed:
   `SuppressIf` scope that already contains hidden `Ref` statements. The
   destination expression, scope boundaries, owner Form and original bytes must
   all be proven before the button is enabled.
-- **Show** returns that same suppressed `Ref` directly to the proven hub.
+- **Show** returns that same suppressed `Ref` directly to the proven hub, before
+  its original next tab when that ordering anchor still exists.
 - **Move** relocates the `Ref` under another existing Form and keeps the page
   reachable there.
 
 All three are fixed-size structural moves. They neither add opcodes nor change
-the HII byte length. The move planner remains responsible for scope,
+the HII byte length. The inventory also preserves the prior page order while a
+tab is hidden, so only its state and action change in the UI. The move planner remains responsible for scope,
 duplicate, package-boundary and byte-precondition checks.
 
 After every pending move the application rebuilds graph parentage and

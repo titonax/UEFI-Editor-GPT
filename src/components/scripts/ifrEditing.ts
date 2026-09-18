@@ -144,6 +144,7 @@ export function planIfrReferenceScopeMove(
   reference: IfrOpcodeSpan,
   sourceContainer: IfrOpcodeSpan,
   destinationContainer: IfrOpcodeSpan,
+  destinationBefore?: IfrOpcodeSpan,
 ): IfrReferenceMove {
   if (reference.opcode !== IFR_OPCODE.REF || reference.scope || reference.length < 15) {
     throw new FirmwareError(
@@ -189,12 +190,29 @@ export function planIfrReferenceScopeMove(
     );
   }
 
-  const destinationOffset = destinationContainer.matchingEndOffset;
   if (
-    destinationOffset < 0 ||
-    destinationOffset + 2 > source.length ||
-    source[destinationOffset] !== IFR_OPCODE.END ||
-    (source[destinationOffset + 1] & 0x7f) !== 2
+    destinationBefore !== undefined &&
+    (destinationBefore.parentOffset !== destinationContainer.offset ||
+      destinationBefore.offset < destinationContainer.end ||
+      destinationBefore.end > destinationContainer.matchingEndOffset)
+  ) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "The requested insertion anchor is not a direct child of the destination scope.",
+    );
+  }
+  const destinationOffset =
+    destinationBefore?.offset ?? destinationContainer.matchingEndOffset;
+  if (destinationOffset < 0 || destinationOffset + 2 > source.length) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "The destination insertion point is outside the IFR stream.",
+    );
+  }
+  if (
+    destinationBefore === undefined &&
+    (source[destinationOffset] !== IFR_OPCODE.END ||
+      (source[destinationOffset + 1] & 0x7f) !== 2)
   ) {
     throw new FirmwareError(
       "PATCH_FAILED",

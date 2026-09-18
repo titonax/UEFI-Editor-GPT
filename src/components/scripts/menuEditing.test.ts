@@ -223,6 +223,7 @@ function tabVisibilityFixture() {
     ...formSetOpcode(1),
     ...formOpcode(1),
     ...refOpcode(3, 0x10),
+    ...refOpcode(5, 0x11),
     ...end,
     ...formOpcode(2),
     IFR_OPCODE.SUPPRESS_IF,
@@ -240,6 +241,10 @@ function tabVisibilityFixture() {
     0x03,
     2,
     ...end,
+    ...formOpcode(5),
+    0x03,
+    2,
+    ...end,
     ...end,
   ];
   const bytes = new Uint8Array(formsPackage(opcodes));
@@ -253,13 +258,15 @@ function tabVisibilityFixture() {
   const hostSpan = formSpans(2);
   const targetSpan = formSpans(3);
   const seedSpan = formSpans(4);
+  const bootSpan = formSpans(5);
   if (
     !hubSpan ||
     !hostSpan ||
     !targetSpan ||
     !seedSpan ||
+    !bootSpan ||
     !suppression ||
-    refs.length !== 2 ||
+    refs.length !== 3 ||
     suppression.matchingEndOffset === null
   ) {
     throw new Error("Expected the tab visibility fixture to parse.");
@@ -299,6 +306,14 @@ function tabVisibilityFixture() {
             ifrOffset: offset(refs[0].offset),
             pageId: null,
           }),
+          prompt({
+            type: "Ref",
+            name: "Boot",
+            questionId: "0x11",
+            formId: "0x5",
+            ifrOffset: offset(refs[1].offset),
+            pageId: null,
+          }),
         ],
       }),
       form({
@@ -312,7 +327,7 @@ function tabVisibilityFixture() {
             name: "Seed hidden page",
             questionId: "0x20",
             formId: "0x4",
-            ifrOffset: offset(refs[1].offset),
+            ifrOffset: offset(refs[2].offset),
             pageId: null,
             conditions: [offset(suppression.offset)],
             suppressIf: [offset(suppression.offset)],
@@ -332,6 +347,13 @@ function tabVisibilityFixture() {
         formSetGuid: formSetA,
         ifrOffset: offset(seedSpan.offset),
         referencedIn: ["0x2"],
+      }),
+      form({
+        name: "Boot",
+        formId: "0x5",
+        formSetGuid: formSetA,
+        ifrOffset: offset(bootSpan.offset),
+        referencedIn: ["0x1"],
       }),
     ],
     suppressions: [
@@ -373,6 +395,16 @@ function tabVisibilityFixture() {
           registeredInAmitse: true,
           registrationOffsets: ["0x120"],
           ifrReferenceOffset: offset(refs[0].offset),
+          parentFormIds: ["0x1"],
+        },
+        {
+          name: "Boot",
+          formId: "0x5",
+          formSetGuid: formSetA,
+          role: "direct-tab",
+          registeredInAmitse: true,
+          registrationOffsets: ["0x140"],
+          ifrReferenceOffset: offset(refs[1].offset),
           parentFormIds: ["0x1"],
         },
       ],
@@ -431,6 +463,9 @@ function menuData() {
 describe("HII menu reference moves", () => {
   it("hides a hub tab in an existing true SuppressIf and shows it again", async () => {
     const { bytes, data } = tabVisibilityFixture();
+    const originalPageOrder = data.singleFormSetNavigation?.pages.map(
+      (page) => page.formId,
+    );
     expect(
       analyzeTopLevelTabVisibilityToggle(data, bytesToHex(bytes), {
         sourceFormIndex: 0,
@@ -459,6 +494,9 @@ describe("HII menu reference moves", () => {
       role: "suppressed-tab",
       suppressionOffset: hidden.suppressions[0].offset,
     });
+    expect(hidden.singleFormSetNavigation?.pages.map((page) => page.formId)).toEqual(
+      originalPageOrder,
+    );
     const hiddenBytes = replayIfrEdits(hidden, bytesToHex(bytes));
     expect(hiddenBytes).toHaveLength(bytes.length);
     expect(analyzeIfrBinary(hiddenBytes).diagnostics).toEqual([]);
@@ -475,7 +513,14 @@ describe("HII menu reference moves", () => {
       type: "Ref",
       formId: "0x3",
     });
+    expect(shown.forms[0].children[1]).toMatchObject({
+      type: "Ref",
+      formId: "0x5",
+    });
     expect(shown.forms[0].children[0].suppressIf).toBeUndefined();
+    expect(shown.singleFormSetNavigation?.pages.map((page) => page.formId)).toEqual(
+      originalPageOrder,
+    );
     expect(replayIfrEdits(shown, bytesToHex(bytes))).toEqual(bytes);
   });
 
