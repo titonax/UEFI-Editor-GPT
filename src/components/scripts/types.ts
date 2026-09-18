@@ -69,7 +69,7 @@ export type AmiSingleFormSetNavigationStatus =
   "detected" | "not-applicable" | "unresolved" | "ambiguous";
 
 export type AmiSingleFormSetPageRole =
-  "hub" | "direct-tab" | "descendant" | "registered-only";
+  "hub" | "direct-tab" | "suppressed-tab" | "descendant" | "registered-only";
 
 export interface AmiSingleFormSetPage {
   name: string;
@@ -79,6 +79,7 @@ export interface AmiSingleFormSetPage {
   registeredInAmitse: boolean;
   registrationOffsets: string[];
   ifrReferenceOffset?: string;
+  suppressionOffset?: string;
   parentFormIds: string[];
 }
 

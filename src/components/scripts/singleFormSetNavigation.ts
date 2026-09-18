@@ -6,6 +6,7 @@ import type {
   Forms,
   Menu,
   RefPrompt,
+  Suppression,
 } from "./types";
 
 function sameGuid(left?: string, right?: string) {
@@ -33,6 +34,29 @@ function formMatches(form: Form, formId: string, formSetGuid?: string) {
 
 function references(form: Form): RefPrompt[] {
   return form.children.filter((child): child is RefPrompt => child.type === "Ref");
+}
+
+function constantTrueSuppressionOffsets(suppressions: Suppression[]) {
+  return new Set(
+    suppressions
+      .filter(
+        (condition) =>
+          (condition.kind ?? "SuppressIf") === "SuppressIf" &&
+          condition.active &&
+          condition.constant === true,
+      )
+      .map((condition) => condition.offset),
+  );
+}
+
+function isConstantlySuppressed(reference: RefPrompt, hiddenOffsets: Set<string>) {
+  return (reference.suppressIf ?? []).some((offset) => hiddenOffsets.has(offset));
+}
+
+function liveReferences(form: Form, hiddenOffsets: Set<string>) {
+  return references(form).filter(
+    (reference) => !isConstantlySuppressed(reference, hiddenOffsets),
+  );
 }
 
 function matchingForms(forms: Forms, formId: string, formSetGuid?: string) {
@@ -65,10 +89,10 @@ function registrationMap(registrations: Menu) {
   return mapped;
 }
 
-function parentMap(forms: Forms, formSetGuid: string) {
+function parentMap(forms: Forms, formSetGuid: string, hiddenOffsets: Set<string>) {
   const parents = new Map<string, Set<string>>();
   for (const owner of forms.filter((form) => sameGuid(form.formSetGuid, formSetGuid))) {
-    for (const reference of references(owner)) {
+    for (const reference of liveReferences(owner, hiddenOffsets)) {
       const targetGuid = reference.targetFormSetGuid ?? owner.formSetGuid;
       if (!sameGuid(targetGuid, formSetGuid)) continue;
       const key = formKey(reference.formId, formSetGuid);
@@ -80,7 +104,12 @@ function parentMap(forms: Forms, formSetGuid: string) {
   return parents;
 }
 
-function reachableFormKeys(forms: Forms, hub: Form, formSetGuid: string) {
+function reachableFormKeys(
+  forms: Forms,
+  hub: Form,
+  formSetGuid: string,
+  hiddenOffsets: Set<string>,
+) {
   const reachable = new Set<string>();
   const queue = [hub];
   while (queue.length > 0) {
@@ -89,7 +118,7 @@ function reachableFormKeys(forms: Forms, hub: Form, formSetGuid: string) {
     const ownerKey = formKey(owner.formId, formSetGuid);
     if (reachable.has(ownerKey)) continue;
     reachable.add(ownerKey);
-    for (const reference of references(owner)) {
+    for (const reference of liveReferences(owner, hiddenOffsets)) {
       const targetGuid = reference.targetFormSetGuid ?? owner.formSetGuid;
       if (!sameGuid(targetGuid, formSetGuid)) continue;
       const matches = matchingForms(forms, reference.formId, formSetGuid);
@@ -119,6 +148,7 @@ export function inspectSingleFormSetNavigation(
   forms: Forms,
   amitseRegistrations: Menu,
   knownHubFormId?: string,
+  suppressions: Suppression[] = [],
 ): AmiSingleFormSetNavigationReport {
   const root = formSetRoots[0];
   if (formSetRoots.length !== 1 || !root?.formSetGuid) {
@@ -141,7 +171,8 @@ export function inspectSingleFormSetNavigation(
   }
 
   const hub = hubMatches[0];
-  const directReferences = references(hub).filter((reference) =>
+  const hiddenOffsets = constantTrueSuppressionOffsets(suppressions);
+  const directReferences = liveReferences(hub, hiddenOffsets).filter((reference) =>
     sameGuid(reference.targetFormSetGuid ?? hub.formSetGuid, formSetGuid),
   );
   if (knownHubFormId === undefined && directReferences.length < 2) {
@@ -180,8 +211,26 @@ export function inspectSingleFormSetNavigation(
   const registrations = registrationMap(
     amitseRegistrations.filter((entry) => sameGuid(entry.formSetGuid, formSetGuid)),
   );
-  const parents = parentMap(forms, formSetGuid);
-  const reachable = reachableFormKeys(forms, hub, formSetGuid);
+  const parents = parentMap(forms, formSetGuid, hiddenOffsets);
+  const reachable = reachableFormKeys(forms, hub, formSetGuid, hiddenOffsets);
+  const suppressedReferences = new Map<
+    string,
+    { owner: Form; reference: RefPrompt; suppressionOffset: string }[]
+  >();
+  for (const owner of forms.filter((form) => sameGuid(form.formSetGuid, formSetGuid))) {
+    for (const reference of references(owner)) {
+      const suppressionOffset = (reference.suppressIf ?? []).find((offset) =>
+        hiddenOffsets.has(offset),
+      );
+      if (!suppressionOffset) continue;
+      const targetGuid = reference.targetFormSetGuid ?? owner.formSetGuid;
+      if (!sameGuid(targetGuid, formSetGuid)) continue;
+      const key = formKey(reference.formId, formSetGuid);
+      const entries = suppressedReferences.get(key) ?? [];
+      entries.push({ owner, reference, suppressionOffset });
+      suppressedReferences.set(key, entries);
+    }
+  }
   const directKeySet = new Set(directKeys);
   const pages: AmiSingleFormSetPage[] = [];
   const appendPage = (
@@ -189,6 +238,8 @@ export function inspectSingleFormSetNavigation(
     role: AmiSingleFormSetPage["role"],
     displayName = page.name,
     ifrReferenceOffset?: string,
+    parentFormIds?: string[],
+    suppressionOffset?: string,
   ) => {
     const key = formKey(page.formId, formSetGuid);
     const registration = registrations.get(key);
@@ -200,7 +251,8 @@ export function inspectSingleFormSetNavigation(
       registeredInAmitse: registration !== undefined,
       registrationOffsets: registration?.offsets ?? [],
       ifrReferenceOffset,
-      parentFormIds: [...(parents.get(key) ?? [])],
+      suppressionOffset,
+      parentFormIds: parentFormIds ?? [...(parents.get(key) ?? [])],
     });
   };
 
@@ -219,6 +271,21 @@ export function inspectSingleFormSetNavigation(
     if (represented.has(key)) continue;
     const matches = matchingForms(forms, registration.formId, formSetGuid);
     if (matches.length !== 1) continue;
+    const suppressed = (suppressedReferences.get(key) ?? []).filter(
+      ({ owner }) => !formMatches(owner, matches[0].formId, formSetGuid),
+    );
+    if (!reachable.has(key) && suppressed.length === 1) {
+      const [{ owner, reference, suppressionOffset }] = suppressed;
+      appendPage(
+        matches[0],
+        "suppressed-tab",
+        registration.name || reference.name || matches[0].name,
+        reference.ifrOffset,
+        [owner.formId],
+        suppressionOffset,
+      );
+      continue;
+    }
     appendPage(
       matches[0],
       reachable.has(key) && !directKeySet.has(key) ? "descendant" : "registered-only",
@@ -231,13 +298,14 @@ export function inspectSingleFormSetNavigation(
   const registeredNonTabs = pages.filter(
     (page) => page.registeredInAmitse && page.role !== "direct-tab",
   ).length;
+  const suppressedTabs = pages.filter((page) => page.role === "suppressed-tab").length;
   const confidence =
     tabs.length > 0 && corroboratedTabs === tabs.length ? "corroborated" : "ifr-only";
   return {
     status: "detected",
     mechanism: "single-formset-ifr-hub",
     confidence,
-    reason: `The FormSet entry ${hub.name || hub.formId} (${hub.formId}) is the IFR navigation hub: ${String(tabs.length)} direct Ref${tabs.length === 1 ? "" : "s"} define the current top-level tabs. AMITSE corroborates ${String(corroboratedTabs)} of them and contains ${String(registeredNonTabs)} registered non-tab page${registeredNonTabs === 1 ? "" : "s"}; registration alone is not treated as tab visibility.`,
+    reason: `The FormSet entry ${hub.name || hub.formId} (${hub.formId}) is the IFR navigation hub: ${String(tabs.length)} direct Ref${tabs.length === 1 ? "" : "s"} define the current top-level tabs. AMITSE corroborates ${String(corroboratedTabs)} of them${suppressedTabs > 0 ? ` and ${String(suppressedTabs)} registered page${suppressedTabs === 1 ? " is" : "s are"} inside constant-true SuppressIf scopes` : ""}; ${String(registeredNonTabs)} registered page${registeredNonTabs === 1 ? " is" : "s are"} not a current tab, and registration alone is not treated as tab visibility.`,
     formSetGuid,
     hubFormId: hub.formId,
     hubName: hub.name || root.name,
@@ -298,6 +366,7 @@ export function refreshSingleFormSetNavigation(
     data.forms,
     registrationsFromReport(evidence),
     evidence.status === "detected" ? evidence.hubFormId : undefined,
+    data.suppressions,
   );
   data.singleFormSetNavigation = report;
   const menu = singleFormSetHubMenu(report);

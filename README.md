@@ -24,6 +24,9 @@ a parallel demo application.
 - Detects single-FormSet IFR navigation hubs, lists their direct Ref tabs in
   firmware order, and separates them from AMITSE-registered descendants or
   registered-only pages.
+- Gives single-FormSet tabs separate **Hide**, **Show** and **Move** actions.
+  Hide/Show parks or restores the existing Ref through a proven constant-true
+  `SuppressIf` scope without changing the HII size.
 - Provides a resizable menu-tree pane with remembered width and full labels for
   wide or deeply nested HII hierarchies.
 - Records binary IFR opcode offsets, lengths, nested scopes and owning
@@ -83,8 +86,9 @@ transactionally. Duplicate targets, graph cycles and conditional/nested
 references remain blocked with an explanation.
 
 For a detected single-FormSet navigation hub, its direct children are the
-current IFR tabs. Moving an existing page Ref to the hub promotes it; moving a
-direct tab Ref under another existing Form demotes it. The inventory updates
+current IFR tabs. **Hide** moves a direct Ref into an already proven
+constant-true `SuppressIf`; **Show** returns it to the hub; **Move** places it
+under another existing Form and keeps it reachable there. The inventory updates
 from the pending graph. AMITSE registration is shown as corroborating evidence,
 not treated as proof that a page is a top-level tab.
 

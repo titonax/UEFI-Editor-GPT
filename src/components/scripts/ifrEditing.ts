@@ -132,6 +132,19 @@ export function planIfrReferenceMove(
   sourceForm: IfrOpcodeSpan,
   destinationForm: IfrOpcodeSpan,
 ): IfrReferenceMove {
+  return planIfrReferenceScopeMove(source, reference, sourceForm, destinationForm);
+}
+
+function isReferenceContainer(span: IfrOpcodeSpan) {
+  return span.opcode === IFR_OPCODE.FORM || span.opcode === IFR_OPCODE.SUPPRESS_IF;
+}
+
+export function planIfrReferenceScopeMove(
+  source: Uint8Array,
+  reference: IfrOpcodeSpan,
+  sourceContainer: IfrOpcodeSpan,
+  destinationContainer: IfrOpcodeSpan,
+): IfrReferenceMove {
   if (reference.opcode !== IFR_OPCODE.REF || reference.scope || reference.length < 15) {
     throw new FirmwareError(
       "PATCH_FAILED",
@@ -139,25 +152,25 @@ export function planIfrReferenceMove(
     );
   }
   if (
-    sourceForm.opcode !== IFR_OPCODE.FORM ||
-    reference.parentOffset !== sourceForm.offset
+    !isReferenceContainer(sourceContainer) ||
+    reference.parentOffset !== sourceContainer.offset
   ) {
     throw new FirmwareError(
       "PATCH_FAILED",
-      "The IFR Ref must be a direct child of its source Form.",
+      "The IFR Ref must be a direct child of its proven source scope.",
     );
   }
   if (
-    destinationForm.opcode !== IFR_OPCODE.FORM ||
-    destinationForm.matchingEndOffset === null
+    !isReferenceContainer(destinationContainer) ||
+    destinationContainer.matchingEndOffset === null
   ) {
     throw new FirmwareError(
       "PATCH_FAILED",
-      "The destination Form does not have a proven closing End opcode.",
+      "The destination scope does not have a proven closing End opcode.",
     );
   }
   if (
-    sourceForm.ownerFormSetGuid !== destinationForm.ownerFormSetGuid &&
+    sourceContainer.ownerFormSetGuid !== destinationContainer.ownerFormSetGuid &&
     reference.targetFormSetGuid === undefined
   ) {
     throw new FirmwareError(
@@ -176,7 +189,7 @@ export function planIfrReferenceMove(
     );
   }
 
-  const destinationOffset = destinationForm.matchingEndOffset;
+  const destinationOffset = destinationContainer.matchingEndOffset;
   if (
     destinationOffset < 0 ||
     destinationOffset + 2 > source.length ||
@@ -185,7 +198,7 @@ export function planIfrReferenceMove(
   ) {
     throw new FirmwareError(
       "PATCH_FAILED",
-      "The destination Form End opcode no longer matches the binary model.",
+      "The destination scope End opcode no longer matches the binary model.",
     );
   }
   if (destinationOffset >= reference.offset && destinationOffset <= reference.end) {
@@ -217,9 +230,17 @@ export function planIfrReferenceMove(
     ),
     description: `Move Ref at 0x${reference.offset
       .toString(16)
-      .toUpperCase()} from FormId 0x${(sourceForm.formId ?? 0)
+      .toUpperCase()} from FormId 0x${(
+      sourceContainer.ownerFormId ??
+      sourceContainer.formId ??
+      0
+    )
       .toString(16)
-      .toUpperCase()} to FormId 0x${(destinationForm.formId ?? 0)
+      .toUpperCase()} to FormId 0x${(
+      destinationContainer.ownerFormId ??
+      destinationContainer.formId ??
+      0
+    )
       .toString(16)
       .toUpperCase()}`,
   };
