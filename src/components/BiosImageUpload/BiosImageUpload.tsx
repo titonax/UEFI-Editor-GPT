@@ -29,7 +29,7 @@ import {
   type AmiFirmwareArtifacts,
 } from "../scripts/amiFirmwareExtractor";
 import { assessFirmwareReconstruction } from "../scripts/firmwareProvenance";
-import type { PopulatedFiles } from "../FileUploads/fileModel";
+import type { PopulatedFiles } from "../firmwareFiles";
 
 const MAX_FIRMWARE_BYTES = 512 * 1024 * 1024;
 

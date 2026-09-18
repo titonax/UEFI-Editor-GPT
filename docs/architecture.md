@@ -2,9 +2,8 @@
 
 ## Data flow
 
-1. Upload components inspect a complete BIOS or read the four extracted
-   artefacts. Complete images are not decompressed until the user starts HII
-   analysis explicitly.
+1. The upload component inspects a complete BIOS. Images are not decompressed
+   until the user starts HII analysis explicitly.
 2. The shared AMI extractor locates firmware volumes and recursively
    decompresses encapsulated sections. Repeated Setup GUIDs are kept as separate
    buffer/FV contexts and paired only with unambiguous AMITSE/SetupData evidence.

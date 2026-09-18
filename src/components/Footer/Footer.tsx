@@ -3,7 +3,7 @@ import { IconDownload, IconUpload } from "@tabler/icons-react";
 import { saveAs } from "file-saver";
 import React from "react";
 import type { Updater } from "use-immer";
-import type { PopulatedFiles } from "../FileUploads/fileModel";
+import type { PopulatedFiles } from "../firmwareFiles";
 import {
   calculateJsonChecksum,
   dataSchemaVersion,

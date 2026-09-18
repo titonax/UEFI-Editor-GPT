@@ -12,7 +12,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
       include: ["src/components/scripts/**/*.ts"],
-      exclude: ["src/**/*.test.ts", "src/**/hexWorker.ts"],
+      exclude: ["src/**/*.test.ts"],
       thresholds: {
         statements: 60,
         branches: 65,

@@ -1,10 +1,9 @@
 import React from "react";
 import s from "./App.module.css";
 import { useImmer } from "use-immer";
-import { Alert, AppShell, Button, Divider, Group, Stack, Text } from "@mantine/core";
+import { Alert, AppShell, Button, Divider, Group, Stack } from "@mantine/core";
 import type { Data } from "./components/scripts/types";
-import FileUploads from "./components/FileUploads/FileUploads";
-import { isPopulatedFiles, type Files } from "./components/FileUploads/fileModel";
+import { isPopulatedFiles, type Files } from "./components/firmwareFiles";
 import FormUi from "./components/FormUi/FormUi";
 import Navigation from "./components/Navigation/Navigation";
 import NavigationResizer from "./components/Navigation/NavigationResizer";
@@ -127,17 +126,6 @@ export default function App({
           />
           <Divider label="Or measure a local firmware corpus" />
           <CorpusRunner />
-          <Divider label="Or load previously extracted HII artefacts" />
-          <Text c="dimmed" size="sm" ta="center">
-            Manual compatibility mode for existing Setup, IFR, AMITSE and SetupData
-            files.
-          </Text>
-          <FileUploads
-            files={files}
-            setFiles={setFiles}
-            setData={setData}
-            onError={handleError}
-          />
           <Group justify="center">
             <Button
               variant="default"

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import BiosImageUpload from "./BiosImageUpload";
-import type { PopulatedFiles } from "../FileUploads/fileModel";
+import type { PopulatedFiles } from "../firmwareFiles";
 
 const extractAmiFirmwareBytes = vi.hoisted(() => vi.fn());
 

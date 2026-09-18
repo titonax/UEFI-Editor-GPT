@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PopulatedFiles } from "../FileUploads/fileModel";
+import type { PopulatedFiles } from "../firmwareFiles";
 import { hashFile } from "./checksum";
 import { dataSchemaVersion, parseData } from "./scripts";
 

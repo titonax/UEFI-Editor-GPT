@@ -1,4 +1,4 @@
-import type { AmiFirmwareArtifacts } from "../scripts/amiFirmwareExtractor";
+import type { AmiFirmwareArtifacts } from "./scripts/amiFirmwareExtractor";
 
 export interface FileContainer {
   file?: File;

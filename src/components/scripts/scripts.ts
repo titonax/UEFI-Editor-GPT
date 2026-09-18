@@ -1,4 +1,4 @@
-import type { PopulatedFiles } from "../FileUploads/fileModel";
+import type { PopulatedFiles } from "../firmwareFiles";
 import { calculateJsonChecksum, hashFile } from "./checksum";
 import { FirmwareError } from "./errors";
 import { hexToBytes } from "./hex";
