@@ -4,6 +4,24 @@ import { classifyBrand, compareBrandNavigation } from "./brandKnowledge";
 const asusSample = "e862e5b0fdce10e44764be6072dd5b8017544264353dbfa02c8074e0ccc15190";
 
 describe("manufacturer evidence catalogue", () => {
+  it("recognizes the Intel NUC sample by payload identity without forcing Aptio V", () => {
+    const result = classifyBrand(
+      "renamed.cap",
+      "12770cbddbab0fd071e91142afe6b1882c7a50c0e7b438866f6b99b5c660da64",
+      [],
+    );
+    expect(result).toMatchObject({
+      brand: "Intel",
+      basis: "documented-hash",
+      documentedSamples: 1,
+      observedGenerations: [],
+      observedContainers: [{ container: "firmware-volume-image", samples: 1 }],
+      observedLayouts: [{ layout: "unified-setup-formset", samples: 1 }],
+      navigationPrior: [{ mechanism: "single-formset-ifr-hub", samples: 1 }],
+    });
+    expect(classifyBrand("FNCML357.0068.CAP", "", []).brand).toBe("Intel");
+  });
+
   it("recognizes a documented image after renaming and retains corpus denominators", () => {
     const result = classifyBrand("renamed.bin", asusSample, []);
     expect(result).toMatchObject({
