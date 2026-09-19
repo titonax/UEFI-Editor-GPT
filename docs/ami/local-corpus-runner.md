@@ -30,6 +30,37 @@ separate:
   contexts. A completed partial report remains exportable.
 - Duplicate inputs are counted by SHA-256, not by filename.
 
+## Firmware family classification
+
+Classification is independent of the computer manufacturer and filename. The
+preflight records the signature, offset, confidence and any competing evidence.
+It distinguishes probable AMI Aptio, legacy AMIBIOS, Phoenix BIOS, Award BIOS,
+Insyde UEFI, a standalone Intel Management Engine region and common non-firmware
+file formats. Valid UEFI volumes without a reliable vendor signature remain
+**UEFI (family unresolved)**. Binaries without enough evidence remain
+**unidentified**; a short EC-sized binary, for example, is not automatically
+called EC firmware. Phoenix strings in certificate metadata do not identify the
+main UEFI implementation.
+
+A bounded, checksummed firmware volume proves the PI container, not the vendor
+or generation. The same Intel ME partition header can also be inside a full
+SPI dump, so it identifies a standalone ME payload only when it occurs at the
+start of an image without a flash descriptor or valid firmware volume. An
+uncompressed Insyde vendor string can occur in an AMI-based image; strong
+AMI Setup evidence takes precedence and both clues remain visible. Competing
+strong provider signatures remain unresolved with a conflict flag.
+
+When coherent AMI Setup HII is extracted, the final family classification
+records that observation. Successful HII parsing raises the family confidence;
+neither classification nor manufacturer evidence proves the Aptio generation,
+the live menu roots or a safe full-image write.
+
+Some older AMI Setup modules yield **Framework IFR** instead of UEFI HII Forms
+packages. The image view reports a read-only count of FormSets, forms and
+references; the corpus exports the format and those counts even when its UEFI
+parser cannot continue. Framework editing remains unavailable until its
+different opcode grammar, menu links and binary patch paths can be verified.
+
 ## Compatibility dashboard
 
 The live dashboard and the exported JSON measure **distinct cases**: the first
@@ -53,13 +84,13 @@ failure taxonomy separately groups explicit errors by stage and stable code,
 using `NO_CODE` when no code is available. Cases can lack an explicit error
 while still having a navigation warning or a blocked edit operation.
 
-Manufacturer, container and probable Aptio-generation tabs show the number of
-cases in each group and the extraction, navigation, HII edit and full-image
-counts. Extraction uses cases in the group as its denominator; the remaining
-capabilities use extracted cases. Unknown manufacturer and generation conflict
-remain visible. Brand evidence is a classification aid, never proof of an
-image's architecture. The dashboard describes only the selected images and is
-not an estimate of market-wide coverage.
+Firmware family, IFR format, manufacturer, container and probable Aptio-generation tabs
+show the number of cases in each group and the extraction, navigation, HII edit
+and full-image counts. Extraction uses cases in the group as its denominator;
+the remaining capabilities use extracted cases. Unknown manufacturer and
+generation conflict remain visible. Brand evidence is a classification aid,
+never proof of an image's architecture. The dashboard describes only the
+selected images and is not an estimate of market-wide coverage.
 
 ## Report layers
 
@@ -99,9 +130,11 @@ and failure categories.
 
 ## Export privacy
 
-JSON reports use schema `0.3.0` and contain:
+JSON reports use schema `0.4.0` and contain:
 
 - filename, size, last-modified timestamp and SHA-256;
+- firmware family evidence, confidence and conflicting signatures;
+- observed IFR format and read-only Framework inventory when present;
 - brand evidence with its source, documented sample counts, candidate navigation
   mechanisms and whether the analyzed image matches or extends the observed
   pattern;
@@ -113,7 +146,7 @@ JSON reports use schema `0.3.0` and contain:
 - provenance completeness and reconstruction blockers;
 - stage failures and stable firmware error codes when available;
 - a distinct-case dashboard with eligible-layer counts, first recognition
-  blockers, failure taxonomy and manufacturer/container/generation cohorts.
+  blockers, failure taxonomy and family/manufacturer/container/generation cohorts.
 
 CSV is a flattened per-image summary intended for sorting and coverage tables.
 Neither format contains source firmware, extracted modules, decompressed buffers,

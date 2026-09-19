@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { inspectAmiFirmwareBytes } from "./amiFirmwareImage";
 import { classifyBrand } from "./brandKnowledge";
 
+const ascii = (text: string) => [...new TextEncoder().encode(text)];
+
 function validFirmwareVolumeImage(...payloads: { offset: number; bytes: number[] }[]) {
   const bytes = new Uint8Array(0x180);
   const view = new DataView(bytes.buffer);
@@ -34,6 +36,72 @@ function validFirmwareVolumeImage(...payloads: { offset: number; bytes: number[]
 }
 
 describe("AMI firmware image inspection", () => {
+  it("classifies non-UEFI families and standalone components from payload evidence", () => {
+    const cases = [
+      ["PhoenixBIOS 4.0 Release 6.1", "phoenix"],
+      ["Award Modular BIOS v6.00PG", "award"],
+      ["AMIBIOS 8", "ami-legacy"],
+      ["OggS", "non-firmware"],
+      ["[LocalizedFileNames]\r\noutimage.map=@outimage.map,0", "non-firmware"],
+    ] as const;
+    for (const [content, family] of cases) {
+      expect(
+        inspectAmiFirmwareBytes(new Uint8Array(ascii(content))).family.family,
+      ).toBe(family);
+    }
+    const me = new Uint8Array(80);
+    me.set(ascii("$FPT"), 0x10);
+    new DataView(me.buffer).setUint32(0x14, 3, true);
+    expect(inspectAmiFirmwareBytes(me).family.family).toBe("intel-me");
+    me.set([0x5a, 0xa5, 0xf0, 0x0f], 0x10);
+    expect(inspectAmiFirmwareBytes(me).family.family).toBe("unidentified");
+  });
+
+  it("gives AMI Setup evidence precedence over incidental Insyde text", () => {
+    const report = inspectAmiFirmwareBytes(
+      validFirmwareVolumeImage({
+        offset: 0x80,
+        bytes: ascii("Insyde Software Corp."),
+      }),
+    );
+    expect(report.family).toMatchObject({
+      family: "ami-aptio",
+      confidence: "probable",
+      conflict: false,
+    });
+    expect(report.family.signals.map((signal) => signal.code)).toContain(
+      "insyde-vendor",
+    );
+
+    const onlyInsyde = validFirmwareVolumeImage({
+      offset: 0x80,
+      bytes: ascii("Insyde Software Corp."),
+    });
+    onlyInsyde.fill(0, 0x40, 0x64);
+    expect(inspectAmiFirmwareBytes(onlyInsyde).family.family).toBe("insyde");
+  });
+
+  it("does not mistake Phoenix certificate text for a Phoenix UEFI", () => {
+    const bytes = validFirmwareVolumeImage({
+      offset: 0x80,
+      bytes: ascii("Phoenix Technologies Ltd."),
+    });
+    bytes.fill(0, 0x40, 0x64);
+    expect(inspectAmiFirmwareBytes(bytes).family.family).toBe("uefi-unidentified");
+  });
+
+  it("keeps competing strong provider markers unresolved", () => {
+    const bytes = validFirmwareVolumeImage({
+      offset: 0x80,
+      bytes: ascii("InsydeH2O"),
+    });
+    expect(inspectAmiFirmwareBytes(bytes).family).toMatchObject({
+      family: "unidentified",
+      confidence: "unresolved",
+      conflict: true,
+    });
+  });
+
   it("identifies an Intel NUC from its bounded FID vendor field after the payload changes", () => {
     const bytes = validFirmwareVolumeImage();
     const fid = 0x90;

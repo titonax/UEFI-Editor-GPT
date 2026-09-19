@@ -23,6 +23,12 @@ function outerReport(
   return {
     size: 64,
     container: "firmware-volume-image",
+    family: {
+      family: "ami-aptio",
+      confidence: "probable",
+      conflict: false,
+      signals: [{ code: "ami-nvram", detail: "AMITSESetup was found." }],
+    },
     intelDescriptor: false,
     firmwareVolumes: [0],
     ffs2Volumes: [0],
@@ -264,7 +270,15 @@ describe("local firmware corpus analysis", () => {
       },
       (entry) => progress.push(entry.stage),
       {
-        inspect: () => outerReport(),
+        inspect: () =>
+          outerReport({
+            family: {
+              family: "uefi-unidentified",
+              confidence: "unresolved",
+              conflict: false,
+              signals: [],
+            },
+          }),
         extract: vi.fn().mockResolvedValue(extracted),
         parseArtifacts: vi.fn().mockResolvedValue(multiFormSetData()),
         hash: vi.fn().mockResolvedValue("abc123"),
@@ -282,6 +296,10 @@ describe("local firmware corpus analysis", () => {
       status: "recognized",
     });
     expect(result.contexts).toHaveLength(1);
+    expect(result.family).toMatchObject({
+      family: "ami-aptio",
+      confidence: "confirmed",
+    });
     expect(progress).toEqual(
       expect.arrayContaining([
         "preflight",
@@ -309,6 +327,12 @@ describe("local firmware corpus analysis", () => {
             firmwareVolumes: [],
             ffs2Volumes: [],
             amiAptioCandidate: false,
+            family: {
+              family: "phoenix",
+              confidence: "probable",
+              conflict: false,
+              signals: [{ code: "phoenix-bios", detail: "PhoenixBIOS marker." }],
+            },
           }),
         extract,
         parseArtifacts: vi.fn(),
@@ -319,6 +343,7 @@ describe("local firmware corpus analysis", () => {
 
     expect(result.status).toBe("unsupported");
     expect(result.failure?.stage).toBe("preflight");
+    expect(result.family.family).toBe("phoenix");
     expect(extract).not.toHaveBeenCalled();
   });
 
@@ -380,6 +405,70 @@ describe("local firmware corpus analysis", () => {
       code: "PARSE_FAILED",
       message: "Setup FFS was not found.",
     });
+  });
+
+  it("retains probable AMI family when Setup extracts but IFR parsing fails", async () => {
+    const result = await analyzeCorpusFirmware(
+      { fileName: "new-board.bin", size: 64, bytes: new Uint8Array(64) },
+      undefined,
+      {
+        inspect: () =>
+          outerReport({
+            family: {
+              family: "uefi-unidentified",
+              confidence: "unresolved",
+              conflict: false,
+              signals: [],
+            },
+          }),
+        extract: vi.fn().mockResolvedValue(artifacts()),
+        parseArtifacts: vi
+          .fn()
+          .mockRejectedValue(new FirmwareError("PARSE_FAILED", "IFR invalid")),
+        hash: vi.fn().mockResolvedValue("new-board"),
+        now: () => 0,
+      },
+    );
+    expect(result.family).toMatchObject({
+      family: "ami-aptio",
+      confidence: "probable",
+      signals: [expect.objectContaining({ code: "extracted-ami-setup-hii" })],
+    });
+    expect(result.failure?.stage).toBe("hii");
+  });
+
+  it("counts legacy Framework IFR without declaring UEFI HII editable", async () => {
+    const parsed = vi.fn();
+    const result = await analyzeCorpusFirmware(
+      { fileName: "framework.bin", size: 64, bytes: new Uint8Array(64) },
+      undefined,
+      {
+        inspect: () => outerReport(),
+        extract: vi.fn().mockResolvedValue({
+          ...artifacts(),
+          ifrText: [
+            "Program version: 1.6.1, Extraction mode: Framework",
+            '0x20: FormSet Title: "Main", Guid: 00000000-0000-0000-0000-000000000001',
+            '0x40: Form Title: "Main", FormId: 0x1',
+            '0x60: Ref Prompt: "Advanced"',
+          ].join("\n"),
+        }),
+        parseArtifacts: parsed,
+        hash: vi.fn().mockResolvedValue("framework"),
+        now: () => 0,
+      },
+    );
+    expect(parsed).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: "unsupported",
+      ifrFormat: "framework",
+      frameworkInventory: { formSets: 1, forms: 1, references: 1 },
+      failure: { stage: "hii", code: "INCOMPATIBLE_IFR" },
+    });
+    expect(result.stages.find((stage) => stage.id === "extraction")?.status).toBe(
+      "passed",
+    );
+    expect(result.stages.find((stage) => stage.id === "hii")?.status).toBe("failed");
   });
 
   it("does not mark an empty extraction as parsed or navigation-proven", async () => {
@@ -548,7 +637,7 @@ describe("local firmware corpus analysis", () => {
     );
     const dashboard = report.dashboard;
 
-    expect(report.schemaVersion).toBe("0.3.0");
+    expect(report.schemaVersion).toBe("0.4.0");
     expect(dashboard).toMatchObject({
       selected: 8,
       completed: 7,
@@ -600,6 +689,11 @@ describe("local firmware corpus analysis", () => {
         expect.objectContaining({ label: "ASUS", cases: 2, extracted: 2 }),
         expect.objectContaining({ label: "Intel", cases: 2, extracted: 2 }),
         expect.objectContaining({ label: "Unknown", cases: 2 }),
+      ]),
+    );
+    expect(dashboard.families).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Unidentified binary", cases: 6 }),
       ]),
     );
     expect(firstRecognitionBlocker(noEdit)).toBe("none");

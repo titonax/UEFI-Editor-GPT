@@ -27,6 +27,7 @@ import {
 import { saveAs } from "file-saver";
 import React from "react";
 import { supportedBrands, type FirmwareBrand } from "../scripts/brandKnowledge";
+import { firmwareFamilyLabels } from "../scripts/amiFirmwareImage";
 import { buildCorpusDashboard } from "../scripts/corpusDashboard";
 import {
   corpusRunToCsv,
@@ -223,7 +224,15 @@ function FileDetails({ file }: { file: CorpusFileReport }) {
         SHA-256: {file.sha256 || "not calculated"}
       </Text>
       <Group gap="xs">
+        <Badge variant="light" color={file.family.conflict ? "orange" : "blue"}>
+          {firmwareFamilyLabels[file.family.family]} · {file.family.confidence}
+        </Badge>
         <Badge variant="light">{brand.brand ?? "Manufacturer unknown"}</Badge>
+        {file.ifrFormat !== "unknown" && (
+          <Badge variant="light" color={file.ifrFormat === "uefi" ? "green" : "orange"}>
+            {file.ifrFormat} IFR
+          </Badge>
+        )}
         <Text size="sm">
           {brand.basis} · {String(brand.documentedSamples)} documented sample(s)
         </Text>
@@ -242,6 +251,25 @@ function FileDetails({ file }: { file: CorpusFileReport }) {
                 `${signal.brand}: ${signal.detail}${signal.offset === undefined ? "" : ` at 0x${signal.offset.toString(16).toUpperCase()}`}`,
             )
             .join("; ")}
+        </Text>
+      )}
+      {file.family.signals.length > 0 && (
+        <Text size="xs" c="dimmed">
+          Firmware family evidence:{" "}
+          {file.family.signals
+            .map(
+              (signal) =>
+                `${signal.detail}${signal.offset === undefined ? "" : ` at 0x${signal.offset.toString(16).toUpperCase()}`}`,
+            )
+            .join("; ")}
+        </Text>
+      )}
+      {file.frameworkInventory && (
+        <Text size="sm">
+          Framework IFR inventory: {String(file.frameworkInventory.formSets)} FormSets,{" "}
+          {String(file.frameworkInventory.forms)} forms,{" "}
+          {String(file.frameworkInventory.references)} references. Editing requires a
+          separate Framework parser.
         </Text>
       )}
       <Text size="sm">
@@ -588,9 +616,10 @@ export default function CorpusRunner({
                       <div className={s.fileName}>
                         <Text fw={600}>{file.fileName}</Text>
                         <Text size="xs" c="dimmed">
-                          {formatBytes(file.size)} · {file.outer.container} ·{" "}
-                          {generationLabel(file)} · {String(file.contexts.length)}{" "}
-                          context(s)
+                          {formatBytes(file.size)} ·{" "}
+                          {firmwareFamilyLabels[file.family.family]} ·{" "}
+                          {file.outer.container} · {generationLabel(file)} ·{" "}
+                          {String(file.contexts.length)} context(s)
                         </Text>
                       </div>
                       <Group gap="xs" wrap="nowrap">

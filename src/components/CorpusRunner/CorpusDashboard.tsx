@@ -207,12 +207,20 @@ export default function CorpusDashboard({ dashboard }: { dashboard: DashboardDat
         </>
       )}
       <Title order={5}>Distribution of cases</Title>
-      <Tabs defaultValue="manufacturer">
+      <Tabs defaultValue="family">
         <Tabs.List>
+          <Tabs.Tab value="family">Firmware family</Tabs.Tab>
+          <Tabs.Tab value="ifr">IFR format</Tabs.Tab>
           <Tabs.Tab value="manufacturer">Manufacturer</Tabs.Tab>
           <Tabs.Tab value="container">Container</Tabs.Tab>
           <Tabs.Tab value="generation">Aptio generation</Tabs.Tab>
         </Tabs.List>
+        <Tabs.Panel value="family" pt="sm">
+          <CohortTable cohorts={dashboard.families} />
+        </Tabs.Panel>
+        <Tabs.Panel value="ifr" pt="sm">
+          <CohortTable cohorts={dashboard.ifrFormats} />
+        </Tabs.Panel>
         <Tabs.Panel value="manufacturer" pt="sm">
           <CohortTable cohorts={dashboard.manufacturers} />
         </Tabs.Panel>

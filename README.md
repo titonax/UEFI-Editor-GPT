@@ -50,7 +50,9 @@ a parallel demo application.
 - Exports validated `data.json` snapshots and controlled Aptio V binary patches.
 - Runs a multi-file compatibility corpus entirely in a browser Worker, analyses
   every coherent firmware context sequentially, and exports metadata-only JSON
-  and CSV reports with per-layer results and exact edit blockers.
+  and CSV reports with per-layer results and exact edit blockers. The corpus
+  also distinguishes Aptio from other UEFI/legacy families and standalone
+  firmware components when the bytes provide sufficient evidence.
 
 > Full-image reinsertion/export remains disabled until deterministic
 > recompression, bottom-up rebuilding, checksum handling and independent
@@ -155,6 +157,8 @@ See [architecture](docs/architecture.md) and
 [AMI comparison corpus](docs/ami/sample-corpus.md) for the evidence model,
 [local corpus runner](docs/ami/local-corpus-runner.md) for the report schema and
 compatibility denominators,
+[mixed firmware intake](docs/ami/mixed-firmware-intake.md) for the measured
+results from the three supplied archives,
 [manufacturer evidence catalogue](docs/ami/manufacturer-knowledge.md) for
 brand-based investigation leads and their limits,
 [root visibility analysis](docs/ami/root-visibility-vector.md) for the
