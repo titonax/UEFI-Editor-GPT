@@ -186,7 +186,7 @@ export function buildCorpusDashboard(
     ),
     families: cohortBreakdown(unique, (file) =>
       file.family.conflict
-        ? "Conflicting vendor evidence"
+        ? `${firmwareFamilyLabels[file.family.family]} · conflicting evidence`
         : firmwareFamilyLabels[file.family.family],
     ),
     ifrFormats: cohortBreakdown(unique, (file) => file.ifrFormat),

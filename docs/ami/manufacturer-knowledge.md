@@ -70,7 +70,7 @@ confirmed single-FormSet hubs.
 
 The initial implementation surfaces the leads in the single-image preflight
 and local corpus report; it does not reorder detectors or learn new patterns
-automatically. Corpus JSON schema `0.4.0` exports the evidence, counts and
+automatically. Corpus JSON schema `0.5.0` exports the evidence, counts and
 comparison outcome. The CSV includes manufacturer, source, prior navigation
 and outcome for grouping new observations. Firmware bytes stay in the browser.
 

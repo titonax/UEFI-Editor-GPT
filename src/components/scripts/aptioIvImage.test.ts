@@ -90,6 +90,23 @@ describe("AMI firmware image inspection", () => {
     expect(inspectAmiFirmwareBytes(bytes).family.family).toBe("uefi-unidentified");
   });
 
+  it("tracks Phoenix SecCore module provenance without trusting an Insyde string", () => {
+    const bytes = validFirmwareVolumeImage();
+    bytes.fill(0, 0x40, 0x64);
+    bytes.set(ascii("RSDS"), 0x70);
+    bytes.set(ascii("C:\\Build\\Phoenix\\SecCore\\Sec\\SecCore.pdb\0"), 0x88);
+    bytes.set(ascii("Insyde Software Corp."), 0xd0);
+    const family = inspectAmiFirmwareBytes(bytes).family;
+    expect(family).toMatchObject({
+      family: "phoenix-uefi",
+      confidence: "probable",
+      conflict: true,
+    });
+    expect(family.signals.map((signal) => signal.code)).toEqual(
+      expect.arrayContaining(["phoenix-sec-core-debug", "insyde-vendor"]),
+    );
+  });
+
   it("keeps competing strong provider markers unresolved", () => {
     const bytes = validFirmwareVolumeImage({
       offset: 0x80,
