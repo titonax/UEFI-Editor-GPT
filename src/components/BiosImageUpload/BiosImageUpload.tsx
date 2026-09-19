@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Accordion,
   Alert,
   Badge,
   Button,
@@ -163,6 +164,11 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
       setImageHash(await sha256Hex(image));
       if (currentOperation !== operation.current) return;
       if (imageReport.firmwareVolumes.length === 0) return;
+      if (
+        imageReport.family.family === "phoenix-uefi" &&
+        !imageReport.amiAptioCandidate
+      )
+        return;
 
       setStage("Decompressing nested volumes and locating AMI Setup data…");
       const extracted = await extractAmiFirmwareBytes(image);
@@ -324,13 +330,18 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 ? assessment.generation === "unresolved"
                   ? "AMI Aptio structures were found, but the shared IV/V layout does not justify forcing a generation."
                   : "The generation is a corpus-backed profile match, not a vendor declaration. It does not unlock a generation-specific write path."
-                : family?.family !== "ami-aptio" && report.firmwareVolumes.length === 0
-                  ? "No validated UEFI firmware volume was found; the family is based on the evidence shown below. AMI HII analysis is unavailable."
-                  : report.amiAptioCandidate
-                    ? "AMI Aptio evidence was found. The local deep scan is needed before assigning a probable generation."
-                    : report.firmwareVolumes.length > 0
-                      ? "A valid UEFI image was found, but AMI Aptio evidence is still insufficient. Deep analysis can continue safely."
-                      : "No valid UEFI firmware volumes were found. HII analysis is unavailable for this input."}
+                : report.phoenixLegacy
+                  ? "Phoenix 4.0 module directory recognized. Setup, template and strings modules are inventoried below; Phoenix menu editing is not yet available."
+                  : report.phoenixUefi?.secureCore && !report.amiAptioCandidate
+                    ? "Phoenix SecCore module provenance was found in UEFI firmware. The Setup implementation still needs its own verified parser."
+                    : family?.family !== "ami-aptio" &&
+                        report.firmwareVolumes.length === 0
+                      ? "No validated UEFI firmware volume was found; the family is based on the evidence shown below. AMI HII analysis is unavailable."
+                      : report.amiAptioCandidate
+                        ? "AMI Aptio evidence was found. The local deep scan is needed before assigning a probable generation."
+                        : report.firmwareVolumes.length > 0
+                          ? "A valid UEFI image was found, but AMI Aptio evidence is still insufficient. Deep analysis can continue safely."
+                          : "No valid UEFI firmware volumes were found. HII analysis is unavailable for this input."}
           </Alert>
           <Group gap="xs">
             {family && (
@@ -515,7 +526,7 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
               )}
             </Table.Tbody>
           </Table>
-          {report.deepScanRequired && !profile && (
+          {report.amiAptioCandidate && report.deepScanRequired && !profile && (
             <Alert color="blue" title="Nested firmware requires HII analysis">
               Setup or AMITSE is not visible in the outer byte stream. The local
               preflight is decompressing nested firmware before deciding that a module
@@ -569,6 +580,51 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
               {String(frameworkInventory.references)} references in the AMI Setup
               payload. This editor requires UEFI HII packages to build and validate edit
               plans for this image.
+            </Alert>
+          )}
+          {report.phoenixLegacy && (
+            <Alert color="blue" title="Phoenix 4.0 module inventory">
+              <Text size="sm">
+                {report.phoenixLegacy.buildCode || "Unknown build"} ·{" "}
+                {report.phoenixLegacy.buildDate || "undated"} ·{" "}
+                {String(report.phoenixLegacy.modules.length)} modules ·{" "}
+                {String(report.phoenixLegacy.volumeCount)} directory entries. Setup,
+                template and strings are separate modules; menu interpretation and
+                firmware writing require further validation.
+              </Text>
+              <Accordion variant="contained" mt="sm">
+                <Accordion.Item value="modules">
+                  <Accordion.Control>Inspect modules and offsets</Accordion.Control>
+                  <Accordion.Panel>
+                    <List size="sm">
+                      {report.phoenixLegacy.modules.map((module) => (
+                        <List.Item key={`${module.name}:${String(module.offset)}`}>
+                          {module.name} · {formatHexOffset(module.offset)} ·{" "}
+                          {String(module.size)} bytes · {module.compression}
+                          {module.unpackedSize
+                            ? ` → ${String(module.unpackedSize)} bytes`
+                            : ""}
+                        </List.Item>
+                      ))}
+                    </List>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion>
+              {report.phoenixLegacy.warnings.length > 0 && (
+                <Text size="xs" mt="xs">
+                  {report.phoenixLegacy.warnings.join(" ")}
+                </Text>
+              )}
+            </Alert>
+          )}
+          {report.phoenixUefi?.secureCore && (
+            <Alert color="blue" title="Phoenix UEFI module provenance">
+              Phoenix SecCore and {String(report.phoenixUefi.debugModules.length - 1)}{" "}
+              other module name(s) were found in debug records:{" "}
+              {report.phoenixUefi.debugModules.join(", ")}.{" "}
+              {family?.conflict
+                ? "Another vendor string is also present; Setup ownership remains unresolved."
+                : "Setup ownership is not yet verified."}
             </Alert>
           )}
           {evidence.length > 0 && (
@@ -678,6 +734,7 @@ function coherenceLabel(
 
 function containerLabel(container: FirmwareContainer) {
   if (container === "intel-flash") return "Complete Intel flash";
+  if (container === "phoenix-rom") return "Phoenix module ROM";
   if (container === "firmware-volume-image") return "Raw firmware volume image";
   if (container === "vendor-image") return "Vendor update image";
   return "Unknown container";

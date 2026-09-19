@@ -61,6 +61,12 @@ references; the corpus exports the format and those counts even when its UEFI
 parser cannot continue. Framework editing remains unavailable until its
 different opcode grammar, menu links and binary patch paths can be verified.
 
+PhoenixBIOS 4.0 modular ROMs are reported separately with validated BCP/FFV
+module offsets and sizes. The AMI HII preflight still requires a valid UEFI PI
+volume, so a read-only Phoenix module inventory does not count as an editable
+HII context. UEFI images with Phoenix SecCore debug provenance retain any
+competing provider strings and do not claim a verified Setup implementation.
+
 ## Compatibility dashboard
 
 The live dashboard and the exported JSON measure **distinct cases**: the first
@@ -130,11 +136,12 @@ and failure categories.
 
 ## Export privacy
 
-JSON reports use schema `0.4.0` and contain:
+JSON reports use schema `0.5.0` and contain:
 
 - filename, size, last-modified timestamp and SHA-256;
 - firmware family evidence, confidence and conflicting signatures;
 - observed IFR format and read-only Framework inventory when present;
+- Phoenix BCP/FFV module inventory or UEFI debug module provenance when present;
 - brand evidence with its source, documented sample counts, candidate navigation
   mechanisms and whether the analyzed image matches or extends the observed
   pattern;

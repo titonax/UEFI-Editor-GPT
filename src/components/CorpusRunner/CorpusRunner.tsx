@@ -272,6 +272,33 @@ function FileDetails({ file }: { file: CorpusFileReport }) {
           separate Framework parser.
         </Text>
       )}
+      {file.phoenixLegacy && (
+        <Stack gap="xs">
+          <Text size="sm">
+            Phoenix {file.phoenixLegacy.format}:{" "}
+            {String(file.phoenixLegacy.modules.length)} modules, including{" "}
+            {file.phoenixLegacy.modules
+              .filter((item) => /^(SETUP|TEMPLAT|STRINGS)/.test(item.name))
+              .map((item) => item.name)
+              .join(", ") || "no verified Setup/template/strings"}
+            .
+          </Text>
+          <Text size="xs" c="dimmed">
+            {file.phoenixLegacy.modules
+              .map(
+                (item) =>
+                  `${item.name} @ 0x${item.offset.toString(16).toUpperCase()} (${item.compression})`,
+              )
+              .join(" · ")}
+          </Text>
+        </Stack>
+      )}
+      {file.phoenixUefi?.secureCore && (
+        <Text size="sm">
+          Phoenix SecCore debug provenance: {file.phoenixUefi.debugModules.join(", ")}.
+          Setup ownership and editability remain unverified.
+        </Text>
+      )}
       <Text size="sm">
         {brand.navigationPrior.length > 0
           ? `Navigation lead: ${brand.navigationPrior.map((item) => `${item.mechanism} (${String(item.samples)} verified)`).join(", ")} · ${brand.navigationOutcome}`

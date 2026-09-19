@@ -7,6 +7,7 @@ import type {
   IfrExtractionMode,
 } from "./amiFirmwareImage";
 import type { FirmwareArtifactCoherence } from "./firmwareProvenance";
+import type { PhoenixLegacyInventory, PhoenixUefiInventory } from "./phoenixFirmware";
 import type { BrandClassification, FirmwareBrand } from "./brandKnowledge";
 import type {
   AmiRootVisibilityStatus,
@@ -15,7 +16,7 @@ import type {
   ConditionSource,
 } from "./types";
 
-export const corpusReportSchemaVersion = "0.4.0";
+export const corpusReportSchemaVersion = "0.5.0";
 export const MAX_CORPUS_FILE_BYTES = 512 * 1024 * 1024;
 
 export type CorpusFileStatus = "recognized" | "partial" | "unsupported" | "failed";
@@ -159,6 +160,8 @@ export interface CorpusFileReport {
   family: FirmwareFamilyAssessment;
   ifrFormat: IfrExtractionMode | "mixed";
   frameworkInventory?: FrameworkIfrInventory;
+  phoenixLegacy?: PhoenixLegacyInventory;
+  phoenixUefi?: PhoenixUefiInventory;
   size: number;
   lastModified: number | null;
   sha256: string;
