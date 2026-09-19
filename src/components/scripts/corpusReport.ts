@@ -9,6 +9,11 @@ import {
 } from "./corpusTypes";
 import { classifyBrand } from "./brandKnowledge";
 import type { FirmwareBrand } from "./brandKnowledge";
+import {
+  buildCorpusDashboard,
+  distinctCorpusCases,
+  firstRecognitionBlocker,
+} from "./corpusDashboard";
 
 function stage(
   id: CorpusStageId,
@@ -23,8 +28,7 @@ function percentage(numerator: number, denominator: number) {
 }
 
 export function summarizeCorpusRun(files: CorpusFileReport[]): CorpusRunSummary {
-  const hashes = files.flatMap((file) => (file.sha256 ? [file.sha256] : []));
-  const uniqueFiles = new Set(hashes).size + files.length - hashes.length;
+  const uniqueFiles = distinctCorpusCases(files).length;
   const extracted = files.filter((file) => file.contexts.length > 0).length;
   const navigationResolved = files.filter(
     (file) =>
@@ -67,12 +71,14 @@ export function summarizeCorpusRun(files: CorpusFileReport[]): CorpusRunSummary 
 export function createCorpusRunReport(
   files: CorpusFileReport[],
   createdAt = new Date().toISOString(),
+  selected = files.length,
 ): CorpusRunReport {
   return {
     schemaVersion: corpusReportSchemaVersion,
     createdAt,
     privacy: "metadata-only-no-firmware-bytes",
     summary: summarizeCorpusRun(files),
+    dashboard: buildCorpusDashboard(files, selected),
     files,
   };
 }
@@ -109,7 +115,11 @@ export function createCorpusInputFailure(
     },
     contexts: [],
     stages: [
-      stage("preflight", "failed", message),
+      stage(
+        "preflight",
+        "not-run",
+        "The input could not be read for firmware preflight.",
+      ),
       stage("extraction", "not-run", "Deep extraction was not started."),
       stage("hii", "not-run", "No HII artifact was extracted."),
       stage("navigation", "not-run", "Navigation was not analysed."),
@@ -147,11 +157,17 @@ export function corpusRunToCsv(report: CorpusRunReport) {
     "move_available",
     "blocked_actions",
     "full_image_ready",
+    "first_recognition_blocker",
+    "duplicate_sha256",
     "failure_stage",
     "failure",
   ];
+  const seenHashes = new Set<string>();
   const rows = report.files.map((file) => {
     const contexts = file.contexts;
+    const normalizedHash = file.sha256.toLowerCase();
+    const duplicate = Boolean(normalizedHash && seenHashes.has(normalizedHash));
+    if (normalizedHash) seenHashes.add(normalizedHash);
     return [
       file.fileName,
       file.sha256,
@@ -178,6 +194,8 @@ export function corpusRunToCsv(report: CorpusRunReport) {
       contexts.reduce((total, context) => total + context.editing.blocked, 0),
       contexts.length > 0 &&
         contexts.every((context) => context.editing.fullImageReady),
+      firstRecognitionBlocker(file),
+      duplicate,
       file.failure?.stage ?? "",
       file.failure?.message ?? "",
     ];

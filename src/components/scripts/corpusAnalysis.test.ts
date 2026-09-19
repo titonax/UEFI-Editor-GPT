@@ -3,6 +3,7 @@ import { firmwareData, form, prompt } from "../../test/fixtures";
 import type { AmiFirmwareImageReport, AmiSetupProfileReport } from "./amiFirmwareImage";
 import type { AmiFirmwareArtifacts } from "./amiFirmwareExtractor";
 import { analyzeCorpusFirmware, buildCorpusContextReport } from "./corpusAnalysis";
+import { firstRecognitionBlocker } from "./corpusDashboard";
 import {
   corpusRunToCsv,
   createCorpusInputFailure,
@@ -10,6 +11,7 @@ import {
   summarizeCorpusRun,
 } from "./corpusReport";
 import { FirmwareError } from "./errors";
+import type { CorpusFileReport, CorpusStageResult } from "./corpusTypes";
 import type { Data } from "./types";
 
 const guidA = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
@@ -380,6 +382,27 @@ describe("local firmware corpus analysis", () => {
     });
   });
 
+  it("does not mark an empty extraction as parsed or navigation-proven", async () => {
+    const result = await analyzeCorpusFirmware(
+      { fileName: "empty.bin", size: 64, bytes: new Uint8Array(64) },
+      undefined,
+      {
+        inspect: () => outerReport(),
+        extract: vi.fn().mockResolvedValue({ ...artifacts(), artifactSets: [] }),
+        parseArtifacts: vi.fn(),
+        hash: vi.fn().mockResolvedValue("empty"),
+        now: () => 0,
+      },
+    );
+    expect(result.failure).toMatchObject({ stage: "extraction", code: "PARSE_FAILED" });
+    expect(result.stages.find((stage) => stage.id === "extraction")?.status).toBe(
+      "failed",
+    );
+    expect(result.stages.find((stage) => stage.id === "navigation")?.status).toBe(
+      "not-run",
+    );
+  });
+
   it("reports unique hashes, layer-specific rates and CSV-safe filenames", () => {
     const file = new File([], 'board,"one".bin');
     const failed = createCorpusInputFailure(file, "Could not read input");
@@ -417,5 +440,171 @@ describe("local firmware corpus analysis", () => {
     });
     expect(corpusRunToCsv(report)).toContain('"board,""one"".bin"');
     expect(report.privacy).toBe("metadata-only-no-firmware-bytes");
+  });
+
+  it("measures unique cases by eligible layer and separates recognition from write blockers", () => {
+    const baselineStages: CorpusStageResult[] = [
+      { id: "preflight", status: "passed", detail: "Valid volume" },
+      { id: "extraction", status: "passed", detail: "Context found" },
+      { id: "hii", status: "passed", detail: "Parsed" },
+      { id: "navigation", status: "passed", detail: "Root proven" },
+      { id: "editability", status: "passed", detail: "Hide plan" },
+      { id: "reconstruction", status: "blocked", detail: "Write disabled" },
+    ];
+    const context = buildCorpusContextReport(
+      artifacts(),
+      profile(),
+      { generation: "aptio-iv", confidence: "probable", conflict: false },
+      multiFormSetData(),
+    );
+    const base = createCorpusInputFailure(
+      new File([], "asus.bin"),
+      "Unreadable",
+      "ASUS",
+    );
+    const recognized: CorpusFileReport = {
+      ...base,
+      sha256: "ABC123",
+      status: "recognized",
+      failure: undefined,
+      outer: { ...base.outer, container: "firmware-volume-image" },
+      generation: { generation: "aptio-iv", confidence: "probable", conflict: false },
+      contexts: [context],
+      stages: baselineStages,
+    };
+    const duplicate = { ...recognized, fileName: "asus-copy.bin", sha256: "abc123" };
+    const preflight: CorpusFileReport = {
+      ...createCorpusInputFailure(new File([], "opaque.bin"), "No UEFI volume"),
+      sha256: "different",
+      status: "unsupported",
+      stages: [
+        { id: "preflight", status: "failed", detail: "No UEFI volume" },
+        ...base.stages.slice(1),
+      ],
+      failure: { stage: "preflight", message: "No UEFI volume" },
+    };
+    const hii: CorpusFileReport = {
+      ...recognized,
+      fileName: "intel-hii.bin",
+      brand: createCorpusInputFailure(new File([], "intel.bin"), "", "Intel").brand,
+      sha256: "hii",
+      status: "unsupported",
+      contexts: [],
+      stages: baselineStages.map((stage) => ({
+        ...stage,
+        status:
+          stage.id === "hii"
+            ? "failed"
+            : stage.id === "navigation" ||
+                stage.id === "editability" ||
+                stage.id === "reconstruction"
+              ? "not-run"
+              : stage.status,
+      })),
+      failure: { stage: "hii", code: "PARSE_FAILED", message: "IFR invalid" },
+    };
+    const nav: CorpusFileReport = {
+      ...hii,
+      fileName: "intel-nav.bin",
+      sha256: "nav",
+      status: "partial",
+      contexts: [
+        { ...context, navigation: { ...context.navigation, resolved: false } },
+      ],
+      stages: baselineStages.map((stage) => ({
+        ...stage,
+        status:
+          stage.id === "navigation"
+            ? "warning"
+            : stage.id === "editability"
+              ? "blocked"
+              : stage.status,
+      })),
+      failure: undefined,
+    };
+    const noEdit: CorpusFileReport = {
+      ...recognized,
+      fileName: "asus-no-edit.bin",
+      sha256: "no-edit",
+      contexts: [
+        {
+          ...context,
+          editing: { ...context.editing, hideAvailable: 0, showAvailable: 0 },
+        },
+      ],
+      stages: baselineStages.map((stage) => ({
+        ...stage,
+        status: stage.id === "editability" ? "blocked" : stage.status,
+      })),
+    };
+    const reading = createCorpusInputFailure(
+      new File([], "unreadable.bin"),
+      "Read failed",
+    );
+    const report = createCorpusRunReport(
+      [recognized, duplicate, preflight, hii, nav, noEdit, reading],
+      "2026-09-18T00:00:00.000Z",
+      8,
+    );
+    const dashboard = report.dashboard;
+
+    expect(report.schemaVersion).toBe("0.3.0");
+    expect(dashboard).toMatchObject({
+      selected: 8,
+      completed: 7,
+      uniqueCases: 6,
+      duplicateHashes: 1,
+      unhashedCases: 1,
+      noHiiEdit: 1,
+      fullImageBlocked: 3,
+      unknownManufacturer: 2,
+    });
+    expect(report.summary.uniqueFiles).toBe(6);
+    expect(dashboard.stages).toEqual([
+      expect.objectContaining({
+        id: "preflight",
+        eligible: 6,
+        passed: 4,
+        failed: 1,
+        notRun: 1,
+      }),
+      expect.objectContaining({ id: "extraction", eligible: 4, passed: 4 }),
+      expect.objectContaining({ id: "hii", eligible: 4, passed: 3, failed: 1 }),
+      expect.objectContaining({ id: "navigation", eligible: 3, passed: 2, warning: 1 }),
+      expect.objectContaining({
+        id: "editability",
+        eligible: 3,
+        passed: 1,
+        blocked: 2,
+      }),
+      expect.objectContaining({ id: "reconstruction", eligible: 3, blocked: 3 }),
+    ]);
+    expect(
+      dashboard.recognitionBlockers.map(({ category, cases }) => [category, cases]),
+    ).toEqual([
+      ["reading", 1],
+      ["preflight", 1],
+      ["extraction", 0],
+      ["hii", 1],
+      ["navigation", 1],
+      ["none", 2],
+    ]);
+    expect(dashboard.failureCodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ stage: "hii", code: "PARSE_FAILED", cases: 1 }),
+        expect.objectContaining({ stage: "reading", code: "NO_CODE", cases: 1 }),
+      ]),
+    );
+    expect(dashboard.manufacturers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "ASUS", cases: 2, extracted: 2 }),
+        expect.objectContaining({ label: "Intel", cases: 2, extracted: 2 }),
+        expect.objectContaining({ label: "Unknown", cases: 2 }),
+      ]),
+    );
+    expect(firstRecognitionBlocker(noEdit)).toBe("none");
+    const csv = corpusRunToCsv(report);
+    expect(csv).toContain("first_recognition_blocker,duplicate_sha256");
+    expect(csv).toContain("asus-copy.bin,abc123");
   });
 });

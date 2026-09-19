@@ -563,6 +563,12 @@ export async function analyzeCorpusFirmware(
     });
     const initial = await dependencies.extract(input.bytes);
     const contextIds = initial.artifactSets.map((context) => context.id);
+    if (contextIds.length === 0) {
+      throw new FirmwareError(
+        "PARSE_FAILED",
+        "No coherent Setup HII context was found.",
+      );
+    }
     const contexts: CorpusContextReport[] = [];
     for (const [contextIndex, contextId] of contextIds.entries()) {
       onProgress({

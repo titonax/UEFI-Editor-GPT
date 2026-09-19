@@ -83,7 +83,10 @@ describe("local corpus runner UI", () => {
       expect(screen.getByRole("button", { name: "Export JSON report" })).toBeEnabled(),
     );
     expect(screen.getByText("Corpus analysis complete.")).toBeInTheDocument();
-    expect(screen.getByText("Failed")).toBeInTheDocument();
+    expect(screen.getByText("Compatibility by layer")).toBeInTheDocument();
+    expect(screen.getByText(/1 distinct cases/)).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Manufacturer" })).toBeInTheDocument();
+    expect(screen.getAllByText("Failed").length).toBeGreaterThan(0);
     expect(fakeWorker.terminate).toHaveBeenCalled();
   });
 });
