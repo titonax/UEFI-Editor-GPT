@@ -21,9 +21,13 @@ import {
 import { sha256Hex } from "../scripts/checksum";
 import {
   formatHexOffset,
+  firmwareFamilyLabels,
+  frameworkIfrInventory,
+  ifrExtractionMode,
   inspectAmiFirmwareBytes,
   inspectAmiSetupProfile,
   reconcileAmiGeneration,
+  withParsedAmiContext,
   type AmiFirmwareImageReport,
   type AmiGenerationAssessment,
   type AmiSetupLayout,
@@ -223,6 +227,11 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   const assessment: AmiGenerationAssessment = report
     ? reconcileAmiGeneration(report, profile)
     : { generation: "unresolved", confidence: "unresolved", conflict: false };
+  const family = report
+    ? artifacts
+      ? withParsedAmiContext(report.family)
+      : report.family
+    : null;
   const brand =
     report && file
       ? classifyBrand(file.name, imageHash, report.brandMarkers, declaredBrand)
@@ -238,6 +247,11 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   const reconstruction = artifacts
     ? assessFirmwareReconstruction(artifacts.provenance)
     : null;
+  const ifrMode = artifacts ? ifrExtractionMode(artifacts.ifrText) : "unknown";
+  const frameworkInventory =
+    ifrMode === "framework" && artifacts
+      ? frameworkIfrInventory(artifacts.ifrText)
+      : null;
   const selectedArtifactSet = artifacts?.artifactSets.find(
     (candidate) => candidate.id === artifacts.selectedArtifactSetId,
   );
@@ -246,7 +260,7 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
     <Stack>
       <Group gap="xs">
         <IconBinary />
-        <Text fw={700}>Complete AMI UEFI image</Text>
+        <Text fw={700}>Complete BIOS / firmware image</Text>
       </Group>
       <FileInput
         leftSection={<IconUpload />}
@@ -298,7 +312,11 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                   ? "blue"
                   : "yellow"
             }
-            title={detectionLabel(assessment.generation, assessment.conflict)}
+            title={
+              family?.family === "ami-aptio"
+                ? detectionLabel(assessment.generation, assessment.conflict)
+                : firmwareFamilyLabels[family?.family ?? "unidentified"]
+            }
           >
             {assessment.conflict
               ? "Outer metadata and the extracted HII layout disagree. The application will not force a generation."
@@ -306,13 +324,20 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 ? assessment.generation === "unresolved"
                   ? "AMI Aptio structures were found, but the shared IV/V layout does not justify forcing a generation."
                   : "The generation is a corpus-backed profile match, not a vendor declaration. It does not unlock a generation-specific write path."
-                : report.amiAptioCandidate
-                  ? "AMI Aptio evidence was found. The local deep scan is needed before assigning a probable generation."
-                  : report.firmwareVolumes.length > 0
-                    ? "A valid UEFI image was found, but AMI Aptio evidence is still insufficient. Deep analysis can continue safely."
-                    : "No valid UEFI firmware volumes were found. HII analysis is unavailable for this input."}
+                : family?.family !== "ami-aptio" && report.firmwareVolumes.length === 0
+                  ? "No validated UEFI firmware volume was found; the family is based on the evidence shown below. AMI HII analysis is unavailable."
+                  : report.amiAptioCandidate
+                    ? "AMI Aptio evidence was found. The local deep scan is needed before assigning a probable generation."
+                    : report.firmwareVolumes.length > 0
+                      ? "A valid UEFI image was found, but AMI Aptio evidence is still insufficient. Deep analysis can continue safely."
+                      : "No valid UEFI firmware volumes were found. HII analysis is unavailable for this input."}
           </Alert>
           <Group gap="xs">
+            {family && (
+              <Badge variant="light" color={family.conflict ? "orange" : "blue"}>
+                {firmwareFamilyLabels[family.family]} · {family.confidence}
+              </Badge>
+            )}
             <Badge variant="light">{containerLabel(report.container)}</Badge>
             {brand && (
               <Badge variant="light" color={brand.brand ? "blue" : "gray"}>
@@ -350,6 +375,22 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
           </Group>
           <Table striped withColumnBorders>
             <Table.Tbody>
+              {family && (
+                <Table.Tr>
+                  <Table.Th>Firmware family evidence</Table.Th>
+                  <Table.Td>
+                    {family.signals.length > 0
+                      ? family.signals
+                          .map(
+                            (signal) =>
+                              `${signal.detail}${signal.offset === undefined ? "" : ` at ${formatHexOffset(signal.offset)}`}`,
+                          )
+                          .join("; ")
+                      : "No vendor-specific signature verified"}
+                    {family.conflict ? " · competing vendor evidence" : ""}
+                  </Table.Td>
+                </Table.Tr>
+              )}
               <Table.Tr>
                 <Table.Th>Image size</Table.Th>
                 <Table.Td>{report.size.toLocaleString()} bytes</Table.Td>
@@ -521,6 +562,15 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
               </List>
             </Alert>
           )}
+          {frameworkInventory && (
+            <Alert color="orange" title="Framework IFR detected">
+              Found {String(frameworkInventory.formSets)} FormSets,{" "}
+              {String(frameworkInventory.forms)} forms and{" "}
+              {String(frameworkInventory.references)} references in the AMI Setup
+              payload. This editor requires UEFI HII packages to build and validate edit
+              plans for this image.
+            </Alert>
+          )}
           {evidence.length > 0 && (
             <List size="sm" spacing="xs">
               {evidence.map((entry) => (
@@ -560,7 +610,11 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
             size="lg"
             leftSection={<IconPlayerPlay />}
             disabled={
-              loading || !artifacts || !profile || selectedArtifactSetId === null
+              loading ||
+              !artifacts ||
+              !profile ||
+              selectedArtifactSetId === null ||
+              ifrMode === "framework"
             }
             onClick={() => void startAnalysis()}
           >

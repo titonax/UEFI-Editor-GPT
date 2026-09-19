@@ -3,7 +3,11 @@ import type { PopulatedFiles } from "../firmwareFiles";
 import {
   inspectAmiFirmwareBytes,
   inspectAmiSetupProfile,
+  ifrExtractionMode,
+  frameworkIfrInventory,
   reconcileAmiGeneration,
+  withExtractedAmiContext,
+  withParsedAmiContext,
   type AmiFirmwareImageReport,
   type AmiGenerationAssessment,
   type AmiSetupProfileReport,
@@ -88,6 +92,7 @@ function emptyConditionCounts(): CorpusConditionCounts {
 function emptyOuter(report: AmiFirmwareImageReport): CorpusOuterImageSummary {
   return {
     container: report.container,
+    family: report.family,
     amiAptioCandidate: report.amiAptioCandidate,
     intelDescriptor: report.intelDescriptor,
     firmwareVolumeOffsets: report.firmwareVolumes,
@@ -532,6 +537,8 @@ export async function analyzeCorpusFirmware(
     return {
       fileName: input.fileName,
       brand,
+      family: outerReport.family,
+      ifrFormat: "unknown",
       size: input.size,
       lastModified: input.lastModified ?? null,
       sha256,
@@ -556,6 +563,9 @@ export async function analyzeCorpusFirmware(
   }
 
   let failureStage: CorpusProgressStage = "extraction";
+  let extractedAmiContext = false;
+  let ifrFormat: CorpusFileReport["ifrFormat"] = "unknown";
+  let frameworkInventory: CorpusFileReport["frameworkInventory"];
   try {
     onProgress({
       stage: "extraction",
@@ -569,6 +579,7 @@ export async function analyzeCorpusFirmware(
         "No coherent Setup HII context was found.",
       );
     }
+    extractedAmiContext = true;
     const contexts: CorpusContextReport[] = [];
     for (const [contextIndex, contextId] of contextIds.entries()) {
       onProgress({
@@ -583,9 +594,23 @@ export async function analyzeCorpusFirmware(
           : await dependencies.extract(input.bytes, undefined, {
               artifactSetId: contextId,
             });
+      failureStage = "hii";
+      const nextFormat = ifrExtractionMode(artifacts.ifrText);
+      ifrFormat =
+        ifrFormat === "unknown"
+          ? nextFormat
+          : ifrFormat === nextFormat
+            ? ifrFormat
+            : "mixed";
+      if (nextFormat === "framework") {
+        frameworkInventory = frameworkIfrInventory(artifacts.ifrText);
+        throw new FirmwareError(
+          "INCOMPATIBLE_IFR",
+          "Framework IFR was extracted from AMI Setup. UEFI HII parsing and editing are not available for this format.",
+        );
+      }
       const profile = inspectAmiSetupProfile(artifacts.hii, artifacts.setupData);
       const generation = reconcileAmiGeneration(outerReport, profile);
-      failureStage = "hii";
       const data = await dependencies.parseArtifacts(input.fileName, artifacts);
       failureStage = "navigation";
       onProgress({
@@ -613,6 +638,9 @@ export async function analyzeCorpusFirmware(
             : "unresolved",
         ),
       ),
+      family: withParsedAmiContext(outerReport.family),
+      ifrFormat,
+      ...(frameworkInventory ? { frameworkInventory } : {}),
       size: input.size,
       lastModified: input.lastModified ?? null,
       sha256,
@@ -629,6 +657,11 @@ export async function analyzeCorpusFirmware(
     return {
       fileName: input.fileName,
       brand,
+      family: extractedAmiContext
+        ? withExtractedAmiContext(outerReport.family)
+        : outerReport.family,
+      ifrFormat,
+      ...(frameworkInventory ? { frameworkInventory } : {}),
       size: input.size,
       lastModified: input.lastModified ?? null,
       sha256,

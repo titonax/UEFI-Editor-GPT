@@ -90,15 +90,24 @@ async function runFirmwareDecompress(
   const instance = await WebAssembly.instantiate(module, {
     wasi_snapshot_preview1: wasi.wasiImport,
   });
-  const exitCode = wasi.start(
-    instance as WebAssembly.Instance & {
-      exports: { memory: WebAssembly.Memory; _start: () => unknown };
-    },
-  );
+  let exitCode: number;
+  try {
+    exitCode = wasi.start(
+      instance as WebAssembly.Instance & {
+        exports: { memory: WebAssembly.Memory; _start: () => unknown };
+      },
+    );
+  } catch (reason) {
+    if (!(reason instanceof WebAssembly.RuntimeError)) throw reason;
+    throw new FirmwareError(
+      "INVALID_COMPRESSED_SECTION",
+      `Firmware decompressor trapped on this section (${reason.message}).`,
+    );
+  }
   const output = directory.get("output.bin");
   if (exitCode !== 0 || !output) {
     throw new FirmwareError(
-      "PARSE_FAILED",
+      "INVALID_COMPRESSED_SECTION",
       messages.join("\n") || `Firmware decompressor exited with ${String(exitCode)}.`,
     );
   }
@@ -115,13 +124,19 @@ async function firmwareDecompress(input: Uint8Array, mode: "lzma" | "standard") 
     try {
       return await runFirmwareDecompress(input, "tiano-decompress.wasm", algorithm);
     } catch (error) {
+      if (
+        error instanceof FirmwareError &&
+        error.code !== "INVALID_COMPRESSED_SECTION"
+      ) {
+        throw error;
+      }
       failures.push(
         `${algorithm}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
   throw new FirmwareError(
-    "PARSE_FAILED",
+    "INVALID_COMPRESSED_SECTION",
     `EFI/Tiano decompression failed (${failures.join("; ")}).`,
   );
 }
@@ -220,13 +235,20 @@ function findTopLevelVolumes(bytes: Uint8Array) {
 interface ExtractionGraph {
   nodes: Map<number, FirmwareBufferNode>;
   decodedSections: Map<string, number>;
+  decodeFailures: string[];
+  decompress: typeof firmwareDecompress;
   nextId: number;
 }
 
-function createExtractionGraph(image: Uint8Array): ExtractionGraph {
+function createExtractionGraph(
+  image: Uint8Array,
+  decompress: typeof firmwareDecompress,
+): ExtractionGraph {
   return {
     nodes: new Map([[0, { id: 0, bytes: image, depth: 0 }]]),
     decodedSections: new Map(),
+    decodeFailures: [],
+    decompress,
     nextId: 1,
   };
 }
@@ -300,7 +322,7 @@ async function decodeEncapsulation(
   const bytes =
     encapsulated.compression === "none"
       ? encapsulated.bytes
-      : firmwareDecompress(encapsulated.bytes, encapsulated.compression);
+      : graph.decompress(encapsulated.bytes, encapsulated.compression);
   const decoded = await bytes;
   const node: FirmwareBufferNode = {
     id: graph.nextId++,
@@ -323,6 +345,28 @@ async function decodeEncapsulation(
   graph.nodes.set(node.id, node);
   graph.decodedSections.set(cacheKey, node.id);
   return node;
+}
+
+async function tryDecodeEncapsulation(
+  graph: ExtractionGraph,
+  parent: FirmwareBufferNode,
+  section: FirmwareSection,
+  ownerFile?: LocatedFile,
+) {
+  try {
+    return await decodeEncapsulation(graph, parent, section, ownerFile);
+  } catch (reason) {
+    if (
+      !(reason instanceof FirmwareError) ||
+      reason.code !== "INVALID_COMPRESSED_SECTION"
+    ) {
+      throw reason;
+    }
+    graph.decodeFailures.push(
+      `Buffer ${String(parent.id)} section 0x${section.start.toString(16).toUpperCase()}: ${reason.message.slice(0, 180)}`,
+    );
+    return null;
+  }
 }
 
 async function nestedBuffers(graph: ExtractionGraph, node: FirmwareBufferNode) {
@@ -350,7 +394,7 @@ async function nestedBuffers(graph: ExtractionGraph, node: FirmwareBufferNode) {
       while (sectionStart + 4 <= file.end) {
         const section = readFirmwareSection(bytes, sectionStart, file.end);
         if (!section) break;
-        const child = await decodeEncapsulation(graph, node, section, ownerFile);
+        const child = await tryDecodeEncapsulation(graph, node, section, ownerFile);
         if (child) nested.push(child);
         sectionStart = align(section.end, 4);
       }
@@ -360,8 +404,12 @@ async function nestedBuffers(graph: ExtractionGraph, node: FirmwareBufferNode) {
   return nested;
 }
 
-async function locateFirmwareFiles(bytes: Uint8Array, wantedGuids: string[]) {
-  const graph = createExtractionGraph(bytes);
+async function locateFirmwareFiles(
+  bytes: Uint8Array,
+  wantedGuids: string[],
+  decompress: typeof firmwareDecompress,
+) {
+  const graph = createExtractionGraph(bytes, decompress);
   const root = graph.nodes.get(0);
   if (!root) throw new FirmwareError("PARSE_FAILED", "Source image is unavailable.");
   const queue = [root];
@@ -556,7 +604,7 @@ async function locateSectionPayload(
       if (!parent) {
         throw new FirmwareError("PARSE_FAILED", "Decoded section parent is missing.");
       }
-      const nested = await decodeEncapsulation(
+      const nested = await tryDecodeEncapsulation(
         graph,
         parent,
         section,
@@ -801,25 +849,30 @@ export async function extractAptioIvBytes(
   image: Uint8Array,
   extractIfr: (hii: Uint8Array) => Promise<string> = runIfrExtractor,
   options: AptioIvExtractionOptions = {},
+  decompress: typeof firmwareDecompress = firmwareDecompress,
 ): Promise<AptioIvArtifacts> {
-  const { graph, located: files } = await locateFirmwareFiles(image, [
-    setupGuid,
-    amitseGuid,
-    setupDataGuid,
-  ]);
+  const { graph, located: files } = await locateFirmwareFiles(
+    image,
+    [setupGuid, amitseGuid, setupDataGuid],
+    decompress,
+  );
   const setupFiles = files.get(setupGuid) ?? [];
   if (setupFiles.length === 0) {
     throw new FirmwareError(
       "PARSE_FAILED",
-      "Setup FFS was not found after recursive decompression.",
+      `Setup FFS was not found after recursive decompression.${graph.decodeFailures.length > 0 ? ` ${String(graph.decodeFailures.length)} section(s) could not be decoded; first: ${graph.decodeFailures[0]}` : ""}`,
     );
   }
   const sets = await locateArtifactSets(graph, files);
   if (sets.length === 0) {
     throw new FirmwareError(
       "PARSE_FAILED",
-      "No Setup context contains a usable HII package or Setup PE32 section.",
+      `No Setup context contains a usable HII package or Setup PE32 section.${graph.decodeFailures.length > 0 ? ` ${String(graph.decodeFailures.length)} section(s) could not be decoded; first: ${graph.decodeFailures[0]}` : ""}`,
     );
+  }
+  if (graph.decodeFailures.length > 0) {
+    const warning = `${String(graph.decodeFailures.length)} nested section(s) could not be decoded; other firmware contexts may be missing. ${graph.decodeFailures[0]}`;
+    for (const set of sets) set.summary.warnings.push(warning);
   }
   const selected = options.artifactSetId
     ? sets.find((set) => set.summary.id === options.artifactSetId)

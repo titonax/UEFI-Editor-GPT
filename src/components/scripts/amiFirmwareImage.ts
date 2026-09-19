@@ -6,6 +6,103 @@ export type AmiFirmwareGeneration = "aptio-iv" | "aptio-v" | "unresolved";
 export type DetectionConfidence = "confirmed" | "probable" | "unresolved";
 export type FirmwareContainer =
   "intel-flash" | "firmware-volume-image" | "vendor-image" | "unknown";
+export type IfrExtractionMode = "uefi" | "framework" | "unknown";
+
+export interface FrameworkIfrInventory {
+  formSets: number;
+  forms: number;
+  references: number;
+}
+
+export function ifrExtractionMode(text: string): IfrExtractionMode {
+  if (text.includes("Extraction mode: UEFI")) return "uefi";
+  if (text.includes("Extraction mode: Framework")) return "framework";
+  return "unknown";
+}
+
+export function frameworkIfrInventory(text: string): FrameworkIfrInventory {
+  return {
+    formSets: (text.match(/^0x[0-9a-f]+:\s*FormSet Title:/gim) ?? []).length,
+    forms: (text.match(/^0x[0-9a-f]+:\s*Form Title:/gim) ?? []).length,
+    references: (text.match(/^0x[0-9a-f]+:\s*Ref Prompt:/gim) ?? []).length,
+  };
+}
+export type FirmwareFamily =
+  | "ami-aptio"
+  | "ami-legacy"
+  | "insyde"
+  | "phoenix"
+  | "award"
+  | "uefi-unidentified"
+  | "intel-me"
+  | "non-firmware"
+  | "unidentified";
+
+export interface FirmwareFamilySignal {
+  code: string;
+  detail: string;
+  offset?: number;
+}
+
+export interface FirmwareFamilyAssessment {
+  family: FirmwareFamily;
+  confidence: DetectionConfidence;
+  conflict: boolean;
+  signals: FirmwareFamilySignal[];
+}
+
+export const firmwareFamilyLabels: Record<FirmwareFamily, string> = {
+  "ami-aptio": "AMI Aptio",
+  "ami-legacy": "Legacy AMIBIOS",
+  insyde: "Insyde UEFI",
+  phoenix: "Phoenix BIOS",
+  award: "Award BIOS",
+  "uefi-unidentified": "UEFI (family unresolved)",
+  "intel-me": "Intel Management Engine region",
+  "non-firmware": "Non-firmware file",
+  unidentified: "Unidentified binary",
+};
+
+export function withParsedAmiContext(
+  assessment: FirmwareFamilyAssessment,
+): FirmwareFamilyAssessment {
+  const evidence = {
+    code: "parsed-ami-setup-hii",
+    detail: "A coherent AMI Setup context produced parsed HII/IFR data.",
+  };
+  if (assessment.family === "ami-aptio" || assessment.family === "uefi-unidentified") {
+    return {
+      family: "ami-aptio",
+      confidence: "confirmed",
+      conflict: assessment.conflict,
+      signals: [...assessment.signals, evidence],
+    };
+  }
+  return {
+    ...assessment,
+    conflict: true,
+    signals: [...assessment.signals, evidence],
+  };
+}
+
+export function withExtractedAmiContext(
+  assessment: FirmwareFamilyAssessment,
+): FirmwareFamilyAssessment {
+  const evidence = {
+    code: "extracted-ami-setup-hii",
+    detail:
+      "A coherent AMI Setup HII payload was extracted; HII parsing did not finish.",
+  };
+  if (assessment.family === "ami-aptio" || assessment.family === "uefi-unidentified") {
+    return {
+      family: "ami-aptio",
+      confidence: "probable",
+      conflict: assessment.conflict,
+      signals: [...assessment.signals, evidence],
+    };
+  }
+  return { ...assessment, conflict: true, signals: [...assessment.signals, evidence] };
+}
 
 export interface FirmwareEvidence {
   code: string;
@@ -18,6 +115,7 @@ export interface FirmwareEvidence {
 export interface AmiFirmwareImageReport {
   size: number;
   container: FirmwareContainer;
+  family: FirmwareFamilyAssessment;
   intelDescriptor: boolean;
   firmwareVolumes: number[];
   ffs2Volumes: number[];
@@ -95,6 +193,21 @@ const signatures: SignatureDefinition[] = [
   { name: "aptio4", bytes: ascii("Aptio 4"), insensitiveAscii: true },
   { name: "aptioV", bytes: ascii("Aptio V"), insensitiveAscii: true },
   { name: "aptio5", bytes: ascii("Aptio 5"), insensitiveAscii: true },
+  { name: "amiLegacy", bytes: ascii("AMIBIOS"), insensitiveAscii: true },
+  { name: "phoenixBios", bytes: ascii("PhoenixBIOS"), insensitiveAscii: true },
+  {
+    name: "phoenixSecureCore",
+    bytes: ascii("Phoenix SecureCore"),
+    insensitiveAscii: true,
+  },
+  { name: "awardBios", bytes: ascii("AwardBIOS"), insensitiveAscii: true },
+  { name: "awardModular", bytes: ascii("Award Modular BIOS"), insensitiveAscii: true },
+  { name: "insydeH2O", bytes: ascii("InsydeH2O"), insensitiveAscii: true },
+  {
+    name: "insydeVendor",
+    bytes: ascii("Insyde Software Corp."),
+    insensitiveAscii: true,
+  },
   { name: "amiFidGuid", bytes: hex("7502BE2E5864F94A91EDD3F4EDB100AA") },
   { name: "brandHp", bytes: ascii("SECURE_HP_SIGNATURE") },
   {
@@ -239,6 +352,140 @@ function guidedSectionStart(bytes: Uint8Array, guidOffset: number) {
 
 function has(results: Map<string, number[]>, ...names: string[]) {
   return names.some((name) => offsets(results, name).length > 0);
+}
+
+function assessFirmwareFamily(
+  bytes: Uint8Array,
+  found: Map<string, number[]>,
+  firmwareVolumes: number[],
+  intelDescriptor: boolean,
+  amiAptioCandidate: boolean,
+): FirmwareFamilyAssessment {
+  const signals: FirmwareFamilySignal[] = [];
+  function add(name: string, code: string, detail: string) {
+    const offset = offsets(found, name)[0];
+    if (offset !== undefined) signals.push({ code, detail, offset });
+  }
+  add("amitseSetup", "ami-nvram", "AMITSESetup was found in the image.");
+  add("aptioIv", "aptio-iv-string", "Aptio IV is named in the image.");
+  add("aptioV", "aptio-v-string", "Aptio V is named in the image.");
+  add("phoenixBios", "phoenix-bios", "PhoenixBIOS boot firmware marker.");
+  add("phoenixSecureCore", "phoenix-securecore", "Phoenix SecureCore marker.");
+  add("awardBios", "award-bios", "AwardBIOS boot firmware marker.");
+  add("awardModular", "award-modular", "Award Modular BIOS marker.");
+  add("insydeH2O", "insyde-h2o", "InsydeH2O firmware marker.");
+  add(
+    "insydeVendor",
+    "insyde-vendor",
+    "Insyde vendor string (may occur in a component).",
+  );
+  add(
+    "americanMegatrends",
+    "ami-vendor",
+    "AMI vendor string (may occur in a component).",
+  );
+  add("amiLegacy", "ami-legacy", "AMIBIOS legacy marker.");
+
+  const strongAmi =
+    amiAptioCandidate &&
+    has(
+      found,
+      "amitseSetup",
+      "setupDataGuid",
+      "setupDataProfile",
+      "aptioIv",
+      "aptio4",
+      "aptioV",
+      "aptio5",
+    );
+  const strongInsyde = has(found, "insydeH2O");
+  const strongPhoenix = has(found, "phoenixBios", "phoenixSecureCore");
+  const strongAward = has(found, "awardBios", "awardModular");
+  const competing = [strongAmi, strongInsyde, strongPhoenix, strongAward].filter(
+    Boolean,
+  ).length;
+  if (competing > 1) {
+    return {
+      family: "unidentified",
+      confidence: "unresolved",
+      conflict: true,
+      signals,
+    };
+  }
+  if (
+    firmwareVolumes.length > 0 &&
+    amiAptioCandidate &&
+    (strongAmi || !has(found, "insydeH2O", "insydeVendor", "phoenixBios", "awardBios"))
+  ) {
+    return { family: "ami-aptio", confidence: "probable", conflict: false, signals };
+  }
+  if (strongAward)
+    return { family: "award", confidence: "probable", conflict: false, signals };
+  if (strongPhoenix)
+    return { family: "phoenix", confidence: "probable", conflict: false, signals };
+  if (strongInsyde || (firmwareVolumes.length > 0 && has(found, "insydeVendor"))) {
+    return { family: "insyde", confidence: "probable", conflict: false, signals };
+  }
+  if (firmwareVolumes.length > 0) {
+    return {
+      family: "uefi-unidentified",
+      confidence: "unresolved",
+      conflict: false,
+      signals,
+    };
+  }
+  if (has(found, "amiLegacy")) {
+    return { family: "ami-legacy", confidence: "probable", conflict: false, signals };
+  }
+  // An Intel ME partition starts with a bounded FPT header. The same FPT
+  // occurs inside complete SPI images, so the descriptor and FV take priority.
+  if (
+    !intelDescriptor &&
+    [0, 0x10].some(
+      (offset) =>
+        bytesEqual(bytes, offset, ascii("$FPT")) &&
+        offset + 8 <= bytes.length &&
+        readUint32(bytes, offset + 4) >= 1 &&
+        readUint32(bytes, offset + 4) <= 128,
+    )
+  ) {
+    return {
+      family: "intel-me",
+      confidence: "probable",
+      conflict: false,
+      signals: [
+        ...signals,
+        {
+          code: "intel-fpt",
+          detail: "Intel ME partition table at the start of the payload.",
+          offset: bytesEqual(bytes, 0, ascii("$FPT")) ? 0 : 0x10,
+        },
+      ],
+    };
+  }
+  if (
+    bytesEqual(bytes, 0, ascii("OggS")) ||
+    bytesEqual(bytes, 0, hex("89504E470D0A1A0A")) ||
+    bytesEqual(bytes, 0, ascii("%PDF")) ||
+    bytesEqual(bytes, 0, hex("504B0304")) ||
+    bytesEqual(bytes, 0, ascii("[.ShellClassInfo]")) ||
+    bytesEqual(bytes, 0, ascii("[LocalizedFileNames]"))
+  ) {
+    return {
+      family: "non-firmware",
+      confidence: "confirmed",
+      conflict: false,
+      signals: [
+        ...signals,
+        {
+          code: "file-format",
+          detail: "Recognized non-firmware file header.",
+          offset: 0,
+        },
+      ],
+    };
+  }
+  return { family: "unidentified", confidence: "unresolved", conflict: false, signals };
 }
 
 function containerOf(
@@ -449,6 +696,13 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
   return {
     size: bytes.length,
     container: containerOf(firmwareVolumes, intelDescriptor),
+    family: assessFirmwareFamily(
+      bytes,
+      found,
+      firmwareVolumes,
+      intelDescriptor,
+      amiAptioCandidate,
+    ),
     intelDescriptor,
     firmwareVolumes,
     ffs2Volumes,

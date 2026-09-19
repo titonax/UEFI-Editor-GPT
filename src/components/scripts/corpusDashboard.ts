@@ -8,6 +8,7 @@ import type {
   CorpusRecognitionBlocker,
   CorpusStageId,
 } from "./corpusTypes";
+import { firmwareFamilyLabels } from "./amiFirmwareImage";
 
 const stages: CorpusStageId[] = [
   "preflight",
@@ -183,6 +184,12 @@ export function buildCorpusDashboard(
       (file) =>
         file.brand.brand ?? (file.brand.basis === "conflict" ? "Conflict" : "Unknown"),
     ),
+    families: cohortBreakdown(unique, (file) =>
+      file.family.conflict
+        ? "Conflicting vendor evidence"
+        : firmwareFamilyLabels[file.family.family],
+    ),
+    ifrFormats: cohortBreakdown(unique, (file) => file.ifrFormat),
     containers: cohortBreakdown(unique, (file) => file.outer.container),
     generations: cohortBreakdown(unique, (file) =>
       file.generation.conflict ? "conflict" : file.generation.generation,

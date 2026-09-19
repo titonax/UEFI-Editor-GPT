@@ -3,6 +3,7 @@ export type FirmwareErrorCode =
   | "INCOMPATIBLE_IFR"
   | "INTEGRITY_MISMATCH"
   | "PARSE_FAILED"
+  | "INVALID_COMPRESSED_SECTION"
   | "PATCH_FAILED"
   | "NO_CHANGES";
 

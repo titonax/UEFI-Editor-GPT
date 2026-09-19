@@ -73,6 +73,16 @@ function pe32Section(payload: Uint8Array) {
   return section;
 }
 
+function compressedSection(payload: Uint8Array) {
+  const section = new Uint8Array(9 + payload.length);
+  writeUint24(section, 0, section.length);
+  section[3] = 0x01;
+  new DataView(section.buffer).setUint32(4, payload.length, true);
+  section[8] = 1;
+  section.set(payload, 9);
+  return section;
+}
+
 function setupVolume(hii: Uint8Array) {
   return firmwareVolumeWithFile(setupGuid, freeformSection(hiiGuid, hii));
 }
@@ -102,6 +112,34 @@ function binaryFile(bytes: Uint8Array): File {
 }
 
 describe("Aptio IV extraction errors", () => {
+  it("keeps a valid Setup context when another compressed FFS is damaged", async () => {
+    const hii = new Uint8Array([0x42, 0x43]);
+    const image = firmwareVolumeWithFiles([
+      {
+        guid: "11111111-2222-3333-4444-555555555555",
+        section: compressedSection(new Uint8Array([0x00, 0x01])),
+      },
+      { guid: setupGuid, section: freeformSection(hiiGuid, hii) },
+    ]);
+    const artifacts = await extractAptioIvBytes(
+      image,
+      () => Promise.resolve("FormSet Guid: synthetic"),
+      {},
+      () =>
+        Promise.reject(
+          new FirmwareError("INVALID_COMPRESSED_SECTION", "Invalid stream."),
+        ),
+    );
+
+    expect(artifacts.hii).toEqual(hii);
+    expect(artifacts.artifactSets[0]?.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("nested section(s) could not be decoded"),
+      ]),
+    );
+    expect(artifacts.provenance.artifacts).toHaveLength(1);
+  });
+
   it("reports a typed parse failure when Setup FFS cannot be located", async () => {
     try {
       await extractAptioIvArtifacts(binaryFile(new Uint8Array(0x80)));
