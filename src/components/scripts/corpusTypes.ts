@@ -12,7 +12,7 @@ import type {
   ConditionSource,
 } from "./types";
 
-export const corpusReportSchemaVersion = "0.2.0";
+export const corpusReportSchemaVersion = "0.3.0";
 export const MAX_CORPUS_FILE_BYTES = 512 * 1024 * 1024;
 
 export type CorpusFileStatus = "recognized" | "partial" | "unsupported" | "failed";
@@ -182,11 +182,65 @@ export interface CorpusRunSummary {
   fullImageRate: number;
 }
 
+export type CorpusRecognitionBlocker =
+  "reading" | "preflight" | "extraction" | "hii" | "navigation" | "none";
+
+export interface CorpusDashboardStage {
+  id: CorpusStageId;
+  eligible: number;
+  passed: number;
+  warning: number;
+  failed: number;
+  blocked: number;
+  notRun: number;
+}
+
+export interface CorpusDashboardCohort {
+  label: string;
+  cases: number;
+  extracted: number;
+  navigationResolved: number;
+  hiiEditable: number;
+  fullImageReady: number;
+}
+
+export interface CorpusDashboardBlocker {
+  category: CorpusRecognitionBlocker;
+  cases: number;
+  fileNames: string[];
+}
+
+export interface CorpusDashboardFailureCode {
+  stage: CorpusProgressStage;
+  code: string;
+  cases: number;
+  example: string;
+}
+
+export interface CorpusDashboard {
+  selected: number;
+  completed: number;
+  uniqueCases: number;
+  duplicateHashes: number;
+  unhashedCases: number;
+  stages: CorpusDashboardStage[];
+  recognitionBlockers: CorpusDashboardBlocker[];
+  failureCodes: CorpusDashboardFailureCode[];
+  manufacturers: CorpusDashboardCohort[];
+  containers: CorpusDashboardCohort[];
+  generations: CorpusDashboardCohort[];
+  noHiiEdit: number;
+  fullImageBlocked: number;
+  incompleteProvenance: number;
+  unknownManufacturer: number;
+}
+
 export interface CorpusRunReport {
   schemaVersion: typeof corpusReportSchemaVersion;
   createdAt: string;
   privacy: "metadata-only-no-firmware-bytes";
   summary: CorpusRunSummary;
+  dashboard: CorpusDashboard;
   files: CorpusFileReport[];
 }
 

@@ -27,6 +27,7 @@ import {
 import { saveAs } from "file-saver";
 import React from "react";
 import { supportedBrands, type FirmwareBrand } from "../scripts/brandKnowledge";
+import { buildCorpusDashboard } from "../scripts/corpusDashboard";
 import {
   corpusRunToCsv,
   createCorpusRunReport,
@@ -43,6 +44,7 @@ import {
   type CorpusStageStatus,
 } from "../scripts/corpusTypes";
 import type { CorpusRunnerRequest, CorpusRunnerResponse } from "./protocol";
+import CorpusDashboard from "./CorpusDashboard";
 import s from "./CorpusRunner.module.css";
 
 interface CorpusWorkerLike {
@@ -338,10 +340,10 @@ export default function CorpusRunner({
     [],
   );
 
-  const finish = React.useCallback((wasCancelled: boolean) => {
+  const finish = React.useCallback((wasCancelled: boolean, selected: number) => {
     setRunning(false);
     setCancelled(wasCancelled);
-    setReport(createCorpusRunReport(collectedResults.current));
+    setReport(createCorpusRunReport(collectedResults.current, undefined, selected));
     setProgress(wasCancelled ? 0 : 100);
     setProgressText(wasCancelled ? "Analysis cancelled." : "Corpus analysis complete.");
     worker.current?.terminate();
@@ -379,17 +381,17 @@ export default function CorpusRunner({
         setResults(collectedResults.current);
         setProgress(((message.fileIndex + 1) / message.fileCount) * 100);
       } else if (message.type === "complete") {
-        finish(false);
+        finish(false, files.length);
       } else if (message.type === "cancelled") {
-        finish(true);
+        finish(true, files.length);
       } else if (message.type === "fatal") {
         setError(message.message);
-        finish(true);
+        finish(true, files.length);
       }
     };
     currentWorker.onerror = (event) => {
       setError(event.message || "The local corpus worker failed.");
-      finish(true);
+      finish(true, files.length);
     };
     currentWorker.postMessage({
       type: "start",
@@ -417,6 +419,7 @@ export default function CorpusRunner({
   };
 
   const summary = summarizeCorpusRun(results);
+  const dashboard = buildCorpusDashboard(results, files.length);
 
   return (
     <Stack className={s.root} gap="md">
@@ -533,16 +536,13 @@ export default function CorpusRunner({
       )}
       {results.length > 0 && (
         <>
-          <SimpleGrid cols={{ base: 2, sm: 4, lg: 8 }} spacing="xs">
-            <Metric label="Files" value={summary.files} />
-            <Metric label="Unique" value={summary.uniqueFiles} />
-            <Metric label="Recognized" value={summary.recognized} />
-            <Metric label="Partial" value={summary.partial} />
-            <Metric label="Unsupported" value={summary.unsupported} />
-            <Metric label="Extraction" value={`${String(summary.extractionRate)}%`} />
-            <Metric label="Navigation" value={`${String(summary.navigationRate)}%`} />
-            <Metric label="HII editable" value={`${String(summary.hiiEditRate)}%`} />
+          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+            <Metric label="Recognized files" value={summary.recognized} />
+            <Metric label="Partial files" value={summary.partial} />
+            <Metric label="Unsupported files" value={summary.unsupported} />
+            <Metric label="Failed files" value={summary.failed} />
           </SimpleGrid>
+          <CorpusDashboard dashboard={dashboard} />
           <Group>
             <Button
               variant="default"
