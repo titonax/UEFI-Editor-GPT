@@ -155,6 +155,8 @@ See [architecture](docs/architecture.md) and
 [AMI comparison corpus](docs/ami/sample-corpus.md) for the evidence model,
 [local corpus runner](docs/ami/local-corpus-runner.md) for the report schema and
 compatibility denominators,
+[manufacturer evidence catalogue](docs/ami/manufacturer-knowledge.md) for
+brand-based investigation leads and their limits,
 [root visibility analysis](docs/ami/root-visibility-vector.md) for the
 multi-FormSet byte-vector invariants,
 [single-FormSet IFR navigation](docs/ami/single-formset-ifr-navigation.md) for

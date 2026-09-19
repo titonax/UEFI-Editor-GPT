@@ -7,6 +7,7 @@ import {
   FileInput,
   Group,
   List,
+  NativeSelect,
   Progress,
   ScrollArea,
   SimpleGrid,
@@ -25,6 +26,7 @@ import {
 } from "@tabler/icons-react";
 import { saveAs } from "file-saver";
 import React from "react";
+import { supportedBrands, type FirmwareBrand } from "../scripts/brandKnowledge";
 import {
   corpusRunToCsv,
   createCorpusRunReport,
@@ -212,11 +214,63 @@ function Metric({ label, value }: { label: string; value: number | string }) {
 }
 
 function FileDetails({ file }: { file: CorpusFileReport }) {
+  const brand = file.brand;
   return (
     <Stack gap="md">
       <Text size="xs" c="dimmed" className={s.hash}>
         SHA-256: {file.sha256 || "not calculated"}
       </Text>
+      <Group gap="xs">
+        <Badge variant="light">{brand.brand ?? "Manufacturer unknown"}</Badge>
+        <Text size="sm">
+          {brand.basis} · {String(brand.documentedSamples)} documented sample(s)
+        </Text>
+        {brand.signals.some((signal) => signal.brand !== brand.brand) && (
+          <Badge variant="light" color="orange">
+            conflicting brand clues
+          </Badge>
+        )}
+      </Group>
+      {brand.signals.length > 0 && (
+        <Text size="xs" c="dimmed">
+          Evidence:{" "}
+          {brand.signals
+            .map(
+              (signal) =>
+                `${signal.brand}: ${signal.detail}${signal.offset === undefined ? "" : ` at 0x${signal.offset.toString(16).toUpperCase()}`}`,
+            )
+            .join("; ")}
+        </Text>
+      )}
+      <Text size="sm">
+        {brand.navigationPrior.length > 0
+          ? `Navigation lead: ${brand.navigationPrior.map((item) => `${item.mechanism} (${String(item.samples)} verified)`).join(", ")} · ${brand.navigationOutcome}`
+          : "No verified navigation pattern for this manufacturer yet."}
+      </Text>
+      {brand.observedGenerations.length > 0 && (
+        <Text size="xs" c="dimmed">
+          Documented Aptio generations:{" "}
+          {brand.observedGenerations
+            .map((item) => `${item.generation} (${String(item.samples)})`)
+            .join(", ")}
+        </Text>
+      )}
+      {brand.observedContainers.length > 0 && (
+        <Text size="xs" c="dimmed">
+          Documented containers:{" "}
+          {brand.observedContainers
+            .map((item) => `${item.container} (${String(item.samples)})`)
+            .join(", ")}
+        </Text>
+      )}
+      {brand.observedLayouts.length > 0 && (
+        <Text size="xs" c="dimmed">
+          Documented Setup layouts:{" "}
+          {brand.observedLayouts
+            .map((item) => `${item.layout} (${String(item.samples)})`)
+            .join(", ")}
+        </Text>
+      )}
       <ScrollArea>
         <Table striped withColumnBorders className={s.detailsTable}>
           <Table.Thead>
@@ -266,6 +320,9 @@ export default function CorpusRunner({
   const runId = React.useRef(0);
   const collectedResults = React.useRef<CorpusFileReport[]>([]);
   const [files, setFiles] = React.useState<File[]>([]);
+  const [declaredBrands, setDeclaredBrands] = React.useState<
+    Record<number, FirmwareBrand | undefined>
+  >({});
   const [results, setResults] = React.useState<CorpusFileReport[]>([]);
   const [report, setReport] = React.useState<CorpusRunReport | null>(null);
   const [running, setRunning] = React.useState(false);
@@ -334,13 +391,21 @@ export default function CorpusRunner({
       setError(event.message || "The local corpus worker failed.");
       finish(true);
     };
-    currentWorker.postMessage({ type: "start", runId: currentRunId, files });
+    currentWorker.postMessage({
+      type: "start",
+      runId: currentRunId,
+      files: files.map((file, index) => ({
+        file,
+        declaredBrand: declaredBrands[index],
+      })),
+    });
   };
 
   const reset = () => {
     worker.current?.terminate();
     worker.current = null;
     setFiles([]);
+    setDeclaredBrands({});
     setResults([]);
     setReport(null);
     setRunning(false);
@@ -378,6 +443,7 @@ export default function CorpusRunner({
         disabled={running}
         onChange={(selected) => {
           setFiles(selected);
+          setDeclaredBrands({});
           setResults([]);
           setReport(null);
           setError("");
@@ -385,10 +451,37 @@ export default function CorpusRunner({
         }}
       />
       {files.length > 0 && (
-        <Text size="sm">
-          {String(files.length)} file(s) selected ·{" "}
-          {formatBytes(files.reduce((total, file) => total + file.size, 0))} total
-        </Text>
+        <Stack gap="xs">
+          <Text size="sm">
+            {String(files.length)} file(s) selected ·{" "}
+            {formatBytes(files.reduce((total, file) => total + file.size, 0))} total
+          </Text>
+          {files.map((selected, index) => (
+            <Group key={`${selected.name}:${String(index)}`} gap="sm">
+              <Text size="sm" className={s.fileName}>
+                {selected.name}
+              </Text>
+              <NativeSelect
+                aria-label={`Manufacturer for ${selected.name}`}
+                data={[
+                  { value: "", label: "Detect manufacturer" },
+                  ...supportedBrands.map((brand) => ({ value: brand, label: brand })),
+                ]}
+                value={declaredBrands[index] ?? ""}
+                disabled={running}
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  setDeclaredBrands((current) => ({
+                    ...current,
+                    [index]: value ? (value as FirmwareBrand) : undefined,
+                  }));
+                  setResults([]);
+                  setReport(null);
+                }}
+              />
+            </Group>
+          ))}
+        </Stack>
       )}
       <Group>
         <Button

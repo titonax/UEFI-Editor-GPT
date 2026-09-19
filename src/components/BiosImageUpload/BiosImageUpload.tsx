@@ -14,6 +14,12 @@ import {
 } from "@mantine/core";
 import { IconBinary, IconPlayerPlay, IconUpload } from "@tabler/icons-react";
 import {
+  classifyBrand,
+  supportedBrands,
+  type FirmwareBrand,
+} from "../scripts/brandKnowledge";
+import { sha256Hex } from "../scripts/checksum";
+import {
   formatHexOffset,
   inspectAmiFirmwareBytes,
   inspectAmiSetupProfile,
@@ -58,6 +64,8 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   const firmwareBytes = React.useRef<Uint8Array | null>(null);
   const artifactCache = React.useRef(new Map<string, AmiFirmwareArtifacts>());
   const [file, setFile] = React.useState<File | null>(null);
+  const [imageHash, setImageHash] = React.useState("");
+  const [declaredBrand, setDeclaredBrand] = React.useState<FirmwareBrand | undefined>();
   const [report, setReport] = React.useState<AmiFirmwareImageReport | null>(null);
   const [artifacts, setArtifacts] = React.useState<AmiFirmwareArtifacts | null>(null);
   const [profile, setProfile] = React.useState<AmiSetupProfileReport | null>(null);
@@ -122,6 +130,8 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   const inspectFirmware = async (selected: File | null) => {
     const currentOperation = ++operation.current;
     setFile(selected);
+    setImageHash("");
+    setDeclaredBrand(undefined);
     setReport(null);
     setArtifacts(null);
     setProfile(null);
@@ -146,6 +156,8 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
       const imageReport = inspectAmiFirmwareBytes(image);
       if (currentOperation !== operation.current) return;
       setReport(imageReport);
+      setImageHash(await sha256Hex(image));
+      if (currentOperation !== operation.current) return;
       if (imageReport.firmwareVolumes.length === 0) return;
 
       setStage("Decompressing nested volumes and locating AMI Setup data…");
@@ -211,6 +223,10 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   const assessment: AmiGenerationAssessment = report
     ? reconcileAmiGeneration(report, profile)
     : { generation: "unresolved", confidence: "unresolved", conflict: false };
+  const brand =
+    report && file
+      ? classifyBrand(file.name, imageHash, report.brandMarkers, declaredBrand)
+      : null;
   const evidence = report
     ? [
         ...report.evidence.filter(
@@ -240,6 +256,24 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
         disabled={loading}
         onChange={(selected) => void inspectFirmware(selected)}
       />
+      {file && (
+        <NativeSelect
+          label="Manufacturer (optional)"
+          description="Select it when the firmware does not identify its manufacturer."
+          data={[
+            { value: "", label: "Detect manufacturer" },
+            ...supportedBrands.map((name) => ({ value: name, label: name })),
+          ]}
+          value={declaredBrand ?? ""}
+          onChange={(event) => {
+            setDeclaredBrand(
+              event.currentTarget.value
+                ? (event.currentTarget.value as FirmwareBrand)
+                : undefined,
+            );
+          }}
+        />
+      )}
       <Text size="xs" c="dimmed">
         Local-only analysis: the firmware stays in this browser and is never uploaded.
       </Text>
@@ -280,6 +314,11 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
           </Alert>
           <Group gap="xs">
             <Badge variant="light">{containerLabel(report.container)}</Badge>
+            {brand && (
+              <Badge variant="light" color={brand.brand ? "blue" : "gray"}>
+                {brand.brand ?? "manufacturer unknown"} · {brand.basis}
+              </Badge>
+            )}
             <Badge
               variant="light"
               color={
@@ -315,6 +354,34 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 <Table.Th>Image size</Table.Th>
                 <Table.Td>{report.size.toLocaleString()} bytes</Table.Td>
               </Table.Tr>
+              {brand && (
+                <Table.Tr>
+                  <Table.Th>Manufacturer lead</Table.Th>
+                  <Table.Td>
+                    {String(brand.documentedSamples)} documented sample(s) ·{" "}
+                    {brand.observedGenerations.length > 0
+                      ? `${brand.observedGenerations.map((item) => `${item.generation} (${String(item.samples)})`).join(", ")} · `
+                      : ""}
+                    {brand.observedContainers.length > 0
+                      ? `${brand.observedContainers.map((item) => `${item.container} (${String(item.samples)})`).join(", ")} · `
+                      : ""}
+                    {brand.observedLayouts.length > 0
+                      ? `${brand.observedLayouts.map((item) => `${item.layout} (${String(item.samples)})`).join(", ")} · `
+                      : ""}
+                    {brand.navigationPrior.length > 0
+                      ? brand.navigationPrior
+                          .map(
+                            (item) =>
+                              `${item.mechanism} (${String(item.samples)} verified)`,
+                          )
+                          .join(", ")
+                      : "no verified navigation pattern yet"}
+                    {brand.signals.some((signal) => signal.brand !== brand.brand)
+                      ? " · conflicting brand clues"
+                      : ""}
+                  </Table.Td>
+                </Table.Tr>
+              )}
               <Table.Tr>
                 <Table.Th>Intel descriptor</Table.Th>
                 <Table.Td>
