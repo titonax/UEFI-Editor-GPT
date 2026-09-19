@@ -95,6 +95,7 @@ const signatures: SignatureDefinition[] = [
   { name: "aptio4", bytes: ascii("Aptio 4"), insensitiveAscii: true },
   { name: "aptioV", bytes: ascii("Aptio V"), insensitiveAscii: true },
   { name: "aptio5", bytes: ascii("Aptio 5"), insensitiveAscii: true },
+  { name: "amiFidGuid", bytes: hex("7502BE2E5864F94A91EDD3F4EDB100AA") },
   { name: "brandHp", bytes: ascii("SECURE_HP_SIGNATURE") },
   {
     name: "brandAsus",
@@ -250,16 +251,68 @@ function containerOf(
   return "unknown";
 }
 
+function intelFidMarker(
+  bytes: Uint8Array,
+  guidOffsets: number[],
+  firmwareVolumes: number[],
+): BrandMarker | null {
+  const fidSignature = ascii("$FID");
+  const intelVendor = ascii("INTEL\0");
+  for (const guidOffset of guidOffsets) {
+    const fidOffset = guidOffset + 16;
+    const inValidatedVolume = firmwareVolumes.some((start) => {
+      const volumeEnd = start + readUint64AsNumber(bytes, start + 0x20);
+      return guidOffset >= start && fidOffset + 0x35 + intelVendor.length <= volumeEnd;
+    });
+    if (
+      !inValidatedVolume ||
+      !bytesEqual(bytes, fidOffset, fidSignature) ||
+      !bytesEqual(bytes, fidOffset + 0x35, intelVendor)
+    ) {
+      continue;
+    }
+    // A bounded AMI FID record ties the vendor to this firmware image. A
+    // generic "Intel Corporation" string in a third-party module does not.
+    const majorTens = bytes[fidOffset + 0x20];
+    const majorUnits = bytes[fidOffset + 0x21];
+    if (
+      majorTens === undefined ||
+      majorTens < 0x30 ||
+      majorTens > 0x39 ||
+      majorUnits === undefined ||
+      majorUnits < 0x30 ||
+      majorUnits > 0x39 ||
+      bytes[fidOffset + 0x22] !== 0
+    ) {
+      continue;
+    }
+    return {
+      brand: "Intel",
+      marker: "INTEL in validated AMI FID record",
+      offset: fidOffset,
+    };
+  }
+  return null;
+}
+
 export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageReport {
   const found = scanSignatures(bytes);
-  const brandMarkers = brandSignatures.flatMap(({ name, brand, marker }) =>
-    offsets(found, name)
-      .slice(0, 1)
-      .map((offset) => ({ brand, marker, offset })),
-  );
   const firmwareVolumes = offsets(found, "firmwareVolume")
     .map((offset) => offset - 0x28)
     .filter((offset) => isValidFirmwareVolume(bytes, offset));
+  const fidMarker = intelFidMarker(
+    bytes,
+    offsets(found, "amiFidGuid"),
+    firmwareVolumes,
+  );
+  const brandMarkers = [
+    ...brandSignatures.flatMap(({ name, brand, marker }) =>
+      offsets(found, name)
+        .slice(0, 1)
+        .map((offset) => ({ brand, marker, offset })),
+    ),
+    ...(fidMarker ? [fidMarker] : []),
+  ];
   const setupFfs = offsets(found, "setupFfs");
   const amitseFfs = offsets(found, "amitseFfs");
   const guidedLzmaSections = offsets(found, "guidedLzma").flatMap((offset) => {

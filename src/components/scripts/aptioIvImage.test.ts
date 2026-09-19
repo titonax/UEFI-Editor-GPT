@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { inspectAmiFirmwareBytes } from "./amiFirmwareImage";
+import { classifyBrand } from "./brandKnowledge";
 
 function validFirmwareVolumeImage(...payloads: { offset: number; bytes: number[] }[]) {
   const bytes = new Uint8Array(0x180);
@@ -33,6 +34,39 @@ function validFirmwareVolumeImage(...payloads: { offset: number; bytes: number[]
 }
 
 describe("AMI firmware image inspection", () => {
+  it("identifies an Intel NUC from its bounded FID vendor field after the payload changes", () => {
+    const bytes = validFirmwareVolumeImage();
+    const fid = 0x90;
+    bytes.set(
+      [
+        0x75, 0x02, 0xbe, 0x2e, 0x58, 0x64, 0xf9, 0x4a, 0x91, 0xed, 0xd3, 0xf4, 0xed,
+        0xb1, 0x00, 0xaa,
+      ],
+      fid - 16,
+    );
+    bytes.set(new TextEncoder().encode("$FID"), fid);
+    bytes.set(new TextEncoder().encode("05\0"), fid + 0x20);
+    bytes.set(new TextEncoder().encode("INTEL\0"), fid + 0x35);
+    bytes.set(new TextEncoder().encode("Intel Corporation"), 0x102);
+
+    const report = inspectAmiFirmwareBytes(bytes);
+    expect(report.brandMarkers).toEqual([
+      { brand: "Intel", marker: "INTEL in validated AMI FID record", offset: fid },
+    ]);
+    expect(
+      classifyBrand("renamed.cap", "different-image", report.brandMarkers),
+    ).toMatchObject({
+      brand: "Intel",
+      basis: "firmware-marker",
+    });
+
+    bytes[fid + 0x35] = 0;
+    expect(inspectAmiFirmwareBytes(bytes).brandMarkers).toEqual([]);
+    bytes[fid + 0x35] = 0x49;
+    bytes[0] = 1;
+    expect(inspectAmiFirmwareBytes(bytes).brandMarkers).toEqual([]);
+  });
+
   it("detects AMI evidence without pretending that shared GUIDs prove IV", () => {
     const report = inspectAmiFirmwareBytes(validFirmwareVolumeImage());
 

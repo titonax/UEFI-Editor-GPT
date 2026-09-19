@@ -28,19 +28,22 @@ No marker on its own establishes a firmware generation or navigation mechanism.
 The catalogue contains **13 identified image or payload hashes** drawn from
 the repository's existing metadata-only sample records:
 
-| Manufacturer   | Samples | Aptio generation documented       | Observed input containers                                                       | Proven top-level navigation         |
-| -------------- | ------: | --------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
-| ASUS           |       5 | IV in 3 samples                   | Vendor images, including capsules                                               | Single-FormSet IFR hub in 2 samples |
-| HP             |       3 | IV in 3 samples                   | 2 Intel flash images, 1 firmware-volume image                                   | Not yet catalogued                  |
-| Intel (NUC)    |       1 | FID evidence `05`; app unresolved | Firmware-volume image, despite `.CAP` extension                                 | Single-FormSet IFR hub in 1 sample  |
-| MSI            |       2 | IV in 2 samples                   | 1 Intel flash image, 1 vendor image                                             | Not yet catalogued                  |
-| ASRock         |       1 | Candidate, not confirmed          | Intel flash image                                                               | Not yet catalogued                  |
-| Supermicro     |       1 | IV in 1 sample                    | Intel flash image                                                               | Not yet catalogued                  |
-| Dell, Gigabyte |       0 | Not yet catalogued                | Updater containers noted in intake; no extracted payload hash in this catalogue | Not yet catalogued                  |
+| Manufacturer   | Samples | Aptio generation documented  | Observed input containers                                                       | Proven top-level navigation         |
+| -------------- | ------: | ---------------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
+| ASUS           |       5 | IV in 3 samples              | Vendor images, including capsules                                               | Single-FormSet IFR hub in 2 samples |
+| HP             |       3 | IV in 3 samples              | 2 Intel flash images, 1 firmware-volume image                                   | Not yet catalogued                  |
+| Intel (NUC)    |       1 | Probable V in browser report | Firmware-volume image, despite `.CAP` extension                                 | Single-FormSet IFR hub in 1 sample  |
+| MSI            |       2 | IV in 2 samples              | 1 Intel flash image, 1 vendor image                                             | Not yet catalogued                  |
+| ASRock         |       1 | Candidate, not confirmed     | Intel flash image                                                               | Not yet catalogued                  |
+| Supermicro     |       1 | IV in 1 sample               | Intel flash image                                                               | Not yet catalogued                  |
+| Dell, Gigabyte |       0 | Not yet catalogued           | Updater containers noted in intake; no extracted payload hash in this catalogue | Not yet catalogued                  |
 
 The [Intel NUC case](samples/intel-nuc10i5fnh-0067.md) documents why its
-support page on ASUS does not make it an ASUS motherboard sample, and why its
-FID evidence is kept apart from the current app's unresolved generation.
+support page on ASUS does not make it an ASUS motherboard sample. Its browser
+report identifies probable Aptio V, while the catalogue only counts confirmed
+generations. A validated outer firmware volume with the AMI FID GUID, `$FID`
+record and `INTEL` vendor field supplies an internal manufacturer clue even
+when a future revision changes the image hash.
 
 The per-sample source paths and hashes are in
 [`brandKnowledge.ts`](../../src/components/scripts/brandKnowledge.ts). The
