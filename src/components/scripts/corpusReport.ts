@@ -7,6 +7,8 @@ import {
   type CorpusStageStatus,
   type CorpusStageId,
 } from "./corpusTypes";
+import { classifyBrand } from "./brandKnowledge";
+import type { FirmwareBrand } from "./brandKnowledge";
 
 function stage(
   id: CorpusStageId,
@@ -78,9 +80,11 @@ export function createCorpusRunReport(
 export function createCorpusInputFailure(
   file: Pick<File, "name" | "size" | "lastModified">,
   message: string,
+  declaredBrand?: FirmwareBrand,
 ): CorpusFileReport {
   return {
     fileName: file.name,
+    brand: classifyBrand(file.name, "", [], declaredBrand),
     size: file.size,
     lastModified: file.lastModified,
     sha256: "",
@@ -128,6 +132,11 @@ export function corpusRunToCsv(report: CorpusRunReport) {
     "bytes",
     "status",
     "container",
+    "brand",
+    "brand_source",
+    "brand_generations",
+    "brand_prior",
+    "brand_outcome",
     "generation",
     "contexts",
     "forms",
@@ -149,6 +158,15 @@ export function corpusRunToCsv(report: CorpusRunReport) {
       file.size,
       file.status,
       file.outer.container,
+      file.brand.brand ?? "",
+      file.brand.basis,
+      file.brand.observedGenerations
+        .map((entry) => `${entry.generation} (${String(entry.samples)})`)
+        .join("; "),
+      file.brand.navigationPrior
+        .map((entry) => `${entry.mechanism} (${String(entry.samples)})`)
+        .join("; "),
+      file.brand.navigationOutcome,
       file.generation.generation,
       contexts.length,
       contexts.reduce((total, context) => total + context.hii.formCount, 0),

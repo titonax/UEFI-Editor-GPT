@@ -1,5 +1,6 @@
 import { readUint16, readUint24, readUint32, readUint64AsNumber } from "./binaryReader";
 import { analyzeIfrBinary, IFR_OPCODE } from "./ifrBinary";
+import type { BrandMarker, FirmwareBrand } from "./brandKnowledge";
 
 export type AmiFirmwareGeneration = "aptio-iv" | "aptio-v" | "unresolved";
 export type DetectionConfidence = "confirmed" | "probable" | "unresolved";
@@ -31,6 +32,7 @@ export interface AmiFirmwareImageReport {
   generation: AmiFirmwareGeneration;
   confidence: DetectionConfidence;
   evidence: FirmwareEvidence[];
+  brandMarkers: BrandMarker[];
 }
 
 export type AmiSetupLayout =
@@ -93,6 +95,31 @@ const signatures: SignatureDefinition[] = [
   { name: "aptio4", bytes: ascii("Aptio 4"), insensitiveAscii: true },
   { name: "aptioV", bytes: ascii("Aptio V"), insensitiveAscii: true },
   { name: "aptio5", bytes: ascii("Aptio 5"), insensitiveAscii: true },
+  { name: "brandHp", bytes: ascii("SECURE_HP_SIGNATURE") },
+  {
+    name: "brandAsus",
+    bytes: ascii("ASUSTeK COMPUTER INC."),
+    insensitiveAscii: true,
+  },
+  { name: "brandAsrock", bytes: ascii("ASRock"), insensitiveAscii: true },
+  { name: "brandSupermicro", bytes: ascii("Supermicro"), insensitiveAscii: true },
+  {
+    name: "brandMsi",
+    bytes: ascii("Micro-Star International"),
+    insensitiveAscii: true,
+  },
+  { name: "brandGigabyte", bytes: ascii("GIGABYTE"), insensitiveAscii: true },
+  { name: "brandDell", bytes: ascii("Dell Inc."), insensitiveAscii: true },
+];
+
+const brandSignatures: { name: string; brand: FirmwareBrand; marker: string }[] = [
+  { name: "brandHp", brand: "HP", marker: "SECURE_HP_SIGNATURE" },
+  { name: "brandAsus", brand: "ASUS", marker: "ASUSTeK COMPUTER INC." },
+  { name: "brandAsrock", brand: "ASRock", marker: "ASRock" },
+  { name: "brandSupermicro", brand: "Supermicro", marker: "Supermicro" },
+  { name: "brandMsi", brand: "MSI", marker: "Micro-Star International" },
+  { name: "brandGigabyte", brand: "Gigabyte", marker: "GIGABYTE" },
+  { name: "brandDell", brand: "Dell", marker: "Dell Inc." },
 ];
 
 const ffs2Guid = hex("78E58C8C3D8A1C4F9935896185C32DD3");
@@ -225,6 +252,11 @@ function containerOf(
 
 export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageReport {
   const found = scanSignatures(bytes);
+  const brandMarkers = brandSignatures.flatMap(({ name, brand, marker }) =>
+    offsets(found, name)
+      .slice(0, 1)
+      .map((offset) => ({ brand, marker, offset })),
+  );
   const firmwareVolumes = offsets(found, "firmwareVolume")
     .map((offset) => offset - 0x28)
     .filter((offset) => isValidFirmwareVolume(bytes, offset));
@@ -379,6 +411,7 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
     generation,
     confidence,
     evidence,
+    brandMarkers,
   };
 }
 

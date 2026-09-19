@@ -4,6 +4,7 @@ import type {
   FirmwareContainer,
 } from "./amiFirmwareImage";
 import type { FirmwareArtifactCoherence } from "./firmwareProvenance";
+import type { BrandClassification, FirmwareBrand } from "./brandKnowledge";
 import type {
   AmiRootVisibilityStatus,
   AmiSingleFormSetNavigationStatus,
@@ -11,7 +12,7 @@ import type {
   ConditionSource,
 } from "./types";
 
-export const corpusReportSchemaVersion = "0.1.0";
+export const corpusReportSchemaVersion = "0.2.0";
 export const MAX_CORPUS_FILE_BYTES = 512 * 1024 * 1024;
 
 export type CorpusFileStatus = "recognized" | "partial" | "unsupported" | "failed";
@@ -150,6 +151,7 @@ export interface CorpusFailure {
 
 export interface CorpusFileReport {
   fileName: string;
+  brand: BrandClassification;
   size: number;
   lastModified: number | null;
   sha256: string;
@@ -197,6 +199,7 @@ export interface CorpusProgress {
 
 export interface CorpusFirmwareInput {
   fileName: string;
+  declaredBrand?: FirmwareBrand;
   size: number;
   lastModified?: number;
   bytes: Uint8Array;

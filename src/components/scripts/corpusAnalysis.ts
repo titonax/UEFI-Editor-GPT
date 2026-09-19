@@ -13,6 +13,7 @@ import {
   type AmiFirmwareArtifacts,
 } from "./amiFirmwareExtractor";
 import { sha256Hex } from "./checksum";
+import { classifyBrand, compareBrandNavigation } from "./brandKnowledge";
 import type {
   CorpusConditionCounts,
   CorpusContextReport,
@@ -513,6 +514,12 @@ export async function analyzeCorpusFirmware(
   onProgress({ stage: "preflight", detail: "Inspecting the outer image…" });
   const sha256 = await dependencies.hash(input.bytes);
   const outerReport = dependencies.inspect(input.bytes);
+  const brand = classifyBrand(
+    input.fileName,
+    sha256,
+    outerReport.brandMarkers,
+    input.declaredBrand,
+  );
   const outer = emptyOuter(outerReport);
   const preflightStage = makeStage(
     "preflight",
@@ -524,6 +531,7 @@ export async function analyzeCorpusFirmware(
   if (outerReport.firmwareVolumes.length === 0) {
     return {
       fileName: input.fileName,
+      brand,
       size: input.size,
       lastModified: input.lastModified ?? null,
       sha256,
@@ -589,6 +597,16 @@ export async function analyzeCorpusFirmware(
     onProgress({ stage: "complete", detail: "Local analysis complete." });
     return {
       fileName: input.fileName,
+      brand: compareBrandNavigation(
+        brand,
+        contexts.map((context) =>
+          context.navigation.resolved &&
+          (context.navigation.mechanism === "multi-formset-root-vector" ||
+            context.navigation.mechanism === "single-formset-ifr-hub")
+            ? context.navigation.mechanism
+            : "unresolved",
+        ),
+      ),
       size: input.size,
       lastModified: input.lastModified ?? null,
       sha256,
@@ -604,6 +622,7 @@ export async function analyzeCorpusFirmware(
     const message = errorMessage(reason);
     return {
       fileName: input.fileName,
+      brand,
       size: input.size,
       lastModified: input.lastModified ?? null,
       sha256,

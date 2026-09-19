@@ -68,9 +68,12 @@ and failure categories.
 
 ## Export privacy
 
-JSON reports use schema `0.1.0` and contain:
+JSON reports use schema `0.2.0` and contain:
 
 - filename, size, last-modified timestamp and SHA-256;
+- brand evidence with its source, documented sample counts, candidate navigation
+  mechanisms and whether the analyzed image matches or extends the observed
+  pattern;
 - container and FV/FFS evidence;
 - context coherence and extraction depth;
 - HII package, FormSet, Form, Ref and condition counts;

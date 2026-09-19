@@ -56,6 +56,20 @@ describe("AMI firmware image inspection", () => {
     expect(report.confidence).toBe("probable");
   });
 
+  it("records an embedded HP marker independently of Aptio generation", () => {
+    const report = inspectAmiFirmwareBytes(
+      validFirmwareVolumeImage({
+        offset: 0x80,
+        bytes: [...new TextEncoder().encode("SECURE_HP_SIGNATURE")],
+      }),
+    );
+
+    expect(report.brandMarkers).toEqual([
+      { brand: "HP", marker: "SECURE_HP_SIGNATURE", offset: 0x80 },
+    ]);
+    expect(report.generation).toBe("unresolved");
+  });
+
   it("treats the $SPF SetupData combination as shared AMI evidence", () => {
     const report = inspectAmiFirmwareBytes(
       validFirmwareVolumeImage(

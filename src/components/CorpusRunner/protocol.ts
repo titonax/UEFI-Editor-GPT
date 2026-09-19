@@ -1,9 +1,10 @@
 import type { CorpusFileReport, CorpusProgress } from "../scripts/corpusTypes";
+import type { FirmwareBrand } from "../scripts/brandKnowledge";
 
 export interface CorpusRunnerStartMessage {
   type: "start";
   runId: number;
-  files: File[];
+  files: { file: File; declaredBrand?: FirmwareBrand }[];
 }
 
 export interface CorpusRunnerCancelMessage {

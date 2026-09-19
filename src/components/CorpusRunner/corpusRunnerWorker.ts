@@ -25,7 +25,8 @@ async function run(message: Extract<CorpusRunnerRequest, { type: "start" }>) {
   activeRunId = message.runId;
   cancelledRunId = null;
   try {
-    for (const [fileIndex, file] of message.files.entries()) {
+    for (const [fileIndex, selected] of message.files.entries()) {
+      const { file, declaredBrand } = selected;
       if (cancelledRunId === message.runId) break;
       send({
         type: "progress",
@@ -43,6 +44,7 @@ async function run(message: Extract<CorpusRunnerRequest, { type: "start" }>) {
         result = createCorpusInputFailure(
           file,
           "The firmware exceeds the 512 MiB per-file safety limit.",
+          declaredBrand,
         );
       } else {
         try {
@@ -50,6 +52,7 @@ async function run(message: Extract<CorpusRunnerRequest, { type: "start" }>) {
           result = await analyzeCorpusFirmware(
             {
               fileName: file.name,
+              declaredBrand,
               size: file.size,
               lastModified: file.lastModified,
               bytes,
@@ -69,6 +72,7 @@ async function run(message: Extract<CorpusRunnerRequest, { type: "start" }>) {
           result = createCorpusInputFailure(
             file,
             reason instanceof Error ? reason.message : String(reason),
+            declaredBrand,
           );
         }
       }

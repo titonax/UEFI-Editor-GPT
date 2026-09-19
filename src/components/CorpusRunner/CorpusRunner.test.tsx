@@ -9,11 +9,13 @@ class FakeWorker {
   onmessage: ((event: MessageEvent<CorpusRunnerResponse>) => void) | null = null;
   onerror: ((event: ErrorEvent) => void) | null = null;
   terminate = vi.fn();
+  declaredBrand: string | undefined;
 
   postMessage = (message: CorpusRunnerRequest) => {
     if (message.type !== "start") return;
-    const file = message.files[0];
+    const file = message.files[0]?.file;
     if (!file) return;
+    this.declaredBrand = message.files[0]?.declaredBrand;
     queueMicrotask(() => {
       this.onmessage?.({
         data: {
@@ -70,9 +72,13 @@ describe("local corpus runner UI", () => {
     if (!input) throw new Error("Expected the corpus file input.");
     const file = new File([new Uint8Array([1, 2, 3])], "sample.bin");
     fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText("Manufacturer for sample.bin"), {
+      target: { value: "ASUS" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Run local corpus analysis" }));
 
-    expect(await screen.findByText("sample.bin")).toBeInTheDocument();
+    expect(fakeWorker.declaredBrand).toBe("ASUS");
+    expect((await screen.findAllByText("sample.bin")).length).toBeGreaterThan(0);
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Export JSON report" })).toBeEnabled(),
     );

@@ -35,6 +35,7 @@ function outerReport(
     generation: "unresolved",
     confidence: "unresolved",
     evidence: [],
+    brandMarkers: [],
     ...overrides,
   };
 }
@@ -317,6 +318,37 @@ describe("local firmware corpus analysis", () => {
     expect(result.status).toBe("unsupported");
     expect(result.failure?.stage).toBe("preflight");
     expect(extract).not.toHaveBeenCalled();
+  });
+
+  it("checks a brand prior against the navigation actually parsed from HII", async () => {
+    const result = await analyzeCorpusFirmware(
+      {
+        fileName: "renamed.bin",
+        size: 64,
+        bytes: new Uint8Array(64),
+      },
+      undefined,
+      {
+        inspect: () => outerReport(),
+        extract: vi.fn().mockResolvedValue(artifacts()),
+        parseArtifacts: vi.fn().mockResolvedValue(multiFormSetData()),
+        hash: vi
+          .fn()
+          .mockResolvedValue(
+            "e862e5b0fdce10e44764be6072dd5b8017544264353dbfa02c8074e0ccc15190",
+          ),
+        now: () => 0,
+      },
+    );
+
+    expect(result.brand).toMatchObject({
+      brand: "ASUS",
+      basis: "documented-hash",
+      navigationPrior: [{ mechanism: "single-formset-ifr-hub", samples: 2 }],
+      navigationOutcome: "new-pattern",
+    });
+    expect(result.contexts[0]?.navigation.mechanism).toBe("multi-formset-root-vector");
+    expect(result.contexts[0]?.editing.fullImageReady).toBe(false);
   });
 
   it("classifies expected extraction failures without hiding their stage", async () => {
