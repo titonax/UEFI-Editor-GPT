@@ -7,7 +7,7 @@ import type {
 export const brandCatalogueVersion = "0.1.0";
 
 export type FirmwareBrand =
-  "ASRock" | "ASUS" | "Dell" | "Gigabyte" | "HP" | "MSI" | "Supermicro";
+  "ASRock" | "ASUS" | "Dell" | "Gigabyte" | "HP" | "Intel" | "MSI" | "Supermicro";
 export type BrandSignalSource =
   "documented-hash" | "user-supplied" | "firmware-marker" | "filename";
 export type BrandNavigation = "multi-formset-root-vector" | "single-formset-ifr-hub";
@@ -18,6 +18,7 @@ export const supportedBrands: FirmwareBrand[] = [
   "Dell",
   "Gigabyte",
   "HP",
+  "Intel",
   "MSI",
   "Supermicro",
 ];
@@ -65,6 +66,14 @@ export interface BrandClassification {
 // Hashes identify the exact payloads documented in the repository. These
 // observations describe the corpus; they do not grant edit or write support.
 const documentedSamples: DocumentedSample[] = [
+  {
+    brand: "Intel",
+    sha256: "12770cbddbab0fd071e91142afe6b1882c7a50c0e7b438866f6b99b5c660da64",
+    source: "docs/ami/samples/intel-nuc10i5fnh-0067.md",
+    container: "firmware-volume-image",
+    layout: "unified-setup-formset",
+    navigation: "single-formset-ifr-hub",
+  },
   {
     brand: "ASUS",
     sha256: "e862e5b0fdce10e44764be6072dd5b8017544264353dbfa02c8074e0ccc15190",
@@ -156,6 +165,7 @@ const documentedSamples: DocumentedSample[] = [
 ];
 
 const filenameBrands: { brand: FirmwareBrand; pattern: RegExp }[] = [
+  { brand: "Intel", pattern: /(?:^|[^a-z0-9])(?:intel|fncml357)(?:[^a-z0-9]|$)/i },
   { brand: "ASUS", pattern: /(?:^|[^a-z])(?:asus|asustek)(?:[^a-z]|$)/i },
   { brand: "HP", pattern: /(?:^|[^a-z])(?:hp|hewlett.packard)(?:[^a-z]|$)/i },
   { brand: "MSI", pattern: /(?:^|[^a-z])(?:msi|micro.star)(?:[^a-z]|$)/i },
