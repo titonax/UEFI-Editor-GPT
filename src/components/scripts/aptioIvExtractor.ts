@@ -319,11 +319,29 @@ async function decodeEncapsulation(
 
   const encapsulated = encapsulatedFirmwareSection(parent.bytes, section);
   if (!encapsulated) return null;
-  const bytes =
-    encapsulated.compression === "none"
-      ? encapsulated.bytes
-      : graph.decompress(encapsulated.bytes, encapsulated.compression);
-  const decoded = await bytes;
+  let decoded: Uint8Array;
+  if (encapsulated.compression === "none") {
+    decoded = encapsulated.bytes;
+  } else {
+    try {
+      decoded = await graph.decompress(encapsulated.bytes, encapsulated.compression);
+    } catch (reason) {
+      if (
+        !(reason instanceof FirmwareError) ||
+        reason.code !== "INVALID_COMPRESSED_SECTION"
+      ) {
+        throw reason;
+      }
+      const guid = encapsulated.definitionGuid
+        ? ` definition ${encapsulated.definitionGuid}`
+        : "";
+      const file = ownerFile ? ` FFS ${ownerFile.guid}` : "";
+      throw new FirmwareError(
+        "INVALID_COMPRESSED_SECTION",
+        `${encapsulated.compression}${guid}${file} (buffer ${String(parent.id)}, depth ${String(parent.depth)}, offset 0x${section.start.toString(16).toUpperCase()}, size 0x${section.size.toString(16).toUpperCase()}): ${reason.message}`,
+      );
+    }
+  }
   const node: FirmwareBufferNode = {
     id: graph.nextId++,
     bytes: decoded,
@@ -362,9 +380,7 @@ async function tryDecodeEncapsulation(
     ) {
       throw reason;
     }
-    graph.decodeFailures.push(
-      `Buffer ${String(parent.id)} section 0x${section.start.toString(16).toUpperCase()}: ${reason.message.slice(0, 180)}`,
-    );
+    graph.decodeFailures.push(reason.message.slice(0, 512));
     return null;
   }
 }

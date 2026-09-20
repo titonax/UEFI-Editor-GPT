@@ -110,7 +110,7 @@ export function childVisibility(data: Data, child: FormChildren): VisibilityInfo
     explanation:
       child.accessLevel === null
         ? "No active SuppressIf, GrayOutIf, or DisableIf gate affects this item."
-        : `No active IFR condition is known. AMI SetupData AccessLevel is 0x${child.accessLevel}; that policy byte is reported separately and is not treated as proof of live visibility.`,
+        : `No active IFR condition is known. AMI SetupData control flags are 0x${child.accessLevel}; their meaning is unverified and they do not prove live visibility.`,
     conditions,
     hardwareDependent: false,
     accessDependent: false,

@@ -39,7 +39,9 @@ limits, not reasons to assign a guessed Aptio version.
 
 One UEFI image without a vendor signature contained a compressed section that
 trapped the decompressor. That section is now reported as undecodable while
-other branches continue; no AMI Setup was found in the image. The other 56
+other branches continue. Diagnostics identify the compression scheme, optional
+definition GUID, owning FFS file, decoded-buffer depth, section offset and size
+when those details are available; no AMI Setup was found in that image. The other 56
 unclassified UEFI images also did not yield a coherent AMI Setup context. All
 nine Insyde images remained outside the AMI edit path after the deep scan.
 

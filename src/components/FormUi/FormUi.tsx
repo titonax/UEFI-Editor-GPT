@@ -45,6 +45,7 @@ import {
   toggleTopLevelTabVisibility,
 } from "../scripts/menuEditing";
 import { errorMessage } from "../scripts/errors";
+import { describeSetupDataFlags } from "../scripts/setupDataFlags";
 
 const conditionSourceMeta: Record<
   ConditionSource,
@@ -675,14 +676,13 @@ function ConditionDetails({
       {child.accessLevel !== null ? (
         <div className={s.conditionCard}>
           <Badge size="xs" color="gray" variant="outline">
-            AMI access policy
+            AMI SetupData flags
           </Badge>
           <Text size="xs" mt={4} className={s.conditionExpression}>
-            SetupData AccessLevel == 0x{child.accessLevel}
+            {describeSetupDataFlags(child.accessLevel)}
           </Text>
           <Text size="xs" c="dimmed" mt={3}>
-            Shown as evidence only; this byte is not classified as hidden or visible
-            without model-specific proof.
+            Shown as evidence only; see docs/ami/setupdata-control-flags.md.
           </Text>
         </div>
       ) : null}
@@ -1287,7 +1287,7 @@ export default function FormUi({
             <Table.Th>Name</Table.Th>
             <Table.Th>Type</Table.Th>
             <Table.Th>HII effect</Table.Th>
-            <Table.Th>Access Level</Table.Th>
+            <Table.Th>SetupData flags</Table.Th>
             <Table.Th>Failsafe</Table.Th>
             <Table.Th>Optimal</Table.Th>
             <Table.Th>Condition</Table.Th>
