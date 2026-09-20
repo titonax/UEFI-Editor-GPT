@@ -44,6 +44,45 @@ describe("SetupData discovery", () => {
     ]);
   });
 
+  it("recovers a page list across one unidentified slot without joining distant GUID hits", () => {
+    const root = {
+      name: "Setup",
+      formId: "0x1",
+      offset: null,
+      formSetGuid: "00112233-4455-6677-8899-AABBCCDDEEFF",
+      source: "formset" as const,
+    };
+    const guid = "33221100554477668899AABBCCDDEEFF";
+    const unknown = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+    const record = (selector: string, encodedGuid = guid) =>
+      `${selector}000000${encodedGuid}`;
+    const slots = [
+      record("01"),
+      record("02"),
+      record("00", unknown),
+      record("04"),
+      record("08"),
+      record("10"),
+    ];
+    const unrelated = `${"00".repeat(20 * 31)}${record("40")}`;
+    const discovered = discoverSetupDataMenu([root], slots.join("") + unrelated);
+
+    expect(discovered.map((entry) => entry.pageMask)).toEqual([
+      "0x1",
+      "0x2",
+      "0x4",
+      "0x8",
+      "0x10",
+    ]);
+    expect(discovered.map((entry) => entry.pageInfoOffset)).toEqual([
+      "0x0",
+      "0x14",
+      "0x3C",
+      "0x50",
+      "0x64",
+    ]);
+  });
+
   it("keeps a complete OEM and AMI page list with non-bitmask selectors", () => {
     const selectors = [
       0x00, 0x40, 0x50, 0x60, 0x70, 0x80, 0x02, 0x08, 0x04, 0x20, 0x01,

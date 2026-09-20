@@ -83,6 +83,17 @@ function compressedSection(payload: Uint8Array) {
   return section;
 }
 
+function guidedLzmaSection(payload: Uint8Array) {
+  const definition = "EE4E5898-3914-4259-9D6E-DC7BD79403CF";
+  const section = new Uint8Array(24 + payload.length);
+  writeUint24(section, 0, section.length);
+  section[3] = 0x02;
+  writeGuid(section, 4, definition);
+  new DataView(section.buffer).setUint16(20, 24, true);
+  section.set(payload, 24);
+  return section;
+}
+
 function setupVolume(hii: Uint8Array) {
   return firmwareVolumeWithFile(setupGuid, freeformSection(hiiGuid, hii));
 }
@@ -138,6 +149,31 @@ describe("Aptio IV extraction errors", () => {
       ]),
     );
     expect(artifacts.provenance.artifacts).toHaveLength(1);
+  });
+
+  it("locates a failed guided decompression without losing another Setup context", async () => {
+    const brokenGuid = "11111111-2222-3333-4444-555555555555";
+    const hii = new Uint8Array([0x42, 0x43]);
+    const image = firmwareVolumeWithFiles([
+      { guid: brokenGuid, section: guidedLzmaSection(new Uint8Array([0, 1])) },
+      { guid: setupGuid, section: freeformSection(hiiGuid, hii) },
+    ]);
+    const artifacts = await extractAptioIvBytes(
+      image,
+      () => Promise.resolve("FormSet Guid: synthetic"),
+      {},
+      () =>
+        Promise.reject(
+          new FirmwareError("INVALID_COMPRESSED_SECTION", "Invalid stream."),
+        ),
+    );
+
+    expect(artifacts.hii).toEqual(hii);
+    const warning = artifacts.artifactSets[0]?.warnings.join(" ") ?? "";
+    expect(warning).toContain("EE4E5898-3914-4259-9D6E-DC7BD79403CF");
+    expect(warning).toContain(`FFS ${brokenGuid}`);
+    expect(warning).toContain("buffer 0, depth 0, offset 0x60, size 0x1A");
+    expect(warning).toContain("Invalid stream.");
   });
 
   it("reports a typed parse failure when Setup FFS cannot be located", async () => {

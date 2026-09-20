@@ -90,6 +90,11 @@ export function discoverSetupDataMenu(formSetRoots: Menu, setupData: string): Me
     }
   }
 
+  // Every slot is 20 bytes (40 hex characters). A slot with an unfamiliar
+  // FormSet GUID is absent from candidates; keep its known neighbors in the
+  // same list while limiting the gap to avoid unrelated GUID matches.
+  const stride = 40;
+  const maxGapInSlots = 3;
   candidates.sort((left, right) => left.start - right.start);
   const runs: (typeof candidates)[] = [];
   for (const candidate of candidates) {
@@ -99,7 +104,8 @@ export function discoverSetupDataMenu(formSetRoots: Menu, setupData: string): Me
     }
     const current = runs[runs.length - 1];
     const previous = current[current.length - 1];
-    if (candidate.start === previous.start + 40) {
+    const gap = candidate.start - previous.start;
+    if (gap > 0 && gap % stride === 0 && gap / stride <= maxGapInSlots) {
       current.push(candidate);
     } else {
       runs.push([candidate]);
