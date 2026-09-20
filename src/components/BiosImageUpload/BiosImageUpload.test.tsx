@@ -69,6 +69,46 @@ describe("complete firmware preflight", () => {
     );
   });
 
+  it("shows Phoenix UEFI module evidence without attempting AMI Setup extraction", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockReturnValue({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    );
+    const image = validFirmwareVolumeImage();
+    image.fill(0, 0x60, 0x6d);
+    image.set(new TextEncoder().encode("RSDS"), 0x78);
+    image.set(
+      new TextEncoder().encode("C:\\Build\\Phoenix\\SecCore\\Sec\\SecCore.pdb\0"),
+      0x90,
+    );
+    const { container } = render(
+      <MantineProvider>
+        <BiosImageUpload
+          onExtracted={vi
+            .fn<(files: PopulatedFiles) => Promise<void>>()
+            .mockResolvedValue(undefined)}
+        />
+      </MantineProvider>,
+    );
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Expected the firmware file input.");
+    const file = new File([image], "phoenix.rom");
+    Object.defineProperty(file, "arrayBuffer", {
+      value: () => Promise.resolve(image.slice().buffer),
+    });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(
+      await screen.findByText(/Phoenix SecCore and 0 other module/),
+    ).toBeInTheDocument();
+    expect(extractAmiFirmwareBytes).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Start HII analysis" })).toBeDisabled();
+  });
+
   it("deep-scans once, reports $SPF and reuses artifacts for the HII tree", async () => {
     vi.stubGlobal(
       "matchMedia",

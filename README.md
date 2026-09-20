@@ -53,6 +53,8 @@ a parallel demo application.
   and CSV reports with per-layer results and exact edit blockers. The corpus
   also distinguishes Aptio from other UEFI/legacy families and standalone
   firmware components when the bytes provide sufficient evidence.
+- Inventories PhoenixBIOS 4.0 modular ROMs and identifies Phoenix UEFI SecCore
+  provenance separately, while keeping unverified Phoenix menu editing disabled.
 
 > Full-image reinsertion/export remains disabled until deterministic
 > recompression, bottom-up rebuilding, checksum handling and independent
@@ -69,6 +71,11 @@ analysed menu tree. Shared Setup, AMITSE, NVAR and FFS structures are not treate
 as proof of Aptio IV or V; unresolved images remain clearly marked and
 full-image export stays disabled. If several coherent firmware contexts are
 present, select the intended slot before starting the HII tree.
+
+For PhoenixBIOS 4.0 modular ROMs, the same image selector displays a read-only
+module inventory, including Setup, template and strings when their directory
+entries validate. Phoenix UEFI images show SecCore module evidence and any
+competing vendor strings; their Setup menus cannot yet be opened for editing.
 
 The tree uses these states:
 
@@ -159,6 +166,8 @@ See [architecture](docs/architecture.md) and
 compatibility denominators,
 [mixed firmware intake](docs/ami/mixed-firmware-intake.md) for the measured
 results from the three supplied archives,
+[Phoenix format investigation](docs/phoenix/README.md) for the modular ROM
+directory and the mixed-provider UEFI example,
 [manufacturer evidence catalogue](docs/ami/manufacturer-knowledge.md) for
 brand-based investigation leads and their limits,
 [root visibility analysis](docs/ami/root-visibility-vector.md) for the
