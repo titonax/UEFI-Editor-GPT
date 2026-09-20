@@ -1,11 +1,17 @@
 import { readUint16, readUint24, readUint32, readUint64AsNumber } from "./binaryReader";
 import { analyzeIfrBinary, IFR_OPCODE } from "./ifrBinary";
 import type { BrandMarker, FirmwareBrand } from "./brandKnowledge";
+import {
+  inspectPhoenixLegacyBytes,
+  inspectPhoenixUefiBytes,
+  type PhoenixLegacyInventory,
+  type PhoenixUefiInventory,
+} from "./phoenixFirmware";
 
 export type AmiFirmwareGeneration = "aptio-iv" | "aptio-v" | "unresolved";
 export type DetectionConfidence = "confirmed" | "probable" | "unresolved";
 export type FirmwareContainer =
-  "intel-flash" | "firmware-volume-image" | "vendor-image" | "unknown";
+  "intel-flash" | "firmware-volume-image" | "vendor-image" | "phoenix-rom" | "unknown";
 export type IfrExtractionMode = "uefi" | "framework" | "unknown";
 
 export interface FrameworkIfrInventory {
@@ -32,6 +38,7 @@ export type FirmwareFamily =
   | "ami-legacy"
   | "insyde"
   | "phoenix"
+  | "phoenix-uefi"
   | "award"
   | "uefi-unidentified"
   | "intel-me"
@@ -56,6 +63,7 @@ export const firmwareFamilyLabels: Record<FirmwareFamily, string> = {
   "ami-legacy": "Legacy AMIBIOS",
   insyde: "Insyde UEFI",
   phoenix: "Phoenix BIOS",
+  "phoenix-uefi": "Phoenix UEFI (module evidence)",
   award: "Award BIOS",
   "uefi-unidentified": "UEFI (family unresolved)",
   "intel-me": "Intel Management Engine region",
@@ -116,6 +124,8 @@ export interface AmiFirmwareImageReport {
   size: number;
   container: FirmwareContainer;
   family: FirmwareFamilyAssessment;
+  phoenixLegacy?: PhoenixLegacyInventory;
+  phoenixUefi?: PhoenixUefiInventory;
   intelDescriptor: boolean;
   firmwareVolumes: number[];
   ffs2Volumes: number[];
@@ -198,6 +208,11 @@ const signatures: SignatureDefinition[] = [
   {
     name: "phoenixSecureCore",
     bytes: ascii("Phoenix SecureCore"),
+    insensitiveAscii: true,
+  },
+  {
+    name: "phoenixSecCorePath",
+    bytes: ascii("\\Phoenix\\SecCore\\"),
     insensitiveAscii: true,
   },
   { name: "awardBios", bytes: ascii("AwardBIOS"), insensitiveAscii: true },
@@ -360,6 +375,8 @@ function assessFirmwareFamily(
   firmwareVolumes: number[],
   intelDescriptor: boolean,
   amiAptioCandidate: boolean,
+  phoenixLegacy: PhoenixLegacyInventory | null,
+  phoenixUefi: PhoenixUefiInventory | null,
 ): FirmwareFamilyAssessment {
   const signals: FirmwareFamilySignal[] = [];
   function add(name: string, code: string, detail: string) {
@@ -385,6 +402,20 @@ function assessFirmwareFamily(
     "AMI vendor string (may occur in a component).",
   );
   add("amiLegacy", "ami-legacy", "AMIBIOS legacy marker.");
+  if (phoenixLegacy) {
+    signals.push({
+      code: "phoenix-bcp-directory",
+      detail: `Validated Phoenix ${phoenixLegacy.format} directory with ${String(phoenixLegacy.modules.length)} module(s).`,
+      offset: phoenixLegacy.directoryOffset ?? undefined,
+    });
+  }
+  if (phoenixUefi?.secureCore) {
+    add(
+      "phoenixSecCorePath",
+      "phoenix-sec-core-debug",
+      "Phoenix SecCore module provenance in a UEFI debug record; Setup implementation is not established.",
+    );
+  }
 
   const strongAmi =
     amiAptioCandidate &&
@@ -399,7 +430,8 @@ function assessFirmwareFamily(
       "aptio5",
     );
   const strongInsyde = has(found, "insydeH2O");
-  const strongPhoenix = has(found, "phoenixBios", "phoenixSecureCore");
+  const strongPhoenix =
+    has(found, "phoenixBios", "phoenixSecureCore") || Boolean(phoenixUefi?.secureCore);
   const strongAward = has(found, "awardBios", "awardModular");
   const competing = [strongAmi, strongInsyde, strongPhoenix, strongAward].filter(
     Boolean,
@@ -419,10 +451,26 @@ function assessFirmwareFamily(
   ) {
     return { family: "ami-aptio", confidence: "probable", conflict: false, signals };
   }
+  if (phoenixLegacy) {
+    return { family: "phoenix", confidence: "confirmed", conflict: false, signals };
+  }
+  if (phoenixUefi?.secureCore && firmwareVolumes.length > 0) {
+    return {
+      family: "phoenix-uefi",
+      confidence: "probable",
+      conflict: has(found, "insydeH2O", "insydeVendor", "americanMegatrends"),
+      signals,
+    };
+  }
   if (strongAward)
     return { family: "award", confidence: "probable", conflict: false, signals };
   if (strongPhoenix)
-    return { family: "phoenix", confidence: "probable", conflict: false, signals };
+    return {
+      family: firmwareVolumes.length > 0 ? "phoenix-uefi" : "phoenix",
+      confidence: "probable",
+      conflict: false,
+      signals,
+    };
   if (strongInsyde || (firmwareVolumes.length > 0 && has(found, "insydeVendor"))) {
     return { family: "insyde", confidence: "probable", conflict: false, signals };
   }
@@ -491,8 +539,10 @@ function assessFirmwareFamily(
 function containerOf(
   firmwareVolumes: number[],
   intelDescriptor: boolean,
+  phoenixLegacy: PhoenixLegacyInventory | null,
 ): FirmwareContainer {
   if (intelDescriptor) return "intel-flash";
+  if (phoenixLegacy) return "phoenix-rom";
   if (firmwareVolumes.includes(0)) return "firmware-volume-image";
   if (firmwareVolumes.length > 0) return "vendor-image";
   return "unknown";
@@ -547,6 +597,13 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
   const firmwareVolumes = offsets(found, "firmwareVolume")
     .map((offset) => offset - 0x28)
     .filter((offset) => isValidFirmwareVolume(bytes, offset));
+  const phoenixLegacy = has(found, "phoenixBios")
+    ? inspectPhoenixLegacyBytes(bytes)
+    : null;
+  const phoenixUefi =
+    firmwareVolumes.length > 0 && has(found, "phoenixSecCorePath")
+      ? inspectPhoenixUefiBytes(bytes)
+      : null;
   const fidMarker = intelFidMarker(
     bytes,
     offsets(found, "amiFidGuid"),
@@ -695,14 +752,18 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
     firmwareVolumes.length > 0 && (setupFfs.length === 0 || amitseFfs.length === 0);
   return {
     size: bytes.length,
-    container: containerOf(firmwareVolumes, intelDescriptor),
+    container: containerOf(firmwareVolumes, intelDescriptor, phoenixLegacy),
     family: assessFirmwareFamily(
       bytes,
       found,
       firmwareVolumes,
       intelDescriptor,
       amiAptioCandidate,
+      phoenixLegacy,
+      phoenixUefi,
     ),
+    ...(phoenixLegacy ? { phoenixLegacy } : {}),
+    ...(phoenixUefi ? { phoenixUefi } : {}),
     intelDescriptor,
     firmwareVolumes,
     ffs2Volumes,

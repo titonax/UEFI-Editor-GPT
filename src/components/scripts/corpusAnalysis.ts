@@ -519,6 +519,10 @@ export async function analyzeCorpusFirmware(
   onProgress({ stage: "preflight", detail: "Inspecting the outer image…" });
   const sha256 = await dependencies.hash(input.bytes);
   const outerReport = dependencies.inspect(input.bytes);
+  const phoenixDetails = {
+    ...(outerReport.phoenixLegacy ? { phoenixLegacy: outerReport.phoenixLegacy } : {}),
+    ...(outerReport.phoenixUefi ? { phoenixUefi: outerReport.phoenixUefi } : {}),
+  };
   const brand = classifyBrand(
     input.fileName,
     sha256,
@@ -538,6 +542,7 @@ export async function analyzeCorpusFirmware(
       fileName: input.fileName,
       brand,
       family: outerReport.family,
+      ...phoenixDetails,
       ifrFormat: "unknown",
       size: input.size,
       lastModified: input.lastModified ?? null,
@@ -639,6 +644,7 @@ export async function analyzeCorpusFirmware(
         ),
       ),
       family: withParsedAmiContext(outerReport.family),
+      ...phoenixDetails,
       ifrFormat,
       ...(frameworkInventory ? { frameworkInventory } : {}),
       size: input.size,
@@ -660,6 +666,7 @@ export async function analyzeCorpusFirmware(
       family: extractedAmiContext
         ? withExtractedAmiContext(outerReport.family)
         : outerReport.family,
+      ...phoenixDetails,
       ifrFormat,
       ...(frameworkInventory ? { frameworkInventory } : {}),
       size: input.size,
