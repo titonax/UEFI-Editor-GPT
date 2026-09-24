@@ -10,9 +10,15 @@ import NavigationResizer from "./components/Navigation/NavigationResizer";
 import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
 import { IconBrandGithub } from "@tabler/icons-react";
-import BiosImageUpload from "./components/BiosImageUpload/BiosImageUpload";
+import BiosImageUpload, {
+  type PhoenixEditorSession,
+} from "./components/BiosImageUpload/BiosImageUpload";
 import CorpusRunner from "./components/CorpusRunner/CorpusRunner";
 import { parseData } from "./components/scripts/scripts";
+import PhoenixNavigation from "./components/PhoenixEditor/PhoenixNavigation";
+import PhoenixHeader from "./components/PhoenixEditor/PhoenixHeader";
+import PhoenixFormUi from "./components/PhoenixEditor/PhoenixFormUi";
+import PhoenixFooter from "./components/PhoenixEditor/PhoenixFooter";
 
 const emptyData: Data = {
   firmwareFamily: "ami-aptio",
@@ -55,6 +61,9 @@ export default function App({
   const [data, setData] = useImmer<Data>(emptyData);
 
   const [currentFormIndex, setCurrentFormIndex] = React.useState(-1);
+  const [phoenixSession, setPhoenixSession] =
+    React.useState<PhoenixEditorSession | null>(null);
+  const [currentPhoenixSection, setCurrentPhoenixSection] = React.useState(-1);
   const [error, setError] = React.useState("");
   const handleError = React.useCallback((message: string) => {
     setError(message);
@@ -62,7 +71,45 @@ export default function App({
 
   return (
     <>
-      {data.version.length > 0 && isPopulatedFiles(files) ? (
+      {phoenixSession ? (
+        <>
+          <AppShell.Navbar>
+            <PhoenixNavigation
+              menu={phoenixSession.inventory.menu}
+              currentSectionIndex={currentPhoenixSection}
+              setCurrentSectionIndex={setCurrentPhoenixSection}
+            />
+            <NavigationResizer
+              width={navigationWidth}
+              minWidth={navigationMinWidth}
+              maxWidth={navigationMaxWidth}
+              onChange={onNavigationWidthChange}
+              onReset={onNavigationWidthReset}
+            />
+          </AppShell.Navbar>
+          <AppShell.Header>
+            <PhoenixHeader
+              fileName={phoenixSession.fileName}
+              menu={phoenixSession.inventory.menu}
+              currentSectionIndex={currentPhoenixSection}
+            />
+          </AppShell.Header>
+          <AppShell.Footer>
+            <PhoenixFooter
+              onClose={() => {
+                setPhoenixSession(null);
+                setCurrentPhoenixSection(-1);
+              }}
+            />
+          </AppShell.Footer>
+          <AppShell.Main>
+            <PhoenixFormUi
+              menu={phoenixSession.inventory.menu}
+              currentSectionIndex={currentPhoenixSection}
+            />
+          </AppShell.Main>
+        </>
+      ) : data.version.length > 0 && isPopulatedFiles(files) ? (
         <>
           <AppShell.Navbar>
             <Navigation
@@ -117,6 +164,10 @@ export default function App({
             </Alert>
           )}
           <BiosImageUpload
+            onPhoenixExtracted={(session) => {
+              setPhoenixSession(session);
+              setCurrentPhoenixSection(-1);
+            }}
             onExtracted={async (extractedFiles) => {
               setError("");
               setFiles(extractedFiles);

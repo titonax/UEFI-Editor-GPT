@@ -1,7 +1,10 @@
 # Phoenix Setup menu reader
 
-The individual firmware view now reads legacy Phoenix Setup tables separately
-from AMI HII. It locates bounded `TEMPLAT*.ROM` and `STRINGS*.ROM` FFV modules,
+The firmware preflight now reads legacy Phoenix Setup tables separately from
+AMI HII. After detection, **Start Phoenix Setup analysis** opens a full editor
+workspace matching the Aptio layout: loaded-file header, resizable menu tree,
+top-level summary, selected-screen details and a dedicated footer. It locates
+bounded `TEMPLAT*.ROM` and `STRINGS*.ROM` FFV modules,
 decompresses LH5 payloads, resolves `STRPACK-BIOS` strings and parses the
 template records. Phoenix SecureCore images can contain this legacy module
 pair even without a `PhoenixBIOS` banner or BCP directory.
@@ -18,7 +21,7 @@ The Acer Z03 sample (`ACER-Z03-20140701.bin`, SHA-256
 produces the known 34-module inventory. The reader finds four inferred groups
 containing 343 parsed records. These are not confirmed as four BIOS tabs.
 
-This view is read-only. It does not produce a flashable Phoenix ROM or expose
+The workspace is read-only. It does not produce a flashable Phoenix ROM or expose
 the callback patch and Phoenix BIOS Editor export that exist in Claude's
 experimental parser. Those operations require a separate review and a
 validated write path for each supported template.
