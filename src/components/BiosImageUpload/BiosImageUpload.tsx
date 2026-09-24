@@ -40,7 +40,12 @@ import {
   type AmiFirmwareArtifacts,
 } from "../scripts/amiFirmwareExtractor";
 import { assessFirmwareReconstruction } from "../scripts/firmwareProvenance";
+import {
+  inspectPhoenixSetupMenu,
+  type PhoenixSetupInventory,
+} from "../scripts/phoenixSetupMenu";
 import type { PopulatedFiles } from "../firmwareFiles";
+import PhoenixSetupMenuPanel from "./PhoenixSetupMenuPanel";
 
 const MAX_FIRMWARE_BYTES = 512 * 1024 * 1024;
 
@@ -74,6 +79,9 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
   const [report, setReport] = React.useState<AmiFirmwareImageReport | null>(null);
   const [artifacts, setArtifacts] = React.useState<AmiFirmwareArtifacts | null>(null);
   const [profile, setProfile] = React.useState<AmiSetupProfileReport | null>(null);
+  const [phoenixMenu, setPhoenixMenu] = React.useState<PhoenixSetupInventory | null>(
+    null,
+  );
   const [selectedArtifactSetId, setSelectedArtifactSetId] = React.useState<
     string | null
   >(null);
@@ -140,6 +148,7 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
     setReport(null);
     setArtifacts(null);
     setProfile(null);
+    setPhoenixMenu(null);
     setSelectedArtifactSetId(null);
     firmwareBytes.current = null;
     artifactCache.current.clear();
@@ -163,15 +172,57 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
       setReport(imageReport);
       setImageHash(await sha256Hex(image));
       if (currentOperation !== operation.current) return;
-      if (imageReport.firmwareVolumes.length === 0) return;
+      let classified = imageReport;
+      if (
+        !imageReport.amiAptioCandidate &&
+        ["phoenix", "phoenix-uefi", "unidentified", "uefi-unidentified"].includes(
+          imageReport.family.family,
+        )
+      ) {
+        setStage("Locating Phoenix Setup template and strings…");
+        const inventory = await inspectPhoenixSetupMenu(image);
+        if (currentOperation !== operation.current) return;
+        // The module pair alone is insufficient: require resolved Setup text
+        // before attributing an otherwise unidentified image to Phoenix.
+        if (
+          inventory?.menu.sections.some((section) =>
+            section.items.some((item) => item.prompt !== null),
+          )
+        ) {
+          setPhoenixMenu(inventory);
+          if (
+            imageReport.family.family === "unidentified" ||
+            imageReport.family.family === "uefi-unidentified"
+          ) {
+            classified = {
+              ...imageReport,
+              container: "phoenix-rom",
+              family: {
+                family: "phoenix",
+                confidence: "confirmed",
+                conflict: false,
+                signals: [
+                  ...imageReport.family.signals,
+                  {
+                    code: "phoenix-setup-table",
+                    detail: "Decoded a Phoenix TEMPLAT/STRINGS Setup table.",
+                  },
+                ],
+              },
+            };
+            setReport(classified);
+          }
+        }
+      }
+      if (classified.firmwareVolumes.length === 0) return;
       // An unresolved UEFI image may hide AMI Setup in a nested volume.
       // A positively identified other family only needs the AMI scan when
       // there is competing AMI evidence in this very image.
       if (
-        !imageReport.amiAptioCandidate &&
-        imageReport.family.family !== "uefi-unidentified" &&
-        imageReport.family.family !== "unidentified" &&
-        !imageReport.family.conflict
+        !classified.amiAptioCandidate &&
+        classified.family.family !== "uefi-unidentified" &&
+        classified.family.family !== "unidentified" &&
+        !classified.family.conflict
       )
         return;
 
@@ -337,9 +388,11 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
             }
           >
             {!showAmiPanel
-              ? report.phoenixLegacy
-                ? "Phoenix modules are inventoried below. Menu parsing and editing require a Phoenix-specific analysis."
-                : "The detected family and its evidence are shown below. AMI Aptio fields do not apply to this image."
+              ? phoenixMenu
+                ? "Phoenix Setup screens and items are decoded below. Full-image writing is not available."
+                : report.phoenixLegacy
+                  ? "Phoenix modules are inventoried below. This image did not yield a readable Setup menu."
+                  : "The detected family and its evidence are shown below. AMI Aptio fields do not apply to this image."
               : assessment.conflict
                 ? "Outer metadata and the extracted HII layout disagree. The application will not force a generation."
                 : profile
@@ -652,6 +705,7 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 : "Setup ownership is not yet verified."}
             </Alert>
           )}
+          {phoenixMenu && <PhoenixSetupMenuPanel menu={phoenixMenu.menu} />}
           {evidence.length > 0 && (
             <List size="sm" spacing="xs">
               {evidence.map((entry) => (

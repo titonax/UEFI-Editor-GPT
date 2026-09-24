@@ -8,6 +8,7 @@ export interface PhoenixModule {
   compression: "lh5" | "none" | "unknown";
   packedSize?: number;
   unpackedSize?: number;
+  payloadOffset?: number;
 }
 
 export interface PhoenixLegacyInventory {
@@ -136,7 +137,9 @@ function readFfvModules(
             : compressed
               ? "unknown"
               : "none",
-        ...(validCompression ? { packedSize, unpackedSize } : {}),
+        ...(validCompression
+          ? { packedSize, unpackedSize, payloadOffset: section + 12 }
+          : {}),
       });
     }
     offset += size;
@@ -299,4 +302,43 @@ export function inspectPhoenixUefiBytes(
     secureCore: [...modules].some((name) => /^SecCore$/i.test(name)),
     debugModules: [...modules],
   };
+}
+
+// Some Phoenix SecureCore images retain named FFV Setup modules without the
+// legacy BCP directory or banner. Require a bounded compressed section and
+// an exact module name before accepting one as a Setup candidate.
+export function findNamedPhoenixModule(
+  bytes: Uint8Array,
+  name: string,
+): PhoenixModule | null {
+  for (let offset = 0; offset + 36 <= bytes.length; offset += 1) {
+    if (bytes[offset] !== 0xf8 || bytes[offset + 7] !== 2) continue;
+    const size = readUint24(bytes, offset + 4);
+    if (size < 36 || offset + size > bytes.length) continue;
+    if (ffvModuleName(bytes, offset) !== name) continue;
+    const section = offset + 24;
+    if (bytes[section + 3] !== 1) continue;
+    const packedSize = readUint24(bytes, section + 4);
+    const unpackedSize = readUint24(bytes, section + 8);
+    const sectionSize = readUint24(bytes, section);
+    if (
+      packedSize === 0 ||
+      unpackedSize === 0 ||
+      sectionSize < packedSize + 12 ||
+      section + sectionSize > offset + size ||
+      section + 12 + packedSize > offset + size
+    )
+      continue;
+    return {
+      name,
+      kind: "section",
+      offset,
+      size,
+      compression: "lh5",
+      packedSize,
+      unpackedSize,
+      payloadOffset: section + 12,
+    };
+  }
+  return null;
 }
