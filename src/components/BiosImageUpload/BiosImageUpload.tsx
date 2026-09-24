@@ -45,7 +45,6 @@ import {
   type PhoenixSetupInventory,
 } from "../scripts/phoenixSetupMenu";
 import type { PopulatedFiles } from "../firmwareFiles";
-import PhoenixSetupMenuPanel from "./PhoenixSetupMenuPanel";
 
 const MAX_FIRMWARE_BYTES = 512 * 1024 * 1024;
 
@@ -61,6 +60,12 @@ function outerModuleOffsets(values: number[]) {
 
 interface BiosImageUploadProps {
   onExtracted: (files: PopulatedFiles) => Promise<void>;
+  onPhoenixExtracted?: (session: PhoenixEditorSession) => void;
+}
+
+export interface PhoenixEditorSession {
+  fileName: string;
+  inventory: PhoenixSetupInventory;
 }
 
 function toHex(bytes: Uint8Array) {
@@ -69,7 +74,10 @@ function toHex(bytes: Uint8Array) {
   ).join("");
 }
 
-export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
+export default function BiosImageUpload({
+  onExtracted,
+  onPhoenixExtracted,
+}: BiosImageUploadProps) {
   const operation = React.useRef(0);
   const firmwareBytes = React.useRef<Uint8Array | null>(null);
   const artifactCache = React.useRef(new Map<string, AmiFirmwareArtifacts>());
@@ -705,7 +713,21 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 : "Setup ownership is not yet verified."}
             </Alert>
           )}
-          {phoenixMenu && <PhoenixSetupMenuPanel menu={phoenixMenu.menu} />}
+          {phoenixMenu && (
+            <Button
+              size="lg"
+              color="grape"
+              leftSection={<IconPlayerPlay />}
+              onClick={() => {
+                onPhoenixExtracted?.({
+                  fileName: file?.name ?? "firmware.bin",
+                  inventory: phoenixMenu,
+                });
+              }}
+            >
+              Start Phoenix Setup analysis
+            </Button>
+          )}
           {evidence.length > 0 && (
             <List size="sm" spacing="xs">
               {evidence.map((entry) => (
