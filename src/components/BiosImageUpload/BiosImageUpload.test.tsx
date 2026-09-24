@@ -106,7 +106,11 @@ describe("complete firmware preflight", () => {
       await screen.findByText(/Phoenix SecCore and 0 other module/),
     ).toBeInTheDocument();
     expect(extractAmiFirmwareBytes).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Start HII analysis" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Start HII analysis" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("AMITSE FFS (outer image)")).not.toBeInTheDocument();
+    expect(screen.queryByText("$SPF SetupData")).not.toBeInTheDocument();
   });
 
   it("deep-scans once, reports $SPF and reuses artifacts for the HII tree", async () => {
