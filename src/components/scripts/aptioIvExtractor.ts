@@ -783,6 +783,38 @@ async function locateArtifactSets(
   return sets;
 }
 
+// IFRExtractor emits one text per Forms package, Strings package and language.
+// Two Strings packages for the same language can resolve the same Forms package
+// differently; retain the variant with the fewest unresolved string IDs.
+const ifrOutputNamePattern = /^.+\.(\d+)\.\d+\.([^.]+)\.uefi\.ifr\.txt$/;
+
+export function selectBestIfrTexts(
+  outputs: { name: string; text: string }[],
+): string[] {
+  const groups = new Map<string, { text: string; invalidIdCount: number }[]>();
+  const ungrouped: string[] = [];
+  for (const { name, text } of outputs) {
+    const match = ifrOutputNamePattern.exec(name);
+    if (!match) {
+      ungrouped.push(text);
+      continue;
+    }
+    const key = `${match[1]}:${match[2]}`;
+    const variants = groups.get(key) ?? [];
+    variants.push({ text, invalidIdCount: (text.match(/"InvalidId"/g) ?? []).length });
+    groups.set(key, variants);
+  }
+  return [
+    ...[...groups.values()].map(
+      (variants) =>
+        variants.reduce((best, candidate) =>
+          candidate.invalidIdCount < best.invalidIdCount ? candidate : best,
+        ).text,
+    ),
+    ...ungrouped,
+  ];
+}
+
 async function runIfrExtractor(hii: Uint8Array) {
   const directory = new Map<string, WasiFile>();
   directory.set("setup.bin", new WasiFile(hii));
@@ -819,15 +851,15 @@ async function runIfrExtractor(hii: Uint8Array) {
       "PARSE_FAILED",
       stdout.join("\n") || `IFRExtractor exited with ${String(exitCode)}.`,
     );
-  const outputs = [...directory.entries()].filter(([name]) =>
-    name.endsWith(".ifr.txt"),
-  );
+  const outputs = [...directory.entries()]
+    .filter(([name]) => name.endsWith(".ifr.txt"))
+    .map(([name, output]) => ({ name, text: new TextDecoder().decode(output.data) }));
   if (outputs.length === 0)
     throw new FirmwareError(
       "PARSE_FAILED",
       "IFRExtractor did not generate a verbose IFR file.",
     );
-  return outputs.map(([, output]) => new TextDecoder().decode(output.data)).join("\n");
+  return selectBestIfrTexts(outputs).join("\n");
 }
 
 function retainArtifactBranches(

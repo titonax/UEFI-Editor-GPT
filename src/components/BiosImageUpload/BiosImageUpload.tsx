@@ -164,9 +164,14 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
       setImageHash(await sha256Hex(image));
       if (currentOperation !== operation.current) return;
       if (imageReport.firmwareVolumes.length === 0) return;
+      // An unresolved UEFI image may hide AMI Setup in a nested volume.
+      // A positively identified other family only needs the AMI scan when
+      // there is competing AMI evidence in this very image.
       if (
-        imageReport.family.family === "phoenix-uefi" &&
-        !imageReport.amiAptioCandidate
+        !imageReport.amiAptioCandidate &&
+        imageReport.family.family !== "uefi-unidentified" &&
+        imageReport.family.family !== "unidentified" &&
+        !imageReport.family.conflict
       )
         return;
 
@@ -238,6 +243,13 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
       ? withParsedAmiContext(report.family)
       : report.family
     : null;
+  const showAmiPanel = Boolean(
+    artifacts !== null ||
+    family?.family === "ami-aptio" ||
+    family?.family === "uefi-unidentified" ||
+    (report?.firmwareVolumes.length &&
+      (family?.family === "unidentified" || family?.conflict)),
+  );
   const brand =
     report && file
       ? classifyBrand(file.name, imageHash, report.brandMarkers, declaredBrand)
@@ -324,24 +336,28 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 : firmwareFamilyLabels[family?.family ?? "unidentified"]
             }
           >
-            {assessment.conflict
-              ? "Outer metadata and the extracted HII layout disagree. The application will not force a generation."
-              : profile
-                ? assessment.generation === "unresolved"
-                  ? "AMI Aptio structures were found, but the shared IV/V layout does not justify forcing a generation."
-                  : "The generation is a corpus-backed profile match, not a vendor declaration. It does not unlock a generation-specific write path."
-                : report.phoenixLegacy
-                  ? "Phoenix 4.0 module directory recognized. Setup, template and strings modules are inventoried below; Phoenix menu editing is not yet available."
-                  : report.phoenixUefi?.secureCore && !report.amiAptioCandidate
-                    ? "Phoenix SecCore module provenance was found in UEFI firmware. The Setup implementation still needs its own verified parser."
-                    : family?.family !== "ami-aptio" &&
-                        report.firmwareVolumes.length === 0
-                      ? "No validated UEFI firmware volume was found; the family is based on the evidence shown below. AMI HII analysis is unavailable."
-                      : report.amiAptioCandidate
-                        ? "AMI Aptio evidence was found. The local deep scan is needed before assigning a probable generation."
-                        : report.firmwareVolumes.length > 0
-                          ? "A valid UEFI image was found, but AMI Aptio evidence is still insufficient. Deep analysis can continue safely."
-                          : "No valid UEFI firmware volumes were found. HII analysis is unavailable for this input."}
+            {!showAmiPanel
+              ? report.phoenixLegacy
+                ? "Phoenix modules are inventoried below. Menu parsing and editing require a Phoenix-specific analysis."
+                : "The detected family and its evidence are shown below. AMI Aptio fields do not apply to this image."
+              : assessment.conflict
+                ? "Outer metadata and the extracted HII layout disagree. The application will not force a generation."
+                : profile
+                  ? assessment.generation === "unresolved"
+                    ? "AMI Aptio structures were found, but the shared IV/V layout does not justify forcing a generation."
+                    : "The generation is a corpus-backed profile match, not a vendor declaration. It does not unlock a generation-specific write path."
+                  : report.phoenixLegacy
+                    ? "Phoenix 4.0 module directory recognized. Setup, template and strings modules are inventoried below; Phoenix menu editing is not yet available."
+                    : report.phoenixUefi?.secureCore && !report.amiAptioCandidate
+                      ? "Phoenix SecCore module provenance was found in UEFI firmware. The Setup implementation still needs its own verified parser."
+                      : family?.family !== "ami-aptio" &&
+                          report.firmwareVolumes.length === 0
+                        ? "No validated UEFI firmware volume was found; the family is based on the evidence shown below. AMI HII analysis is unavailable."
+                        : report.amiAptioCandidate
+                          ? "AMI Aptio evidence was found. The local deep scan is needed before assigning a probable generation."
+                          : report.firmwareVolumes.length > 0
+                            ? "A valid UEFI image was found, but AMI Aptio evidence is still insufficient. Deep analysis can continue safely."
+                            : "No valid UEFI firmware volumes were found. HII analysis is unavailable for this input."}
           </Alert>
           <Group gap="xs">
             {family && (
@@ -355,19 +371,21 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 {brand.brand ?? "manufacturer unknown"} · {brand.basis}
               </Badge>
             )}
-            <Badge
-              variant="light"
-              color={
-                assessment.confidence === "confirmed"
-                  ? "green"
-                  : assessment.confidence === "probable"
-                    ? "blue"
-                    : "gray"
-              }
-            >
-              {assessment.confidence} confidence
-            </Badge>
-            {assessment.conflict && (
+            {showAmiPanel && (
+              <Badge
+                variant="light"
+                color={
+                  assessment.confidence === "confirmed"
+                    ? "green"
+                    : assessment.confidence === "probable"
+                      ? "blue"
+                      : "gray"
+                }
+              >
+                {assessment.confidence} confidence
+              </Badge>
+            )}
+            {showAmiPanel && assessment.conflict && (
               <Badge variant="light" color="orange">
                 conflicting evidence
               </Badge>
@@ -406,7 +424,7 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 <Table.Th>Image size</Table.Th>
                 <Table.Td>{report.size.toLocaleString()} bytes</Table.Td>
               </Table.Tr>
-              {brand && (
+              {brand && showAmiPanel && (
                 <Table.Tr>
                   <Table.Th>Manufacturer lead</Table.Th>
                   <Table.Td>
@@ -444,25 +462,29 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
                 <Table.Th>Firmware volumes</Table.Th>
                 <Table.Td>{offsets(report.firmwareVolumes)}</Table.Td>
               </Table.Tr>
-              <Table.Tr>
-                <Table.Th>FFS2 / FFS3 volumes</Table.Th>
-                <Table.Td>
-                  {String(report.ffs2Volumes.length)} /{" "}
-                  {String(report.ffs3Volumes.length)}
-                </Table.Td>
-              </Table.Tr>
-              <Table.Tr>
-                <Table.Th>Setup FFS (outer image)</Table.Th>
-                <Table.Td>{outerModuleOffsets(report.setupFfs)}</Table.Td>
-              </Table.Tr>
-              <Table.Tr>
-                <Table.Th>AMITSE FFS (outer image)</Table.Th>
-                <Table.Td>{outerModuleOffsets(report.amitseFfs)}</Table.Td>
-              </Table.Tr>
-              <Table.Tr>
-                <Table.Th>LZMA GUID-defined sections</Table.Th>
-                <Table.Td>{offsets(report.guidedLzmaSections)}</Table.Td>
-              </Table.Tr>
+              {showAmiPanel && (
+                <>
+                  <Table.Tr>
+                    <Table.Th>FFS2 / FFS3 volumes</Table.Th>
+                    <Table.Td>
+                      {String(report.ffs2Volumes.length)} /{" "}
+                      {String(report.ffs3Volumes.length)}
+                    </Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Th>Setup FFS (outer image)</Table.Th>
+                    <Table.Td>{outerModuleOffsets(report.setupFfs)}</Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Th>AMITSE FFS (outer image)</Table.Th>
+                    <Table.Td>{outerModuleOffsets(report.amitseFfs)}</Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Th>LZMA GUID-defined sections</Table.Th>
+                    <Table.Td>{offsets(report.guidedLzmaSections)}</Table.Td>
+                  </Table.Tr>
+                </>
+              )}
               {artifacts && profile && (
                 <>
                   <Table.Tr>
@@ -526,13 +548,16 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
               )}
             </Table.Tbody>
           </Table>
-          {report.amiAptioCandidate && report.deepScanRequired && !profile && (
-            <Alert color="blue" title="Nested firmware requires HII analysis">
-              Setup or AMITSE is not visible in the outer byte stream. The local
-              preflight is decompressing nested firmware before deciding that a module
-              is absent.
-            </Alert>
-          )}
+          {showAmiPanel &&
+            report.amiAptioCandidate &&
+            report.deepScanRequired &&
+            !profile && (
+              <Alert color="blue" title="Nested firmware requires HII analysis">
+                Setup or AMITSE is not visible in the outer byte stream. The local
+                preflight is decompressing nested firmware before deciding that a module
+                is absent.
+              </Alert>
+            )}
           {artifacts && artifacts.artifactSets.length > 1 && (
             <Alert color="orange" title="Multiple firmware contexts detected">
               <Stack gap="xs">
@@ -662,20 +687,22 @@ export default function BiosImageUpload({ onExtracted }: BiosImageUploadProps) {
               </Stack>
             </Alert>
           )}
-          <Button
-            size="lg"
-            leftSection={<IconPlayerPlay />}
-            disabled={
-              loading ||
-              !artifacts ||
-              !profile ||
-              selectedArtifactSetId === null ||
-              ifrMode === "framework"
-            }
-            onClick={() => void startAnalysis()}
-          >
-            Start HII analysis
-          </Button>
+          {showAmiPanel && (
+            <Button
+              size="lg"
+              leftSection={<IconPlayerPlay />}
+              disabled={
+                loading ||
+                !artifacts ||
+                !profile ||
+                selectedArtifactSetId === null ||
+                ifrMode === "framework"
+              }
+              onClick={() => void startAnalysis()}
+            >
+              Start HII analysis
+            </Button>
+          )}
         </>
       )}
     </Stack>

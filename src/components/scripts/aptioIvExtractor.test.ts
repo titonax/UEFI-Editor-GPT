@@ -1,11 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { extractAptioIvArtifacts, extractAptioIvBytes } from "./aptioIvExtractor";
+import {
+  extractAptioIvArtifacts,
+  extractAptioIvBytes,
+  selectBestIfrTexts,
+} from "./aptioIvExtractor";
 import { FirmwareError } from "./errors";
 
 const setupGuid = "899407D7-99FE-43D8-9A21-79EC328CAC21";
 const amitseGuid = "B1DA0ADF-4F77-4070-A88E-BFFE1C60529A";
 const hiiGuid = "97E409E6-4CC1-11D9-81F6-000000000000";
 const setupDataGuid = "FE612B72-203C-47B1-8560-A66D946EB371";
+
+describe("IFR Strings package selection", () => {
+  it("prefers resolved labels for the same Forms package and language", () => {
+    const texts = selectBestIfrTexts([
+      { name: "setup.0.0.en-US.uefi.ifr.txt", text: 'Prompt: "InvalidId"' },
+      { name: "setup.0.1.en-US.uefi.ifr.txt", text: 'Prompt: "Advanced"' },
+      { name: "setup.1.0.en-US.uefi.ifr.txt", text: 'Prompt: "Security"' },
+      { name: "setup.0.0.fr-FR.uefi.ifr.txt", text: 'Prompt: "Avancé"' },
+    ]);
+    expect(texts).toEqual([
+      'Prompt: "Advanced"',
+      'Prompt: "Security"',
+      'Prompt: "Avancé"',
+    ]);
+  });
+
+  it("retains unrecognized filenames and the first variant when scores tie", () => {
+    expect(
+      selectBestIfrTexts([
+        { name: "setup.0.0.en-US.uefi.ifr.txt", text: "First" },
+        { name: "setup.0.1.en-US.uefi.ifr.txt", text: "Second" },
+        { name: "legacy.ifr.txt", text: "Framework" },
+      ]),
+    ).toEqual(["First", "Framework"]);
+  });
+});
 
 function writeGuid(bytes: Uint8Array, offset: number, guid: string) {
   const [data1, data2, data3, data4, data5] = guid.split("-");
