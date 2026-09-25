@@ -174,6 +174,12 @@ export interface PhoenixSetupSection {
   // without copying or guessing item membership.
   parentOffset: number | null;
   depth: number;
+  // Where this screen sits in the firmware's navigation graph. An
+  // unlinked screen is a structurally valid, interactive screen present in
+  // TEMPLAT.ROM but not reachable from the registered root tabs. Keeping
+  // that state explicit lets the UI expose hidden/orphaned pages without
+  // pretending the firmware already links them under Main or Advanced.
+  placement: "root" | "submenu" | "unlinked";
   items: PhoenixSetupItem[];
 }
 
@@ -399,6 +405,7 @@ export function scanPhoenixSetupSections(
         name: null,
         parentOffset: null,
         depth: 0,
+        placement: "unlinked",
         items,
       });
       position = bestEnd;
@@ -515,6 +522,14 @@ function isCredibleScreen(entries: PhoenixItemListEntry[] | null) {
   return labels.size >= 2;
 }
 
+function isInteractiveScreen(entries: PhoenixItemListEntry[] | null) {
+  return Boolean(
+    entries?.some(({ item }) =>
+      ["pick-field", "time", "date", "action", "boot-device-slot"].includes(item.type),
+    ),
+  );
+}
+
 interface PhoenixRootEntry {
   name: string;
   contentPointer: number;
@@ -554,15 +569,18 @@ function buildSectionGraph(
   bytes: Uint8Array,
   table: PhoenixStringTable | null,
   roots: PhoenixRootEntry[],
+  rootPlacement: PhoenixSetupSection["placement"] = "root",
+  alreadyVisited: Set<number> = new Set<number>(),
 ) {
   const sections: PhoenixSetupSection[] = [];
-  const visited = new Set<number>();
+  const visited = new Set(alreadyVisited);
 
   const appendSection = (
     contentPointer: number,
     name: string,
     parentOffset: number | null,
     depth: number,
+    placement: PhoenixSetupSection["placement"],
   ) => {
     const offset = pbeToRaw(contentPointer);
     if (visited.has(offset)) return;
@@ -583,15 +601,100 @@ function buildSectionGraph(
       return { ...item, submenuOffset: pbeToRaw(auxiliaryPointer) };
     });
 
-    sections.push({ offset, name, parentOffset, depth, items });
+    sections.push({ offset, name, parentOffset, depth, placement, items });
     if (depth >= 8) return;
     for (const child of childLinks) {
-      appendSection(child.pointer, child.name, offset, depth + 1);
+      appendSection(child.pointer, child.name, offset, depth + 1, "submenu");
     }
   };
 
-  for (const root of roots) appendSection(root.contentPointer, root.name, null, 0);
+  for (const root of roots) {
+    appendSection(root.contentPointer, root.name, null, 0, rootPlacement);
+  }
   return sections;
+}
+
+interface PhoenixScreenDirectory {
+  rawOffset: number;
+  entries: PhoenixItemListEntry[];
+}
+
+function inferUnlinkedScreenName(entries: PhoenixItemListEntry[]) {
+  const labels = entries
+    .map(({ item }) => normalizedLabel(item.prompt).replace(/:\s*$/, ""))
+    .filter((value) => /[\p{L}\p{N}]/u.test(value));
+  const numberedActions = labels.filter((value) => /^\d+\.$/.test(value));
+  if (numberedActions.length >= 4) return "Boot selection list";
+  if (labels.includes("CHS Format") && labels.includes("LBA Format")) {
+    return "IDE drive configuration";
+  }
+  return labels[0] || "Unlinked Setup screen";
+}
+
+// Finds interactive, terminated item-pointer directories that are not part
+// of the registered root graph. Legacy Phoenix templates often retain whole
+// Setup pages that the OEM removed from the visible tab directory. They are
+// real screens (and can have real child links), but their former parent is
+// unknowable from TEMPLAT.ROM alone, so they remain explicitly unlinked.
+function discoverUnlinkedScreens(
+  bytes: Uint8Array,
+  table: PhoenixStringTable | null,
+  linkedSections: PhoenixSetupSection[],
+) {
+  const candidates: PhoenixScreenDirectory[] = [];
+  for (let rawOffset = 4; rawOffset + 12 <= bytes.length; rawOffset += 2) {
+    const entries = readItemListEntries(bytes, table, rawOffset - 4);
+    if (
+      !entries ||
+      entries.length < 3 ||
+      !isCredibleScreen(entries) ||
+      !isInteractiveScreen(entries)
+    ) {
+      continue;
+    }
+    candidates.push({ rawOffset, entries });
+  }
+
+  // The tail of a valid directory is itself parseable as a shorter valid
+  // directory. Retain only the earliest/maximal start for each overlapping
+  // run so one screen is never reported several times.
+  const maximal = candidates.filter(
+    (candidate) =>
+      !candidates.some(
+        (other) =>
+          other.rawOffset < candidate.rawOffset &&
+          candidate.rawOffset <= other.rawOffset + other.entries.length * 4 &&
+          (candidate.rawOffset - other.rawOffset) % 4 === 0,
+      ),
+  );
+  const linkedOffsets = new Set(linkedSections.map((section) => section.offset));
+  const unlinked = maximal.filter(
+    (candidate) => !linkedOffsets.has(candidate.rawOffset),
+  );
+  const candidateOffsets = new Set(unlinked.map((candidate) => candidate.rawOffset));
+  const childOffsets = new Set<number>();
+  for (const candidate of unlinked) {
+    for (const { auxiliaryPointer } of candidate.entries) {
+      const childRaw = auxiliaryPointer === 0 ? 0 : pbeToRaw(auxiliaryPointer);
+      if (candidateOffsets.has(childRaw)) childOffsets.add(childRaw);
+    }
+  }
+
+  const roots: PhoenixRootEntry[] = unlinked
+    .filter((candidate) => !childOffsets.has(candidate.rawOffset))
+    .map((candidate) => ({
+      name: inferUnlinkedScreenName(candidate.entries),
+      contentPointer: candidate.rawOffset - 4,
+    }));
+  return buildSectionGraph(bytes, table, roots, "unlinked", linkedOffsets);
+}
+
+function withUnlinkedScreens(
+  bytes: Uint8Array,
+  table: PhoenixStringTable | null,
+  linkedSections: PhoenixSetupSection[],
+) {
+  return [...linkedSections, ...discoverUnlinkedScreens(bytes, table, linkedSections)];
 }
 
 // Reads the real Setup tab layout - names and item membership - via
@@ -609,7 +712,7 @@ export function parsePhoenixRootTable(
   const roots = readRootEntriesAt(bytes, table, arrayRaw, false);
   if (!roots) return null;
   const sections = buildSectionGraph(bytes, table, roots);
-  return sections.length > 0 ? sections : null;
+  return sections.length > 0 ? withUnlinkedScreens(bytes, table, sections) : null;
 }
 
 // Some legacy Phoenix templates, including the Acer Z03, store the same
@@ -631,7 +734,7 @@ export function discoverPhoenixRootTable(
   }
   if (!bestRoots) return null;
   const sections = buildSectionGraph(bytes, table, bestRoots);
-  return sections.length > 0 ? sections : null;
+  return sections.length > 0 ? withUnlinkedScreens(bytes, table, sections) : null;
 }
 
 export interface PhoenixSetupMenu {

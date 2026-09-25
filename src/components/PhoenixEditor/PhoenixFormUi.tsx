@@ -45,6 +45,9 @@ export default function PhoenixFormUi({
   currentSectionIndex: number;
 }) {
   const sections = menu.sections.filter((section) => section.items.length > 0);
+  const unlinkedCount = sections.filter(
+    (section) => section.placement === "unlinked",
+  ).length;
   if (currentSectionIndex < 0) {
     return (
       <Stack gap="md" p="md">
@@ -67,12 +70,21 @@ export default function PhoenixFormUi({
             item runs, but they are not claimed as real BIOS tabs.
           </Alert>
         )}
+        {unlinkedCount > 0 && (
+          <Alert color="orange" title="Unlinked firmware screens found">
+            {String(unlinkedCount)} interactive screen
+            {unlinkedCount === 1 ? " is" : "s are"} present in the template but not
+            registered below any visible root tab. Their internal submenu links are
+            preserved; no parent tab is guessed.
+          </Alert>
+        )}
         <Table striped withColumnBorders>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Screen</Table.Th>
               <Table.Th>Template offset</Table.Th>
               <Table.Th>Items</Table.Th>
+              <Table.Th>Placement</Table.Th>
               <Table.Th>Conditional callbacks</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -84,6 +96,13 @@ export default function PhoenixFormUi({
                 </Table.Td>
                 <Table.Td>0x{section.offset.toString(16).toUpperCase()}</Table.Td>
                 <Table.Td>{String(section.items.length)}</Table.Td>
+                <Table.Td>
+                  {section.placement === "root"
+                    ? "Registered tab"
+                    : section.placement === "submenu"
+                      ? "Linked submenu"
+                      : "Unlinked / hidden"}
+                </Table.Td>
                 <Table.Td>
                   {String(
                     section.items.filter(
@@ -114,10 +133,16 @@ export default function PhoenixFormUi({
             Phoenix Setup
           </Badge>
           <Badge
-            color={hasVerifiedDirectory(menu) ? "green" : "yellow"}
+            color={section.placement === "unlinked" ? "orange" : "green"}
             variant="outline"
           >
-            {hasVerifiedDirectory(menu) ? "Verified screen" : "Inferred group"}
+            {section.placement === "root"
+              ? "Registered root screen"
+              : section.placement === "submenu"
+                ? "Verified submenu link"
+                : hasVerifiedDirectory(menu)
+                  ? "Unlinked firmware screen"
+                  : "Inferred group"}
           </Badge>
         </Group>
         <Group gap="xs">

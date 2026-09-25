@@ -53,8 +53,10 @@ AMI Setup evidence.
 1. Decode LZINT/LH5 with explicit expansion bounds; independently re-read
    the decoded Setup, template and STRPACK data.
 2. Expand the verified menu graph with additional one-item submenu cases and
-   callback-backed transitions. Compare each new structure against the original
-   Phoenix BIOS Editor view before generalizing it.
+   callback-backed transitions. Registered tabs, proven submenu links and
+   structurally valid but unlinked OEM screens remain separate states; compare
+   each new structure against the original Phoenix BIOS Editor view before
+   generalizing it.
 3. For Phoenix-derived UEFI, locate HII packages by validated FFS/section
    ownership rather than assuming AMI Setup GUIDs. Prove menu roots and
    variable stores before offering an edit plan.

@@ -16,6 +16,7 @@ const menu: PhoenixSetupMenu = {
       name: "Main",
       parentOffset: null,
       depth: 0,
+      placement: "root",
       items: [
         {
           type: "pick-field",
@@ -57,6 +58,7 @@ const menu: PhoenixSetupMenu = {
       name: "SATA Port",
       parentOffset: 0x120,
       depth: 1,
+      placement: "submenu",
       items: [
         {
           type: "information",
@@ -146,8 +148,10 @@ describe("Phoenix full editor workspace", () => {
     expect(screen.getByText("Enabled · Disabled")).toBeInTheDocument();
     expect(screen.getByText("Information")).toBeInTheDocument();
     expect(screen.getByText("Submenu")).toBeInTheDocument();
+    expect(screen.getByText("Registered root screen")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /SATA Port/ }));
     expect(screen.getByText("Drive type")).toBeInTheDocument();
+    expect(screen.getByText("Verified submenu link")).toBeInTheDocument();
     expect(screen.getByText("Phoenix Setup view · read-only")).toBeInTheDocument();
   });
 });
