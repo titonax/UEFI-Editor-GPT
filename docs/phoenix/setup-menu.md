@@ -16,6 +16,12 @@ contiguous item runs do not prove tab identity or runtime visibility. Pick
 Field options describe available choices, not the machine's current NVRAM
 setting. A detected visibility callback is evidence, not a runtime evaluation.
 
+Verified callbacks expose an on-demand **Trace callback** action. It decodes
+bounded x86-16 paths, direct control-flow edges and reachable `AX` return values
+inside the Phoenix workspace. See
+[Phoenix callback behavior analysis](behavior-analysis.md) for its architecture,
+limits and controlled-execution roadmap.
+
 The Acer Z03 sample (`ACER-Z03-20140701.bin`, SHA-256
 `d34c9695d6d54595836212021797dd7557cabae0d25fd33cd0faa87c25640194`)
 produces the known 34-module inventory. The reader finds four inferred groups
@@ -23,5 +29,5 @@ containing 343 parsed records. These are not confirmed as four BIOS tabs.
 
 The workspace is read-only. It does not produce a flashable Phoenix ROM or expose
 the callback patch and Phoenix BIOS Editor export that exist in Claude's
-experimental parser. Those operations require a separate review and a
-validated write path for each supported template.
+experimental parser. Behavior tracing also leaves every byte unchanged. Writing
+requires a separate review and a validated path for each supported template.

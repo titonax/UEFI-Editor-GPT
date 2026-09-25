@@ -53,7 +53,11 @@ function Workspace() {
         />
       </AppShell.Header>
       <AppShell.Main>
-        <PhoenixFormUi menu={menu} currentSectionIndex={current} />
+        <PhoenixFormUi
+          menu={menu}
+          templat={new Uint8Array()}
+          currentSectionIndex={current}
+        />
       </AppShell.Main>
       <AppShell.Footer>
         <PhoenixFooter onClose={vi.fn()} />

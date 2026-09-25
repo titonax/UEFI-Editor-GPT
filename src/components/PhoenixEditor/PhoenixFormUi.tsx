@@ -1,6 +1,7 @@
 import { Alert, Badge, Group, Stack, Table, Text } from "@mantine/core";
 import type { PhoenixSetupItem, PhoenixSetupMenu } from "../scripts/phoenixSetupTable";
 import s from "../FormUi/FormUi.module.css";
+import PhoenixBehaviorDialog from "./PhoenixBehaviorDialog";
 
 function label(value: string | null) {
   const normalized = value?.replace(/\r/g, " ").trim();
@@ -31,9 +32,11 @@ function visibility(item: PhoenixSetupItem) {
 
 export default function PhoenixFormUi({
   menu,
+  templat,
   currentSectionIndex,
 }: {
   menu: PhoenixSetupMenu;
+  templat: Uint8Array;
   currentSectionIndex: number;
 }) {
   const sections = menu.sections.filter((section) => section.items.length > 0);
@@ -132,6 +135,7 @@ export default function PhoenixFormUi({
             <Table.Th>Available options</Table.Th>
             <Table.Th>Help</Table.Th>
             <Table.Th>Template offset</Table.Th>
+            <Table.Th>Behavior</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody className={s.striped}>
@@ -159,6 +163,13 @@ export default function PhoenixFormUi({
                 </Table.Td>
                 <Table.Td>{label(item.help)}</Table.Td>
                 <Table.Td>0x{item.offset.toString(16).toUpperCase()}</Table.Td>
+                <Table.Td>
+                  {item.visibilityPatch ? (
+                    <PhoenixBehaviorDialog templat={templat} item={item} />
+                  ) : (
+                    "—"
+                  )}
+                </Table.Td>
               </Table.Tr>
             );
           })}

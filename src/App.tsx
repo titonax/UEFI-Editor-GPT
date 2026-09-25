@@ -105,6 +105,7 @@ export default function App({
           <AppShell.Main>
             <PhoenixFormUi
               menu={phoenixSession.inventory.menu}
+              templat={phoenixSession.inventory.templat}
               currentSectionIndex={currentPhoenixSection}
             />
           </AppShell.Main>
