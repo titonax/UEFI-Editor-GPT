@@ -22,6 +22,7 @@ const item: PhoenixSetupItem = {
     hidePatchOffset: 0x94,
     hiddenImmediate: 0x13,
   },
+  submenuOffset: null,
   rawBytes: new Uint8Array(12),
 };
 

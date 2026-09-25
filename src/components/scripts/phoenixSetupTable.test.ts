@@ -33,7 +33,7 @@ function writeCString(bytes: Uint8Array, offset: number, value: string) {
 // resolving real Prompt/Help pairs through this exact double indirection
 // (table slot -> text offset -> C string) - see docs/phoenix/README.md.
 function stringTableImage() {
-  const bytes = new Uint8Array(0xa0);
+  const bytes = new Uint8Array(0xc0);
   bytes.set(ascii("STRPACK-BIOS"), 0);
   // 8 bytes of zero padding (already zero), then language count/id.
   new DataView(bytes.buffer).setUint16(0x14, 1, true); // 1 language
@@ -52,6 +52,12 @@ function stringTableImage() {
   writeCString(bytes, tableBase + 0x60, "Disabled");
   new DataView(bytes.buffer).setUint16(tableBase + 0x16, 0x6a, true);
   writeCString(bytes, tableBase + 0x6a, "Enabled");
+  new DataView(bytes.buffer).setUint16(tableBase + 0x18, 0x78, true);
+  writeCString(bytes, tableBase + 0x78, "Advanced");
+  new DataView(bytes.buffer).setUint16(tableBase + 0x1a, 0x81, true);
+  writeCString(bytes, tableBase + 0x81, "SATA Port");
+  new DataView(bytes.buffer).setUint16(tableBase + 0x1c, 0x8b, true);
+  writeCString(bytes, tableBase + 0x8b, "Type");
   return bytes;
 }
 
@@ -104,6 +110,14 @@ function genericTextItem(stringRef: number) {
   const bytes = new Uint8Array(10);
   bytes[0] = 0x10;
   bytes[1] = 10;
+  new DataView(bytes.buffer).setUint16(2, stringRef, true);
+  return bytes;
+}
+
+function informationItem(stringRef: number) {
+  const bytes = new Uint8Array(12);
+  bytes[0] = 0x11;
+  bytes[1] = 12;
   new DataView(bytes.buffer).setUint16(2, stringRef, true);
   return bytes;
 }
@@ -488,6 +502,80 @@ describe("buildPhoenixSetupMenu with a root table", () => {
   });
 });
 
+function discoveredRootTemplat() {
+  const bytes = new Uint8Array(0x240);
+
+  // The alternative legacy root directory has no pointer at raw 0x6c. Its
+  // three entries are found by validating label and content pointers, then
+  // a (0, 0) terminator.
+  bytes.set(genericTextItem(0x10), 0x100); // Main
+  bytes.set(genericTextItem(0x18), 0x110); // Advanced
+  bytes.set(genericTextItem(0x1c), 0x120); // Type
+  writeU16(bytes, 0x40, 0x100 - 4);
+  writeU16(bytes, 0x42, 0x80 - 4);
+  writeU16(bytes, 0x44, 0x110 - 4);
+  writeU16(bytes, 0x46, 0xa0 - 4);
+  writeU16(bytes, 0x48, 0x120 - 4);
+  writeU16(bytes, 0x4a, 0xc0 - 4);
+
+  // Main has one ordinary row and one proven submenu link. The second word
+  // of SATA Port points at another terminated item list at raw 0xe0.
+  bytes.set(genericTextItem(0x10), 0x140);
+  bytes.set(informationItem(0x1a), 0x150);
+  writeU16(bytes, 0x80, 0x140 - 4);
+  writeU16(bytes, 0x82, 0);
+  writeU16(bytes, 0x84, 0x150 - 4);
+  writeU16(bytes, 0x86, 0xe0 - 4);
+
+  // The other top-level screens each contain two distinct, resolved rows.
+  bytes.set(genericTextItem(0x18), 0x160);
+  bytes.set(genericTextItem(0x1c), 0x170);
+  writeU16(bytes, 0xa0, 0x160 - 4);
+  writeU16(bytes, 0xa2, 0);
+  writeU16(bytes, 0xa4, 0x170 - 4);
+  writeU16(bytes, 0xa6, 0);
+  writeU16(bytes, 0xc0, 0x140 - 4);
+  writeU16(bytes, 0xc2, 0);
+  writeU16(bytes, 0xc4, 0x160 - 4);
+  writeU16(bytes, 0xc6, 0);
+
+  bytes.set(genericTextItem(0x18), 0x1a0);
+  bytes.set(genericTextItem(0x1c), 0x1b0);
+  writeU16(bytes, 0xe0, 0x1a0 - 4);
+  writeU16(bytes, 0xe2, 0);
+  writeU16(bytes, 0xe4, 0x1b0 - 4);
+  writeU16(bytes, 0xe6, 0);
+  return bytes;
+}
+
+describe("legacy root-directory discovery and submenu graph", () => {
+  it("finds real tab names without the 0x68 root field and follows a verified child list", () => {
+    const menu = buildPhoenixSetupMenu(discoveredRootTemplat(), stringTableImage());
+
+    expect(menu.source).toBe("discovered-root-table");
+    expect(menu.sections.map((section) => section.name)).toEqual([
+      "Main",
+      "SATA Port",
+      "Advanced",
+      "Type",
+    ]);
+    expect(menu.sections[0]).toMatchObject({
+      offset: 0x80,
+      parentOffset: null,
+      depth: 0,
+    });
+    expect(menu.sections[0].items[1]).toMatchObject({
+      prompt: "SATA Port",
+      submenuOffset: 0xe0,
+    });
+    expect(menu.sections[1]).toMatchObject({
+      offset: 0xe0,
+      parentOffset: 0x80,
+      depth: 1,
+    });
+  });
+});
+
 describe("visibility-callback patch (forceItemsVisible)", () => {
   const CALLBACK_RAW = 0x60;
   const HIDE_PATCH_RAW = 0x70;
@@ -628,6 +716,7 @@ describe("savePhoenixSetupChanges", () => {
         hidePatchOffset: HIDE_PATCH_OFFSET,
         hiddenImmediate: 0x13,
       },
+      submenuOffset: null,
       rawBytes: new Uint8Array(10),
     };
   }

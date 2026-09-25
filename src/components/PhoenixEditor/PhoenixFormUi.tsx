@@ -8,19 +8,24 @@ function label(value: string | null) {
   return normalized && normalized.length > 0 ? normalized : "—";
 }
 
-function typeLabel(type: PhoenixSetupItem["type"]) {
+function typeLabel(item: PhoenixSetupItem) {
   return (
     {
       "pick-field": "Selection",
       "generic-text": "Text",
-      information: "Submenu",
+      information: item.submenuOffset === null ? "Information" : "Submenu",
       time: "Time",
       date: "Date",
       action: "Action",
       "boot-device-slot": "Boot device",
       "free-form-hex": "Hex",
+      unknown: "Unknown record",
     } satisfies Record<PhoenixSetupItem["type"], string>
-  )[type];
+  )[item.type];
+}
+
+function hasVerifiedDirectory(menu: PhoenixSetupMenu) {
+  return menu.source !== "contiguous-scan";
 }
 
 function visibility(item: PhoenixSetupItem) {
@@ -46,15 +51,17 @@ export default function PhoenixFormUi({
         <Group gap="xs">
           <Badge color="grape">Phoenix Setup</Badge>
           <Badge
-            color={menu.source === "root-table" ? "green" : "yellow"}
+            color={hasVerifiedDirectory(menu) ? "green" : "yellow"}
             variant="outline"
           >
             {menu.source === "root-table"
               ? "Verified root/tab table"
-              : "Inferred contiguous groups"}
+              : menu.source === "discovered-root-table"
+                ? "Verified legacy menu directory"
+                : "Inferred contiguous groups"}
           </Badge>
         </Group>
-        {menu.source !== "root-table" && (
+        {!hasVerifiedDirectory(menu) && (
           <Alert color="yellow" title="Tab identity is unresolved">
             The template has no recognized root table. These groups are valid decoded
             item runs, but they are not claimed as real BIOS tabs.
@@ -107,10 +114,10 @@ export default function PhoenixFormUi({
             Phoenix Setup
           </Badge>
           <Badge
-            color={menu.source === "root-table" ? "green" : "yellow"}
+            color={hasVerifiedDirectory(menu) ? "green" : "yellow"}
             variant="outline"
           >
-            {menu.source === "root-table" ? "Verified tab" : "Inferred group"}
+            {hasVerifiedDirectory(menu) ? "Verified screen" : "Inferred group"}
           </Badge>
         </Group>
         <Group gap="xs">
@@ -152,7 +159,7 @@ export default function PhoenixFormUi({
                 >
                   {label(item.prompt)}
                 </Table.Td>
-                <Table.Td>{typeLabel(item.type)}</Table.Td>
+                <Table.Td>{typeLabel(item)}</Table.Td>
                 <Table.Td>
                   <Badge color={state.color} variant="light">
                     {state.label}
