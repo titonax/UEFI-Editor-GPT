@@ -1,6 +1,7 @@
 import { Alert, Badge, Group, Stack, Table, Text } from "@mantine/core";
 import type { PhoenixSetupItem, PhoenixSetupMenu } from "../scripts/phoenixSetupTable";
 import s from "../FormUi/FormUi.module.css";
+import { useStickyTableOffset } from "../FormUi/useStickyTableOffset";
 import PhoenixBehaviorDialog from "./PhoenixBehaviorDialog";
 
 function label(value: string | null) {
@@ -45,6 +46,8 @@ export default function PhoenixFormUi({
   currentSectionIndex: number;
 }) {
   const sections = menu.sections.filter((section) => section.items.length > 0);
+  const { anchorRef, offset: stickyHeaderOffset } =
+    useStickyTableOffset(currentSectionIndex);
   const unlinkedCount = sections.filter(
     (section) => section.placement === "unlinked",
   ).length;
@@ -124,7 +127,7 @@ export default function PhoenixFormUi({
   ).length;
   return (
     <Stack gap={0}>
-      <Stack gap={4} className={s.visibilitySummary}>
+      <Stack ref={anchorRef} gap={4} className={s.visibilitySummary}>
         <Group gap="xs">
           <Text size="sm" fw={600}>
             Selected path:
@@ -158,7 +161,12 @@ export default function PhoenixFormUi({
           </Text>
         </Group>
       </Stack>
-      <Table stickyHeader stickyHeaderOffset={150} striped withColumnBorders>
+      <Table
+        stickyHeader
+        stickyHeaderOffset={stickyHeaderOffset}
+        striped
+        withColumnBorders
+      >
         <Table.Thead>
           <Table.Tr>
             <Table.Th>Name</Table.Th>
