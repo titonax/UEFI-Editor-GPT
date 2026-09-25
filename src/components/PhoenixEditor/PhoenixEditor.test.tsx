@@ -14,6 +14,8 @@ const menu: PhoenixSetupMenu = {
     {
       offset: 0x120,
       name: "Main",
+      parentOffset: null,
+      depth: 0,
       items: [
         {
           type: "pick-field",
@@ -23,7 +25,49 @@ const menu: PhoenixSetupMenu = {
           help: "Select the startup mode",
           options: ["Enabled", "Disabled"],
           visibilityPatch: null,
+          submenuOffset: null,
           rawBytes: new Uint8Array(20),
+        },
+        {
+          type: "information",
+          offset: 0x240,
+          length: 12,
+          prompt: "CPU Type",
+          help: null,
+          options: [],
+          visibilityPatch: null,
+          submenuOffset: null,
+          rawBytes: new Uint8Array(12),
+        },
+        {
+          type: "information",
+          offset: 0x250,
+          length: 12,
+          prompt: "SATA Port",
+          help: null,
+          options: [],
+          visibilityPatch: null,
+          submenuOffset: 0x180,
+          rawBytes: new Uint8Array(12),
+        },
+      ],
+    },
+    {
+      offset: 0x180,
+      name: "SATA Port",
+      parentOffset: 0x120,
+      depth: 1,
+      items: [
+        {
+          type: "information",
+          offset: 0x260,
+          length: 12,
+          prompt: "Drive type",
+          help: null,
+          options: [],
+          visibilityPatch: null,
+          submenuOffset: null,
+          rawBytes: new Uint8Array(12),
         },
       ],
     },
@@ -100,6 +144,10 @@ describe("Phoenix full editor workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /Main/ }));
     expect(screen.getByText("Boot mode")).toBeInTheDocument();
     expect(screen.getByText("Enabled · Disabled")).toBeInTheDocument();
+    expect(screen.getByText("Information")).toBeInTheDocument();
+    expect(screen.getByText("Submenu")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /SATA Port/ }));
+    expect(screen.getByText("Drive type")).toBeInTheDocument();
     expect(screen.getByText("Phoenix Setup view · read-only")).toBeInTheDocument();
   });
 });

@@ -86,7 +86,8 @@ export type PhoenixSetupItemType =
   | "date"
   | "action"
   | "boot-device-slot"
-  | "free-form-hex";
+  | "free-form-hex"
+  | "unknown";
 
 // One entry in a Phoenix Setup screen. Only the fields independently
 // confirmed against real byte layouts are named; everything else in the
@@ -116,6 +117,11 @@ export interface PhoenixSetupItem {
   // never guessed at for an item that doesn't have it. Null for most
   // items; see PhoenixVisibilityPatch and forceItemsVisible.
   visibilityPatch: PhoenixVisibilityPatch | null;
+  // Raw TEMPLAT.ROM offset of a structurally verified child screen. Null
+  // for ordinary information/value/action records. This comes from the
+  // item pointer list's second u16, never from the item's own string or
+  // option fields.
+  submenuOffset: number | null;
   rawBytes: Uint8Array;
 }
 
@@ -163,6 +169,11 @@ export interface PhoenixSetupSection {
   // root/tab table. Null for a fallback section, where no tab identity is
   // known - see PhoenixSetupMenu.source.
   name: string | null;
+  // Null for top-level tabs/groups. A submenu names the raw content-list
+  // offset of its parent, allowing the UI to render the proven hierarchy
+  // without copying or guessing item membership.
+  parentOffset: number | null;
+  depth: number;
   items: PhoenixSetupItem[];
 }
 
@@ -198,6 +209,11 @@ function itemTypeOf(typeByte: number): PhoenixSetupItemType | null {
       return "free-form-hex";
     case 0x27:
       return "boot-device-slot";
+    // Observed as a validly framed row in the Z03 Information screen. Its
+    // exact runtime role is not yet named, but retaining it keeps the
+    // authoritative item list intact without pretending it is a submenu.
+    case 0x31:
+      return "unknown";
     default:
       return null;
   }
@@ -266,6 +282,7 @@ function parseItem(
       help: null,
       options: [],
       visibilityPatch,
+      submenuOffset: null,
       rawBytes,
     };
   }
@@ -284,7 +301,17 @@ function parseItem(
   const options =
     type === "pick-field" ? parsePickFieldOptions(bytes, offset, length, table) : [];
 
-  return { type, offset, length, prompt, help, options, visibilityPatch, rawBytes };
+  return {
+    type,
+    offset,
+    length,
+    prompt,
+    help,
+    options,
+    visibilityPatch,
+    submenuOffset: null,
+    rawBytes,
+  };
 }
 
 // Pick Field's option list: a packed array of string references filling
@@ -367,7 +394,13 @@ export function scanPhoenixSetupSections(
         items.push(item);
         cursor += item.length;
       }
-      sections.push({ offset: bestStart, name: null, items });
+      sections.push({
+        offset: bestStart,
+        name: null,
+        parentOffset: null,
+        depth: 0,
+        items,
+      });
       position = bestEnd;
     } else {
       position++;
@@ -430,20 +463,20 @@ function readTabLabel(
   return resolveOrNull(table, u16(bytes, rawOffset + 2));
 }
 
-// Resolves a root-table content pointer to the tab's real item list. These
-// items are not physically contiguous in TEMPLAT.ROM - they're interleaved
-// with other tabs' and sub-menus' own items - which is exactly why
-// scanPhoenixSetupSections's contiguous-run heuristic can misattribute or
-// entirely miss a tab's content; this pointer list is the authoritative
-// source once it resolves. Confirmed item-for-item against two independent
-// samples: e.g. Information's 13 entries resolve to exactly "CPU Type:",
-// "CPU Speed:", ... "UUID:" - the real System Information screen.
-function readTabItems(
+interface PhoenixItemListEntry {
+  item: PhoenixSetupItem;
+  auxiliaryPointer: number;
+}
+
+// Resolves a screen's authoritative list of (itemPointer, auxiliaryPointer)
+// pairs. The second word is usually zero or a callback, but on a verified
+// submenu entry it points to another list with the same structure.
+function readItemListEntries(
   bytes: Uint8Array,
   table: PhoenixStringTable | null,
   contentPointer: number,
-): PhoenixSetupItem[] {
-  const items: PhoenixSetupItem[] = [];
+): PhoenixItemListEntry[] | null {
+  const entries: PhoenixItemListEntry[] = [];
   let cursor = pbeToRaw(contentPointer);
   for (
     let step = 0;
@@ -451,11 +484,114 @@ function readTabItems(
     step++, cursor += 4
   ) {
     const itemPointer = u16(bytes, cursor);
-    if (itemPointer === 0) break;
+    if (itemPointer === 0) return entries;
     const item = parseItem(bytes, pbeToRaw(itemPointer), table);
-    if (item) items.push(item);
+    if (!item) return null;
+    entries.push({ item, auxiliaryPointer: u16(bytes, cursor + 2) });
   }
-  return items;
+  return null;
+}
+
+function normalizedLabel(value: string | null) {
+  return (
+    value
+      ?.replace(/[\r\n\t]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() ?? ""
+  );
+}
+
+// Reject callback/code regions that merely happen to decode as a short item
+// list. A real screen has at least two independently resolved, distinct labels.
+// This conservative rule can miss a one-item screen, but it never invents a
+// submenu link from an unverified auxiliary pointer.
+function isCredibleScreen(entries: PhoenixItemListEntry[] | null) {
+  if (!entries || entries.length === 0) return false;
+  const labels = new Set(
+    entries
+      .map(({ item }) => normalizedLabel(item.prompt))
+      .filter((value) => /[\p{L}\p{N}]/u.test(value)),
+  );
+  return labels.size >= 2;
+}
+
+interface PhoenixRootEntry {
+  name: string;
+  contentPointer: number;
+}
+
+function readRootEntriesAt(
+  bytes: Uint8Array,
+  table: PhoenixStringTable | null,
+  arrayRaw: number,
+  requireCredibleScreens: boolean,
+): PhoenixRootEntry[] | null {
+  const entries: PhoenixRootEntry[] = [];
+  for (let tab = 0; tab < MAX_ROOT_TABLE_TABS; tab++) {
+    const labelOffset = arrayRaw + tab * 4;
+    const contentOffset = labelOffset + 2;
+    if (contentOffset + 2 > bytes.length) return null;
+    const labelPointer = u16(bytes, labelOffset);
+    const contentPointer = u16(bytes, contentOffset);
+    if (labelPointer === 0 && contentPointer === 0) {
+      return entries.length > 0 ? entries : null;
+    }
+    const name = normalizedLabel(readTabLabel(bytes, table, labelPointer));
+    const screenEntries = readItemListEntries(bytes, table, contentPointer);
+    if (
+      name.length === 0 ||
+      !screenEntries ||
+      (requireCredibleScreens && !isCredibleScreen(screenEntries))
+    ) {
+      return null;
+    }
+    entries.push({ name, contentPointer });
+  }
+  return null;
+}
+
+function buildSectionGraph(
+  bytes: Uint8Array,
+  table: PhoenixStringTable | null,
+  roots: PhoenixRootEntry[],
+) {
+  const sections: PhoenixSetupSection[] = [];
+  const visited = new Set<number>();
+
+  const appendSection = (
+    contentPointer: number,
+    name: string,
+    parentOffset: number | null,
+    depth: number,
+  ) => {
+    const offset = pbeToRaw(contentPointer);
+    if (visited.has(offset)) return;
+    const entries = readItemListEntries(bytes, table, contentPointer);
+    if (!entries) return;
+    visited.add(offset);
+
+    const childLinks: { pointer: number; name: string }[] = [];
+    const items = entries.map(({ item, auxiliaryPointer }) => {
+      const childEntries =
+        auxiliaryPointer === 0
+          ? null
+          : readItemListEntries(bytes, table, auxiliaryPointer);
+      if (!isCredibleScreen(childEntries)) return item;
+      const childName = normalizedLabel(item.prompt);
+      if (childName.length === 0) return item;
+      childLinks.push({ pointer: auxiliaryPointer, name: childName });
+      return { ...item, submenuOffset: pbeToRaw(auxiliaryPointer) };
+    });
+
+    sections.push({ offset, name, parentOffset, depth, items });
+    if (depth >= 8) return;
+    for (const child of childLinks) {
+      appendSection(child.pointer, child.name, offset, depth + 1);
+    }
+  };
+
+  for (const root of roots) appendSection(root.contentPointer, root.name, null, 0);
+  return sections;
 }
 
 // Reads the real Setup tab layout - names and item membership - via
@@ -470,32 +606,40 @@ export function parsePhoenixRootTable(
   const rootPointer = u16(bytes, ROOT_TABLE_FIELD_RAW_OFFSET);
   if (rootPointer === 0) return null;
   const arrayRaw = pbeToRaw(rootPointer);
+  const roots = readRootEntriesAt(bytes, table, arrayRaw, false);
+  if (!roots) return null;
+  const sections = buildSectionGraph(bytes, table, roots);
+  return sections.length > 0 ? sections : null;
+}
 
-  const sections: PhoenixSetupSection[] = [];
-  for (let tab = 0; tab < MAX_ROOT_TABLE_TABS; tab++) {
-    const labelOffset = arrayRaw + tab * 4;
-    const contentOffset = labelOffset + 2;
-    if (contentOffset + 2 > bytes.length) break;
-    const labelPointer = u16(bytes, labelOffset);
-    const contentPointer = u16(bytes, contentOffset);
-    if (labelPointer === 0 && contentPointer === 0) break;
-
-    const name = readTabLabel(bytes, table, labelPointer);
-    const items = readTabItems(bytes, table, contentPointer);
-    if (name === null && items.length === 0) continue;
-    sections.push({ offset: pbeToRaw(contentPointer), name, items });
+// Some legacy Phoenix templates, including the Acer Z03, store the same
+// terminated (labelPointer, contentPointer) root array directly in their
+// early directory region but leave the newer 0x68 root field at zero. Find
+// that table by validating every label and every target screen instead of
+// hard-coding the Z03's observed raw offset.
+export function discoverPhoenixRootTable(
+  bytes: Uint8Array,
+  table: PhoenixStringTable | null,
+): PhoenixSetupSection[] | null {
+  let bestRoots: PhoenixRootEntry[] | null = null;
+  for (let arrayRaw = 4; arrayRaw + 12 <= bytes.length; arrayRaw += 2) {
+    const roots = readRootEntriesAt(bytes, table, arrayRaw, true);
+    if (!roots || roots.length < 3) continue;
+    const uniqueNames = new Set(roots.map((entry) => entry.name.toLocaleLowerCase()));
+    if (uniqueNames.size !== roots.length) continue;
+    if (!bestRoots || roots.length > bestRoots.length) bestRoots = roots;
   }
+  if (!bestRoots) return null;
+  const sections = buildSectionGraph(bytes, table, bestRoots);
   return sections.length > 0 ? sections : null;
 }
 
 export interface PhoenixSetupMenu {
   sections: PhoenixSetupSection[];
-  // "root-table" when sections carry their real Setup tab names and
-  // authoritative item membership (see parsePhoenixRootTable); "contiguous-scan"
-  // when they're the unnamed contiguous-run fallback (see
-  // scanPhoenixSetupSections), used only when a firmware doesn't have (or
-  // doesn't use) the root/tab table.
-  source: "root-table" | "contiguous-scan";
+  // Fixed-field and structurally discovered root directories both carry
+  // authoritative names/membership. "contiguous-scan" is the unnamed
+  // fallback used only when neither directory form validates.
+  source: "root-table" | "discovered-root-table" | "contiguous-scan";
 }
 
 // Combines the string table and the item-record scan into one read-only
@@ -508,6 +652,10 @@ export function buildPhoenixSetupMenu(
   const table = parsePhoenixStringTable(strings);
   const rootTableSections = parsePhoenixRootTable(templat, table);
   if (rootTableSections) return { sections: rootTableSections, source: "root-table" };
+  const discoveredSections = discoverPhoenixRootTable(templat, table);
+  if (discoveredSections) {
+    return { sections: discoveredSections, source: "discovered-root-table" };
+  }
   return {
     sections: scanPhoenixSetupSections(templat, table),
     source: "contiguous-scan",
