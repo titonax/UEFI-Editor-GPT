@@ -574,6 +574,46 @@ describe("legacy root-directory discovery and submenu graph", () => {
       depth: 1,
     });
   });
+
+  it("exposes interactive orphan screens separately and preserves their real child links", () => {
+    const original = discoveredRootTemplat();
+    const templat = new Uint8Array(0x340);
+    templat.set(original);
+
+    // A real, terminated interactive screen directory that no registered
+    // root tab points to. Its SATA Port row still has an authoritative
+    // child pointer, so that part of the hidden hierarchy is knowable.
+    templat.set(pickFieldItem(0x18, 0x12), 0x280); // Advanced
+    templat.set(informationItem(0x1a), 0x2a0); // SATA Port
+    templat.set(pickFieldItem(0x1c, 0x12), 0x2c0); // Type
+    writeU16(templat, 0x220, 0x280 - 4);
+    writeU16(templat, 0x224, 0x2a0 - 4);
+    writeU16(templat, 0x226, 0x240 - 4);
+    writeU16(templat, 0x228, 0x2c0 - 4);
+
+    templat.set(genericTextItem(0x1c), 0x2e0);
+    templat.set(genericTextItem(0x10), 0x300);
+    writeU16(templat, 0x240, 0x2e0 - 4);
+    writeU16(templat, 0x244, 0x300 - 4);
+
+    const menu = buildPhoenixSetupMenu(templat, stringTableImage());
+    const orphan = menu.sections.find((section) => section.offset === 0x220);
+    const child = menu.sections.find((section) => section.offset === 0x240);
+
+    expect(orphan).toMatchObject({
+      name: "Advanced",
+      placement: "unlinked",
+      parentOffset: null,
+      depth: 0,
+    });
+    expect(orphan?.items[1]).toMatchObject({ submenuOffset: 0x240 });
+    expect(child).toMatchObject({
+      name: "SATA Port",
+      placement: "submenu",
+      parentOffset: 0x220,
+      depth: 1,
+    });
+  });
 });
 
 describe("visibility-callback patch (forceItemsVisible)", () => {

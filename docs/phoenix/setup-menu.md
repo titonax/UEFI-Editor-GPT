@@ -24,6 +24,14 @@ it as a submenu only when it resolves to another bounded, terminated and
 text-bearing item list. Ordinary `0x11` information rows remain Information;
 they are no longer labelled as submenus merely because of their record type.
 
+The parser also inventories terminated, interactive screen directories that
+exist in `TEMPLAT.ROM` but are not reachable from the registered root tabs.
+They are shown as **Unlinked / hidden screens**, never silently attached to a
+guessed parent. Proven child pointers inside those orphan screens are still
+followed recursively. On the Acer Z03 this recovers the retained advanced,
+cache, resource and CPU/power pages, including the real `Primary Master`,
+`Primary Slave` and `SATA Port 1`–`SATA Port 4` child directories.
+
 Verified callbacks expose an on-demand **Trace callback** action. It decodes
 bounded x86-16 paths, direct control-flow edges and reachable `AX` return values
 inside the Phoenix workspace. See

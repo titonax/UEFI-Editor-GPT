@@ -5,6 +5,7 @@ import {
   IconListTree,
   IconSitemap,
 } from "@tabler/icons-react";
+import { Fragment } from "react";
 import type { PhoenixSetupMenu } from "../scripts/phoenixSetupTable";
 import s from "../Navigation/Navigation.module.css";
 
@@ -27,7 +28,10 @@ export default function PhoenixNavigation({
   setCurrentSectionIndex,
 }: PhoenixNavigationProps) {
   const sections = menu.sections.filter((section) => section.items.length > 0);
-  const rootSections = sections.filter((section) => section.parentOffset === null);
+  const rootSections = sections.filter((section) => section.placement === "root");
+  const unlinkedCount = sections.filter(
+    (section) => section.placement === "unlinked",
+  ).length;
   const totalItems = sections.reduce((sum, section) => sum + section.items.length, 0);
   const verifiedDirectory = menu.source !== "contiguous-scan";
   return (
@@ -42,6 +46,7 @@ export default function PhoenixNavigation({
             <Text size="xs" c="dimmed">
               {String(verifiedDirectory ? rootSections.length : sections.length)}{" "}
               {verifiedDirectory ? "tabs" : "groups"} · {String(totalItems)} items
+              {unlinkedCount > 0 ? ` · ${String(unlinkedCount)} unlinked` : ""}
             </Text>
           </div>
         </Group>
@@ -74,43 +79,60 @@ export default function PhoenixNavigation({
             const hasChildren = sections.some(
               (candidate) => candidate.parentOffset === section.offset,
             );
+            const beginsUnlinkedGroup =
+              section.placement === "unlinked" &&
+              !sections.slice(0, index).some((entry) => entry.placement === "unlinked");
             return (
-              <div
-                key={section.offset}
-                role="treeitem"
-                aria-level={section.depth + 1}
-                className={[s.treeRow, currentSectionIndex === index ? s.selected : ""]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{ paddingLeft: `${String(6 + section.depth * 18)}px` }}
-              >
-                <span className={s.expander}>{hasChildren ? "⌄" : ""}</span>
-                {hasChildren ? (
-                  <IconFolder
-                    size={17}
-                    className={`${s.folderIcon} ${s.statusConditional}`}
-                  />
-                ) : (
-                  <IconFileDescription
-                    size={16}
-                    className={`${s.formIcon} ${s.statusVisible}`}
-                  />
+              <Fragment key={section.offset}>
+                {beginsUnlinkedGroup && (
+                  <div className={s.profileLabel}>
+                    <span>UNLINKED / HIDDEN SCREENS</span>
+                    <span className={s.profileFallback}>not registered as tabs</span>
+                  </div>
                 )}
-                <button
-                  type="button"
-                  className={s.nodeLabel}
-                  onClick={() => {
-                    setCurrentSectionIndex(index);
-                  }}
+                <div
+                  role="treeitem"
+                  aria-level={section.depth + 1}
+                  className={[
+                    s.treeRow,
+                    currentSectionIndex === index ? s.selected : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  style={{ paddingLeft: `${String(6 + section.depth * 18)}px` }}
                 >
-                  <span className={s.nodeName}>
-                    {sectionLabel(section.name, index)}
-                  </span>
-                  <span className={s.formId}>
-                    0x{section.offset.toString(16).toUpperCase()}
-                  </span>
-                </button>
-              </div>
+                  <span className={s.expander}>{hasChildren ? "⌄" : ""}</span>
+                  {hasChildren ? (
+                    <IconFolder
+                      size={17}
+                      className={`${s.folderIcon} ${s.statusConditional}`}
+                    />
+                  ) : (
+                    <IconFileDescription
+                      size={16}
+                      className={`${s.formIcon} ${
+                        section.placement === "unlinked"
+                          ? s.statusConditional
+                          : s.statusVisible
+                      }`}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className={s.nodeLabel}
+                    onClick={() => {
+                      setCurrentSectionIndex(index);
+                    }}
+                  >
+                    <span className={s.nodeName}>
+                      {sectionLabel(section.name, index)}
+                    </span>
+                    <span className={s.formId}>
+                      0x{section.offset.toString(16).toUpperCase()}
+                    </span>
+                  </button>
+                </div>
+              </Fragment>
             );
           })}
         </div>
