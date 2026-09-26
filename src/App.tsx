@@ -21,6 +21,7 @@ import PhoenixHeader from "./components/PhoenixEditor/PhoenixHeader";
 import PhoenixFormUi from "./components/PhoenixEditor/PhoenixFormUi";
 import PhoenixFooter from "./components/PhoenixEditor/PhoenixFooter";
 import UefiHiiFooter from "./components/UefiHiiEditor/UefiHiiFooter";
+import { bytesToHex } from "./components/scripts/hex";
 
 const emptyData: Data = {
   firmwareFamily: "ami-aptio",
@@ -83,8 +84,7 @@ export default function App({
               currentFormIndex={currentFormIndex}
               setCurrentFormIndex={setCurrentFormIndex}
               setData={setData}
-              originalSetupSct=""
-              readOnly
+              originalSetupSct={bytesToHex(uefiHiiSession.workspace.sourceBytes)}
             />
             <NavigationResizer
               width={navigationWidth}
@@ -106,6 +106,8 @@ export default function App({
             <UefiHiiFooter
               moduleCount={uefiHiiSession.workspace.modules.length}
               warningCount={uefiHiiSession.workspace.warnings.length}
+              data={data}
+              workspace={uefiHiiSession.workspace}
               onClose={() => {
                 setUefiHiiSession(null);
                 setData(emptyData);

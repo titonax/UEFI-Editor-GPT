@@ -796,7 +796,7 @@ export default function BiosImageUpload({
                   Found {String(uefiHiiInventory.modules.length)} structurally valid HII
                   module(s) across {String(uefiHiiInventory.uniqueBufferCount)} unique
                   decoded buffer(s). Setup-related modules will be joined into one
-                  read-only navigation graph.
+                  navigation graph with validated Hide, Show and Move controls.
                 </Text>
                 <Table striped withColumnBorders>
                   <Table.Thead>

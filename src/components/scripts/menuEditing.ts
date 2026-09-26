@@ -30,6 +30,7 @@ export interface TopLevelTabVisibilityRequest {
   sourceFormIndex: number;
   referenceChildIndex: number;
   visible: boolean;
+  destinationBeforeOffset?: string;
 }
 
 export interface TopLevelTabVisibilityAvailability {
@@ -285,6 +286,15 @@ function validateRequest(data: Data, request: MenuReferenceMoveRequest) {
   if (request.sourceFormIndex === request.destinationFormIndex) {
     throw new FirmwareError("INVALID_INPUT", "The Ref is already in that Form.");
   }
+  if (
+    data.firmwareFamily === "uefi-hii" &&
+    sourceForm.sourceModuleId !== destinationForm.sourceModuleId
+  ) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "Refs cannot be moved across independently owned HII modules.",
+    );
+  }
 
   const targetIndex = targetIndexForReference(data, sourceForm, reference);
   if (targetIndex < 0) {
@@ -525,6 +535,19 @@ function planTopLevelTabVisibility(
         "The hidden Ref and navigation hub are not in the same Forms Package.",
       );
     }
+    let destinationBefore = request.destinationBeforeOffset
+      ? sourcePackage.opcodes.find(
+          (span) =>
+            span.offset ===
+            parsedOffset(request.destinationBeforeOffset ?? "", "Insertion anchor"),
+        )
+      : undefined;
+    if (request.destinationBeforeOffset && !destinationBefore) {
+      throw new FirmwareError(
+        "PATCH_FAILED",
+        "The original IFR insertion anchor could not be resolved.",
+      );
+    }
     const hiddenPageIndex = navigation.pages.findIndex(
       (page) =>
         parsedId(page.formId, "Navigation page") ===
@@ -541,7 +564,6 @@ function planTopLevelTabVisibility(
             .slice(hiddenPageIndex + 1)
             .find((page) => page.role === "direct-tab");
     let destinationChildIndex: number | undefined;
-    let destinationBefore: IfrOpcodeSpan | undefined;
     if (nextDirectPage) {
       destinationChildIndex = destinationForm.children.findIndex(
         (child) =>
@@ -560,7 +582,7 @@ function planTopLevelTabVisibility(
           "The original tab position could not be matched to the navigation hub.",
         );
       }
-      destinationBefore = findReferenceSpan(
+      destinationBefore ??= findReferenceSpan(
         sourcePackage,
         destinationContainer,
         anchor,

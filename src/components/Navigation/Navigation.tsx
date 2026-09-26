@@ -13,12 +13,22 @@ import {
   IconRefresh,
   IconSearch,
   IconSitemap,
+  IconEye,
+  IconEyeOff,
 } from "@tabler/icons-react";
 import type { Updater } from "use-immer";
 import s from "./Navigation.module.css";
 import type { Data } from "../scripts/types";
 import { buildMenuTree, findNodePath, type MenuTreeNode } from "./menuTree";
 import MenuMoveDialog from "./MenuMoveDialog";
+import {
+  analyzeUefiHiiMenuVisibility,
+  toggleUefiHiiMenuVisibility,
+} from "../scripts/uefiHiiEditing";
+import {
+  analyzeUefiHiiSuppressionToggle,
+  toggleUefiHiiSuppressions,
+} from "../scripts/uefiHiiSuppressionEditing";
 
 interface NavigationProps {
   data: Data;
@@ -39,6 +49,67 @@ export default function Navigation({
 }: NavigationProps) {
   const tree = React.useMemo(() => buildMenuTree(data), [data]);
   const [moveNode, setMoveNode] = React.useState<MenuTreeNode | null>(null);
+  const [visibilityBusy, setVisibilityBusy] = React.useState("");
+  const [visibilityError, setVisibilityError] = React.useState("");
+
+  function referenceVisibilityControl(node: MenuTreeNode) {
+    if (node.parentFormIndex === undefined || node.referenceChildIndex === undefined) {
+      return { show: false, active: [], inactive: [], hasConstant: false };
+    }
+    const child = data.forms[node.parentFormIndex]?.children[node.referenceChildIndex];
+    if (child?.type !== "Ref") {
+      return { show: false, active: [], inactive: [], hasConstant: false };
+    }
+    const conditions = (child.suppressIf ?? []).flatMap((offset) => {
+      const condition = data.suppressions.find(
+        (candidate) =>
+          candidate.offset === offset &&
+          (candidate.kind ?? "SuppressIf") === "SuppressIf",
+      );
+      return condition ? [condition] : [];
+    });
+    const active = conditions
+      .filter((condition) => condition.active)
+      .map((condition) => condition.offset);
+    const inactive = conditions
+      .filter((condition) => !condition.active)
+      .map((condition) => condition.offset);
+    return {
+      show: active.length > 0,
+      active,
+      inactive,
+      hasConstant: conditions.some(
+        (condition) => condition.active && condition.constant === true,
+      ),
+    };
+  }
+
+  function applySuppressionVisibility(
+    offsets: string[],
+    active: boolean,
+    visibilityKey: string,
+  ) {
+    const availability = analyzeUefiHiiSuppressionToggle(
+      data,
+      originalSetupSct,
+      offsets,
+      active,
+    );
+    if (!availability.available) {
+      setVisibilityError(availability.reason);
+      return;
+    }
+    setVisibilityBusy(visibilityKey);
+    setVisibilityError("");
+    void toggleUefiHiiSuppressions(data, offsets, active)
+      .then(setData)
+      .catch((reason: unknown) => {
+        setVisibilityError(reason instanceof Error ? reason.message : String(reason));
+      })
+      .finally(() => {
+        setVisibilityBusy("");
+      });
+  }
 
   const activePath = React.useMemo(() => {
     if (currentFormIndex < 0) {
@@ -108,6 +179,15 @@ export default function Navigation({
     const semanticTitle = `${title}${node.profileLabel ? `\n${node.profileLabel}` : ""}\n${node.reachabilityLabel}\n${node.parentageLabel}\n${node.statusLabel}${
       node.conditionSummary ? `: ${node.conditionSummary}` : ""
     }`;
+    const canEditReference =
+      !readOnly &&
+      node.parentFormIndex !== undefined &&
+      node.referenceChildIndex !== undefined &&
+      !node.missing;
+    const visibilityControl = referenceVisibilityControl(node);
+    const visibilityKey = `${String(node.parentFormIndex ?? -1)}:${String(
+      node.referenceChildIndex ?? -1,
+    )}`;
 
     return (
       <div
@@ -218,26 +298,135 @@ export default function Navigation({
             {node.uiStateDependent && <span className={s.uiStateLabel}>UI state</span>}
           </button>
 
-          {!readOnly &&
-            node.parentFormIndex !== undefined &&
-            node.referenceChildIndex !== undefined && (
-              <Tooltip label="Move this menu to another Form">
-                <ActionIcon
-                  className={s.moveAction}
-                  size="sm"
-                  variant="subtle"
-                  color="blue"
-                  aria-label={`Move ${node.label}`}
-                  disabled={node.missing}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMoveNode(node);
-                  }}
-                >
-                  <IconArrowsMove size={14} />
-                </ActionIcon>
-              </Tooltip>
-            )}
+          {canEditReference && data.firmwareFamily === "uefi-hii" && (
+            <Tooltip
+              label={
+                visibilityControl.show
+                  ? "Show this menu by safely escaping its proven SuppressIf scope."
+                  : visibilityControl.inactive.length > 0
+                    ? "Hide this menu again by restoring its original SuppressIf scope."
+                    : "Hide this menu by parking its Ref in a proven constant-true SuppressIf."
+              }
+            >
+              <ActionIcon
+                className={s.moveAction}
+                size="sm"
+                variant="subtle"
+                color={visibilityControl.show ? "green" : "red"}
+                aria-label={`${visibilityControl.show ? "Show" : "Hide"} ${node.label}`}
+                loading={visibilityBusy === visibilityKey}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (
+                    node.parentFormIndex === undefined ||
+                    node.referenceChildIndex === undefined
+                  ) {
+                    return;
+                  }
+                  if (visibilityControl.show) {
+                    if (visibilityControl.hasConstant) {
+                      const structural = analyzeUefiHiiMenuVisibility(
+                        data,
+                        originalSetupSct,
+                        node.parentFormIndex,
+                        node.referenceChildIndex,
+                        true,
+                      );
+                      if (structural.available) {
+                        setVisibilityBusy(visibilityKey);
+                        setVisibilityError("");
+                        void toggleUefiHiiMenuVisibility(
+                          data,
+                          originalSetupSct,
+                          node.parentFormIndex,
+                          node.referenceChildIndex,
+                          true,
+                        )
+                          .then(setData)
+                          .catch((reason: unknown) => {
+                            setVisibilityError(
+                              reason instanceof Error ? reason.message : String(reason),
+                            );
+                          })
+                          .finally(() => {
+                            setVisibilityBusy("");
+                          });
+                        return;
+                      }
+                    }
+                    applySuppressionVisibility(
+                      visibilityControl.active,
+                      false,
+                      visibilityKey,
+                    );
+                    return;
+                  }
+                  if (visibilityControl.inactive.length > 0) {
+                    applySuppressionVisibility(
+                      visibilityControl.inactive,
+                      true,
+                      visibilityKey,
+                    );
+                    return;
+                  }
+                  const visible = false;
+                  const availability = analyzeUefiHiiMenuVisibility(
+                    data,
+                    originalSetupSct,
+                    node.parentFormIndex,
+                    node.referenceChildIndex,
+                    visible,
+                  );
+                  if (!availability.available) {
+                    setVisibilityError(availability.reason);
+                    return;
+                  }
+                  setVisibilityBusy(visibilityKey);
+                  setVisibilityError("");
+                  void toggleUefiHiiMenuVisibility(
+                    data,
+                    originalSetupSct,
+                    node.parentFormIndex,
+                    node.referenceChildIndex,
+                    visible,
+                  )
+                    .then(setData)
+                    .catch((reason: unknown) => {
+                      setVisibilityError(
+                        reason instanceof Error ? reason.message : String(reason),
+                      );
+                    })
+                    .finally(() => {
+                      setVisibilityBusy("");
+                    });
+                }}
+              >
+                {visibilityControl.show ? (
+                  <IconEye size={14} />
+                ) : (
+                  <IconEyeOff size={14} />
+                )}
+              </ActionIcon>
+            </Tooltip>
+          )}
+
+          {canEditReference && (
+            <Tooltip label="Move this menu to another Form">
+              <ActionIcon
+                className={s.moveAction}
+                size="sm"
+                variant="subtle"
+                color="blue"
+                aria-label={`Move ${node.label}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMoveNode(node);
+                }}
+              >
+                <IconArrowsMove size={14} />
+              </ActionIcon>
+            </Tooltip>
+          )}
         </div>
 
         {hasChildren && opened && (
@@ -324,6 +513,14 @@ export default function Navigation({
         <IconSitemap size={17} />
         <span>Top-level menu</span>
       </AppShell.Section>
+
+      {visibilityError && (
+        <AppShell.Section px="xs" pb={4}>
+          <Text size="xs" c="red" lineClamp={3} title={visibilityError}>
+            {visibilityError}
+          </Text>
+        </AppShell.Section>
+      )}
 
       <AppShell.Section
         grow

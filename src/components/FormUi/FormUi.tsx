@@ -1035,10 +1035,14 @@ export default function FormUi({
           }}
         />
         {data.firmwareFamily === "uefi-hii" && (
-          <Alert color="blue" title="Vendor-neutral UEFI HII graph · read-only">
+          <Alert
+            color="blue"
+            title="Vendor-neutral UEFI HII graph · safe navigation editing"
+          >
             Forms, strings and submenu references were joined across Setup-related FFS
-            modules. Full-image writing stays disabled until every enclosing compressed
-            section can be rebuilt and verified.
+            modules. Use the tree controls to Hide, Show or Move proven menu Refs.
+            Question fields remain read-only, and full-image writing stays disabled
+            until every enclosing compressed section can be rebuilt and verified.
           </Alert>
         )}
         <Table striped withColumnBorders>
