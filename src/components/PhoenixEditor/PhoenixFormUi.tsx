@@ -1,8 +1,19 @@
-import { Alert, Badge, Group, Stack, Table, Text } from "@mantine/core";
+import {
+  Alert,
+  Badge,
+  Button,
+  Group,
+  Stack,
+  Table,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import type { PhoenixSetupItem, PhoenixSetupMenu } from "../scripts/phoenixSetupTable";
 import s from "../FormUi/FormUi.module.css";
 import { useStickyTableOffset } from "../FormUi/useStickyTableOffset";
 import PhoenixBehaviorDialog from "./PhoenixBehaviorDialog";
+
+const noForcedVisibleOffsets: readonly number[] = [];
 
 function label(value: string | null) {
   const normalized = value?.replace(/\r/g, " ").trim();
@@ -40,10 +51,14 @@ export default function PhoenixFormUi({
   menu,
   templat,
   currentSectionIndex,
+  forcedVisibleOffsets = noForcedVisibleOffsets,
+  onToggleVisibility,
 }: {
   menu: PhoenixSetupMenu;
   templat: Uint8Array;
   currentSectionIndex: number;
+  forcedVisibleOffsets?: readonly number[];
+  onToggleVisibility?: (item: PhoenixSetupItem) => void;
 }) {
   const sections = menu.sections.filter((section) => section.items.length > 0);
   const { anchorRef, offset: stickyHeaderOffset } =
@@ -176,11 +191,18 @@ export default function PhoenixFormUi({
             <Table.Th>Help</Table.Th>
             <Table.Th>Template offset</Table.Th>
             <Table.Th>Behavior</Table.Th>
+            <Table.Th>Actions</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody className={s.striped}>
           {section.items.map((item) => {
-            const state = visibility(item);
+            const forcedVisible = forcedVisibleOffsets.includes(item.offset);
+            const state = forcedVisible
+              ? { color: "green", label: "Shown · pending change" }
+              : visibility(item);
+            const canForceVisible = Boolean(
+              item.visibilityPatch && item.visibilityPatch.hiddenImmediate !== 0,
+            );
             return (
               <Table.Tr key={item.offset} className={s.memoRow}>
                 <Table.Td
@@ -209,6 +231,42 @@ export default function PhoenixFormUi({
                   ) : (
                     "—"
                   )}
+                </Table.Td>
+                <Table.Td>
+                  <Tooltip
+                    label={
+                      !item.visibilityPatch
+                        ? "No structurally verified visibility callback is available."
+                        : item.visibilityPatch.hiddenImmediate === 0
+                          ? "The original callback already returns the visible state; no proven hidden value is available."
+                          : forcedVisible
+                            ? "Restore the original conditional hide value."
+                            : "Force this item visible by changing only the verified callback return value."
+                    }
+                    multiline
+                    w={360}
+                  >
+                    <Button
+                      size="compact-xs"
+                      color={forcedVisible ? "red" : "green"}
+                      variant={forcedVisible ? "light" : "filled"}
+                      disabled={!canForceVisible || !onToggleVisibility}
+                      aria-label={
+                        forcedVisible
+                          ? `Hide ${label(item.prompt)} Phoenix item`
+                          : `Show ${label(item.prompt)} Phoenix item`
+                      }
+                      onClick={() => {
+                        onToggleVisibility?.(item);
+                      }}
+                    >
+                      {forcedVisible
+                        ? "Hide"
+                        : canForceVisible
+                          ? "Show"
+                          : "Unavailable"}
+                    </Button>
+                  </Tooltip>
                 </Table.Td>
               </Table.Tr>
             );

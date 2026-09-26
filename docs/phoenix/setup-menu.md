@@ -45,7 +45,15 @@ five real top-level screens: Information, Main, Security, Boot and Exit. This
 case is detected from the directory's structure, not from the Acer model name
 or a hard-coded offset.
 
-The workspace is read-only. It does not produce a flashable Phoenix ROM or expose
-the callback patch and Phoenix BIOS Editor export that exist in Claude's
-experimental parser. Behavior tracing also leaves every byte unchanged. Writing
-requires a separate review and a validated path for each supported template.
+The workspace permits one narrowly verified edit: a menu item whose callback
+prologue and non-zero hide return are both proven can be staged as visible. The
+editor applies the change transactionally to a copy of the decoded template and
+exports a PBE-compatible `TEMPLAT00.ROM` plus a changelog. Removing the staged
+change restores the original hide value. Items without that evidence remain
+disabled.
+
+This artifact-level bridge does not produce a flashable Phoenix ROM. Phoenix
+BIOS Editor must currently perform LH5 recompression and image rebuilding.
+Behavior tracing also leaves every byte unchanged. Direct ROM writing remains
+blocked until the roadmap's LH5 encoder, FFV reconstruction and independent
+full-image re-extraction gates pass.

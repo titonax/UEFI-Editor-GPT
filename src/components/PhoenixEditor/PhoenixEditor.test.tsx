@@ -25,7 +25,11 @@ const menu: PhoenixSetupMenu = {
           prompt: "Boot mode",
           help: "Select the startup mode",
           options: ["Enabled", "Disabled"],
-          visibilityPatch: null,
+          visibilityPatch: {
+            callbackOffset: 0x300,
+            hidePatchOffset: 0x320,
+            hiddenImmediate: 0x13,
+          },
           submenuOffset: null,
           rawBytes: new Uint8Array(20),
         },
@@ -78,6 +82,8 @@ const menu: PhoenixSetupMenu = {
 
 function Workspace() {
   const [current, setCurrent] = React.useState(-1);
+  const [forcedVisibleOffsets, setForcedVisibleOffsets] = React.useState<number[]>([]);
+  const templat = new Uint8Array(0x400);
   return (
     <AppShell
       navbar={{ width: 360, breakpoint: 0 }}
@@ -101,12 +107,29 @@ function Workspace() {
       <AppShell.Main>
         <PhoenixFormUi
           menu={menu}
-          templat={new Uint8Array()}
+          templat={templat}
           currentSectionIndex={current}
+          forcedVisibleOffsets={forcedVisibleOffsets}
+          onToggleVisibility={(item) => {
+            setForcedVisibleOffsets((offsets) =>
+              offsets.includes(item.offset)
+                ? offsets.filter((offset) => offset !== item.offset)
+                : [...offsets, item.offset],
+            );
+          }}
         />
       </AppShell.Main>
       <AppShell.Footer>
-        <PhoenixFooter onClose={vi.fn()} />
+        <PhoenixFooter
+          templat={templat}
+          forcedVisibleItems={menu.sections
+            .flatMap((section) => section.items)
+            .filter((item) => forcedVisibleOffsets.includes(item.offset))}
+          onReset={() => {
+            setForcedVisibleOffsets([]);
+          }}
+          onClose={vi.fn()}
+        />
       </AppShell.Footer>
     </AppShell>
   );
@@ -149,9 +172,29 @@ describe("Phoenix full editor workspace", () => {
     expect(screen.getByText("Information")).toBeInTheDocument();
     expect(screen.getByText("Submenu")).toBeInTheDocument();
     expect(screen.getByText("Registered root screen")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /SATA Port/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Boot mode Phoenix item" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Hide Boot mode Phoenix item" }),
+    ).toBeEnabled();
+    expect(screen.getByText("Shown · pending change")).toBeInTheDocument();
+    expect(
+      screen.getByText("Phoenix Setup editor · 1 staged edit(s)"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Modified TEMPLAT00.ROM" }),
+    ).toBeEnabled();
+    const sataNavigation = screen
+      .getAllByRole("button", { name: /SATA Port/ })
+      .find((button) => !button.hasAttribute("aria-label"));
+    if (!sataNavigation) throw new Error("Expected the SATA Port navigation node.");
+    fireEvent.click(sataNavigation);
     expect(screen.getByText("Drive type")).toBeInTheDocument();
     expect(screen.getByText("Verified submenu link")).toBeInTheDocument();
-    expect(screen.getByText("Phoenix Setup view · read-only")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reset changes" }));
+    expect(
+      screen.getByText("Phoenix Setup editor · 0 staged edit(s)"),
+    ).toBeInTheDocument();
   });
 });

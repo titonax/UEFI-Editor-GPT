@@ -22,6 +22,7 @@ import PhoenixFormUi from "./components/PhoenixEditor/PhoenixFormUi";
 import PhoenixFooter from "./components/PhoenixEditor/PhoenixFooter";
 import UefiHiiFooter from "./components/UefiHiiEditor/UefiHiiFooter";
 import { bytesToHex } from "./components/scripts/hex";
+import type { PhoenixSetupItem } from "./components/scripts/phoenixSetupTable";
 
 const emptyData: Data = {
   firmwareFamily: "ami-aptio",
@@ -69,6 +70,9 @@ export default function App({
   const [uefiHiiSession, setUefiHiiSession] =
     React.useState<UefiHiiEditorSession | null>(null);
   const [currentPhoenixSection, setCurrentPhoenixSection] = React.useState(-1);
+  const [phoenixForcedVisibleOffsets, setPhoenixForcedVisibleOffsets] = React.useState<
+    number[]
+  >([]);
   const [error, setError] = React.useState("");
   const handleError = React.useCallback((message: string) => {
     setError(message);
@@ -152,9 +156,17 @@ export default function App({
           </AppShell.Header>
           <AppShell.Footer>
             <PhoenixFooter
+              templat={phoenixSession.inventory.templat}
+              forcedVisibleItems={phoenixSession.inventory.menu.sections
+                .flatMap((section) => section.items)
+                .filter((item) => phoenixForcedVisibleOffsets.includes(item.offset))}
+              onReset={() => {
+                setPhoenixForcedVisibleOffsets([]);
+              }}
               onClose={() => {
                 setPhoenixSession(null);
                 setCurrentPhoenixSection(-1);
+                setPhoenixForcedVisibleOffsets([]);
               }}
             />
           </AppShell.Footer>
@@ -163,6 +175,14 @@ export default function App({
               menu={phoenixSession.inventory.menu}
               templat={phoenixSession.inventory.templat}
               currentSectionIndex={currentPhoenixSection}
+              forcedVisibleOffsets={phoenixForcedVisibleOffsets}
+              onToggleVisibility={(item: PhoenixSetupItem) => {
+                setPhoenixForcedVisibleOffsets((current) =>
+                  current.includes(item.offset)
+                    ? current.filter((offset) => offset !== item.offset)
+                    : [...current, item.offset],
+                );
+              }}
             />
           </AppShell.Main>
         </>
@@ -229,6 +249,7 @@ export default function App({
             onPhoenixExtracted={(session) => {
               setPhoenixSession(session);
               setCurrentPhoenixSection(-1);
+              setPhoenixForcedVisibleOffsets([]);
             }}
             onExtracted={async (extractedFiles) => {
               setError("");
