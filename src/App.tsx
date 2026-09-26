@@ -22,7 +22,7 @@ import PhoenixFormUi from "./components/PhoenixEditor/PhoenixFormUi";
 import PhoenixFooter from "./components/PhoenixEditor/PhoenixFooter";
 import UefiHiiFooter from "./components/UefiHiiEditor/UefiHiiFooter";
 import { bytesToHex } from "./components/scripts/hex";
-import type { PhoenixSetupItem } from "./components/scripts/phoenixSetupTable";
+import { usePhoenixChangeQueue } from "./components/PhoenixEditor/usePhoenixChangeQueue";
 
 const emptyData: Data = {
   firmwareFamily: "ami-aptio",
@@ -70,13 +70,11 @@ export default function App({
   const [uefiHiiSession, setUefiHiiSession] =
     React.useState<UefiHiiEditorSession | null>(null);
   const [currentPhoenixSection, setCurrentPhoenixSection] = React.useState(-1);
-  const [phoenixForcedVisibleOffsets, setPhoenixForcedVisibleOffsets] = React.useState<
-    number[]
-  >([]);
   const [error, setError] = React.useState("");
   const handleError = React.useCallback((message: string) => {
     setError(message);
   }, []);
+  const phoenixQueue = usePhoenixChangeQueue(phoenixSession?.inventory ?? null);
 
   return (
     <>
@@ -157,16 +155,18 @@ export default function App({
           <AppShell.Footer>
             <PhoenixFooter
               templat={phoenixSession.inventory.templat}
-              forcedVisibleItems={phoenixSession.inventory.menu.sections
-                .flatMap((section) => section.items)
-                .filter((item) => phoenixForcedVisibleOffsets.includes(item.offset))}
-              onReset={() => {
-                setPhoenixForcedVisibleOffsets([]);
-              }}
+              entries={phoenixQueue.entries}
+              analysis={phoenixQueue.analysis}
+              appliedFingerprint={phoenixQueue.appliedFingerprint}
+              appliedItems={phoenixQueue.appliedItems}
+              onToggleEnabled={phoenixQueue.toggleEnabled}
+              onRemove={phoenixQueue.remove}
+              onClear={phoenixQueue.clear}
+              onApply={phoenixQueue.apply}
               onClose={() => {
                 setPhoenixSession(null);
                 setCurrentPhoenixSection(-1);
-                setPhoenixForcedVisibleOffsets([]);
+                phoenixQueue.clear();
               }}
             />
           </AppShell.Footer>
@@ -175,14 +175,10 @@ export default function App({
               menu={phoenixSession.inventory.menu}
               templat={phoenixSession.inventory.templat}
               currentSectionIndex={currentPhoenixSection}
-              forcedVisibleOffsets={phoenixForcedVisibleOffsets}
-              onToggleVisibility={(item: PhoenixSetupItem) => {
-                setPhoenixForcedVisibleOffsets((current) =>
-                  current.includes(item.offset)
-                    ? current.filter((offset) => offset !== item.offset)
-                    : [...current, item.offset],
-                );
-              }}
+              queueEntries={phoenixQueue.entries}
+              appliedFingerprint={phoenixQueue.appliedFingerprint}
+              currentFingerprint={phoenixQueue.analysis.fingerprint}
+              onToggleQueuedVisibility={phoenixQueue.toggleItem}
             />
           </AppShell.Main>
         </>
@@ -249,7 +245,7 @@ export default function App({
             onPhoenixExtracted={(session) => {
               setPhoenixSession(session);
               setCurrentPhoenixSection(-1);
-              setPhoenixForcedVisibleOffsets([]);
+              phoenixQueue.clear();
             }}
             onExtracted={async (extractedFiles) => {
               setError("");

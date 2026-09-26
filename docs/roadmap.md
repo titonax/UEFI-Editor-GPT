@@ -20,6 +20,30 @@ PhoenixBIOS legacy FFV, Phoenix SecureCore hybrids and Phoenix UEFI/HII are
 tracked separately. A shared vendor string is not evidence that they share a
 Setup format or reconstruction path.
 
+## 0. Transactional change queue
+
+Route every editor action through one vendor-neutral plan before adding more
+writers. The source buffers remain immutable until export.
+
+- Represent each semantic operation together with its target, expected source
+  bytes, fixed-size replacement spans, dependencies and declared conflicts.
+- Let the user select or pause individual operations, remove any operation,
+  clear the queue and explicitly apply the selected plan.
+- Analyze the complete selection for stale source bytes, missing dependencies,
+  conflicts and overlapping patches before it can be applied.
+- Deduplicate identical physical patches and report the resulting byte, span
+  and buffer count.
+- Invalidate an applied plan after any queue mutation; export only the exact
+  fingerprint that passed analysis.
+- Land the common planner and Phoenix adapter first, then migrate AMI Aptio and
+  vendor-neutral UEFI HII actions onto the same queue before extending their
+  write paths.
+
+Exit gate: Phoenix visibility edits use the common queue end to end, and the
+planner has automated coverage for selection, dependency, conflict, overlap,
+stale-source and deduplication behavior. AMI and UEFI adapter migration remains
+an explicit follow-up before their next writer work.
+
 ## 1. Phoenix legacy module editor
 
 Expose the already verified visibility-callback patch in the Phoenix workspace.
@@ -145,7 +169,8 @@ list the blocker for every unsupported case.
 ## 10. Product hardening
 
 - Pre-save risk, space, compression and affected-region report.
-- Original/modified comparison and transactional undo/redo.
+- Original/modified comparison and history-based undo/redo above the
+  transactional queue.
 - Portable project/session export with schema migration.
 - Recovery and flashing documentation per supported family.
 - Stable release only when each write path has an independent reconstruction

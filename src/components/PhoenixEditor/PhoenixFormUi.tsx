@@ -9,11 +9,13 @@ import {
   Tooltip,
 } from "@mantine/core";
 import type { PhoenixSetupItem, PhoenixSetupMenu } from "../scripts/phoenixSetupTable";
+import type { ChangeQueueEntry } from "../scripts/changeQueue";
+import type { PhoenixVisibilityPayload } from "../scripts/phoenixChangeQueue";
 import s from "../FormUi/FormUi.module.css";
 import { useStickyTableOffset } from "../FormUi/useStickyTableOffset";
 import PhoenixBehaviorDialog from "./PhoenixBehaviorDialog";
 
-const noForcedVisibleOffsets: readonly number[] = [];
+const noQueueEntries: readonly ChangeQueueEntry<PhoenixVisibilityPayload>[] = [];
 
 function label(value: string | null) {
   const normalized = value?.replace(/\r/g, " ").trim();
@@ -51,14 +53,18 @@ export default function PhoenixFormUi({
   menu,
   templat,
   currentSectionIndex,
-  forcedVisibleOffsets = noForcedVisibleOffsets,
-  onToggleVisibility,
+  queueEntries = noQueueEntries,
+  appliedFingerprint,
+  currentFingerprint,
+  onToggleQueuedVisibility,
 }: {
   menu: PhoenixSetupMenu;
   templat: Uint8Array;
   currentSectionIndex: number;
-  forcedVisibleOffsets?: readonly number[];
-  onToggleVisibility?: (item: PhoenixSetupItem) => void;
+  queueEntries?: readonly ChangeQueueEntry<PhoenixVisibilityPayload>[];
+  appliedFingerprint?: string | null;
+  currentFingerprint?: string;
+  onToggleQueuedVisibility?: (item: PhoenixSetupItem) => void;
 }) {
   const sections = menu.sections.filter((section) => section.items.length > 0);
   const { anchorRef, offset: stickyHeaderOffset } =
@@ -196,10 +202,18 @@ export default function PhoenixFormUi({
         </Table.Thead>
         <Table.Tbody className={s.striped}>
           {section.items.map((item) => {
-            const forcedVisible = forcedVisibleOffsets.includes(item.offset);
-            const state = forcedVisible
-              ? { color: "green", label: "Shown · pending change" }
-              : visibility(item);
+            const queuedEntry = queueEntries.find(
+              (entry) => entry.payload.itemOffset === item.offset,
+            );
+            const planApplied =
+              Boolean(currentFingerprint) && appliedFingerprint === currentFingerprint;
+            const state = queuedEntry?.enabled
+              ? planApplied
+                ? { color: "green", label: "Shown · applied plan" }
+                : { color: "blue", label: "Queued: Show" }
+              : queuedEntry
+                ? { color: "gray", label: "Queued · not selected" }
+                : visibility(item);
             const canForceVisible = Boolean(
               item.visibilityPatch && item.visibilityPatch.hiddenImmediate !== 0,
             );
@@ -239,31 +253,31 @@ export default function PhoenixFormUi({
                         ? "No structurally verified visibility callback is available."
                         : item.visibilityPatch.hiddenImmediate === 0
                           ? "The original callback already returns the visible state; no proven hidden value is available."
-                          : forcedVisible
-                            ? "Restore the original conditional hide value."
-                            : "Force this item visible by changing only the verified callback return value."
+                          : queuedEntry
+                            ? "Remove this operation from the change queue."
+                            : "Queue a Show operation without changing the source bytes."
                     }
                     multiline
                     w={360}
                   >
                     <Button
                       size="compact-xs"
-                      color={forcedVisible ? "red" : "green"}
-                      variant={forcedVisible ? "light" : "filled"}
-                      disabled={!canForceVisible || !onToggleVisibility}
+                      color={queuedEntry ? "red" : "green"}
+                      variant={queuedEntry ? "light" : "filled"}
+                      disabled={!canForceVisible || !onToggleQueuedVisibility}
                       aria-label={
-                        forcedVisible
-                          ? `Hide ${label(item.prompt)} Phoenix item`
-                          : `Show ${label(item.prompt)} Phoenix item`
+                        queuedEntry
+                          ? `Remove ${label(item.prompt)} from change queue`
+                          : `Queue Show for ${label(item.prompt)} Phoenix item`
                       }
                       onClick={() => {
-                        onToggleVisibility?.(item);
+                        onToggleQueuedVisibility?.(item);
                       }}
                     >
-                      {forcedVisible
-                        ? "Hide"
+                      {queuedEntry
+                        ? "Remove"
                         : canForceVisible
-                          ? "Show"
+                          ? "Queue Show"
                           : "Unavailable"}
                     </Button>
                   </Tooltip>
