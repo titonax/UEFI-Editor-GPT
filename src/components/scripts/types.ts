@@ -13,6 +13,7 @@ export interface Data {
   rootVisibility?: AmiRootVisibilityReport;
   rootVisibilityEdits?: AmiRootVisibilityEdit[];
   singleFormSetNavigation?: AmiSingleFormSetNavigationReport;
+  uefiHiiVisibilityEdits?: UefiHiiVisibilityEdit[];
   version: string;
   hashes: {
     setupTxt: string;
@@ -21,6 +22,27 @@ export interface Data {
     setupdataBin: string;
     offsetChecksum: string;
   };
+}
+
+export interface UefiHiiReferenceIdentity {
+  sourceModuleId?: string;
+  questionId: string;
+  targetFormId: string;
+  targetFormSetGuid?: string;
+}
+
+/**
+ * Records where a vendor-neutral HII Ref lived before this session parked it
+ * in a constant-true SuppressIf. The binary move remains the source of truth;
+ * this metadata only restores the original parent and sibling order on Show.
+ */
+export interface UefiHiiVisibilityEdit {
+  reference: UefiHiiReferenceIdentity;
+  originalParentFormId: string;
+  originalParentFormSetGuid?: string;
+  nextSibling?: UefiHiiReferenceIdentity;
+  restoreBeforeOffset?: string;
+  editCount: number;
 }
 
 export type AmiRootVisibilityStatus =

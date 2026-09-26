@@ -10,6 +10,12 @@ import {
   replayIfrEdits,
   toggleTopLevelTabVisibility,
 } from "./menuEditing";
+import {
+  analyzeUefiHiiMenuVisibility,
+  toggleUefiHiiMenuVisibility,
+} from "./uefiHiiEditing";
+import { buildUefiHiiModulePatches } from "./uefiHiiPatcher";
+import { applyUefiHiiSuppressionEdits } from "./uefiHiiSuppressionEditing";
 
 const guid = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE";
 const end = [IFR_OPCODE.END, 2];
@@ -218,11 +224,12 @@ function setupPackage() {
   ]);
 }
 
-function tabVisibilityFixture() {
+function tabVisibilityFixture(interveningOpcode = false) {
   const opcodes = [
     ...formSetOpcode(1),
     ...formOpcode(1),
     ...refOpcode(3, 0x10),
+    ...(interveningOpcode ? [0x03, 2] : []),
     ...refOpcode(5, 0x11),
     ...end,
     ...formOpcode(2),
@@ -369,6 +376,7 @@ function tabVisibilityFixture() {
         formSetGuid: formSetA,
       },
     ],
+    ifrBinary: model,
     singleFormSetNavigation: {
       status: "detected",
       mechanism: "single-formset-ifr-hub",
@@ -655,6 +663,79 @@ function menuData() {
 }
 
 describe("HII menu reference moves", () => {
+  it("unsuppresses a guarded Ref without changing the IFR length", () => {
+    const { bytes, data } = tabVisibilityFixture();
+    data.firmwareFamily = "uefi-hii";
+    data.suppressions[0].active = false;
+
+    const modified = applyUefiHiiSuppressionEdits(data, bytes);
+
+    expect(modified).toHaveLength(bytes.length);
+    expect(modified).not.toEqual(bytes);
+    expect(analyzeIfrBinary(modified).diagnostics).toEqual([]);
+    expect(modified[Number.parseInt(data.suppressions[0].start, 16)]).toBe(
+      IFR_OPCODE.END,
+    );
+  });
+
+  it("hides and restores a vendor-neutral menu in its original position", async () => {
+    const { bytes, data } = tabVisibilityFixture(true);
+    data.firmwareFamily = "uefi-hii";
+    data.singleFormSetNavigation = undefined;
+    for (const entry of data.forms) entry.sourceModuleId = "setup-module";
+
+    expect(
+      analyzeUefiHiiMenuVisibility(data, bytesToHex(bytes), 0, 0, false),
+    ).toMatchObject({ available: true });
+
+    const hidden = await toggleUefiHiiMenuVisibility(
+      data,
+      bytesToHex(bytes),
+      0,
+      0,
+      false,
+    );
+    const hiddenReferenceIndex = hidden.forms[1].children.findIndex(
+      (child) => child.type === "Ref" && child.formId === "0x3",
+    );
+    expect(hiddenReferenceIndex).toBeGreaterThanOrEqual(0);
+    expect(hidden.uefiHiiVisibilityEdits).toHaveLength(1);
+    expect(hidden.forms[1].children[hiddenReferenceIndex]).toMatchObject({
+      formId: "0x3",
+      suppressIf: [hidden.suppressions[0].offset],
+    });
+    const artifacts = buildUefiHiiModulePatches(hidden, bytes, [
+      {
+        id: "setup-module",
+        name: "SetupDxe",
+        fileGuid: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+        formSetGuids: [formSetA],
+        formCount: 5,
+        referenceCount: 3,
+        mirroredBufferIds: [],
+        sourceStart: 0,
+        sourceEnd: bytes.length,
+      },
+    ]);
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].bytes).toEqual(replayIfrEdits(hidden, bytesToHex(bytes)));
+
+    const shown = await toggleUefiHiiMenuVisibility(
+      hidden,
+      bytesToHex(bytes),
+      1,
+      hiddenReferenceIndex,
+      true,
+    );
+    expect(
+      shown.forms[0].children.flatMap((child) =>
+        child.type === "Ref" ? [child.formId] : [],
+      ),
+    ).toEqual(["0x3", "0x5"]);
+    expect(shown.uefiHiiVisibilityEdits).toEqual([]);
+    expect(replayIfrEdits(shown, bytesToHex(bytes))).toEqual(bytes);
+  });
+
   it("shows and re-hides a same-hub tab without AMITSE or changing IFR size", async () => {
     const { bytes, data } = sameHubTabVisibilityFixture();
     const originalPageOrder = data.singleFormSetNavigation?.pages.map(

@@ -1,4 +1,5 @@
 import { extractIfrTextFromHii } from "./aptioIvExtractor";
+import { analyzeIfrBinary } from "./ifrBinary";
 import { parseIfrText, type ParsedIfrText } from "./ifrTextParser";
 import type { Data, Form, Menu, Suppression } from "./types";
 import type { UefiHiiInventory, UefiHiiModule } from "./uefiHiiDiscovery";
@@ -11,11 +12,14 @@ export interface UefiHiiWorkspaceModule {
   formCount: number;
   referenceCount: number;
   mirroredBufferIds: number[];
+  sourceStart: number;
+  sourceEnd: number;
 }
 
 export interface UefiHiiWorkspace {
   data: Data;
   modules: UefiHiiWorkspaceModule[];
+  sourceBytes: Uint8Array;
   warnings: string[];
 }
 
@@ -47,35 +51,40 @@ function selectWorkspaceModules(inventory: UefiHiiInventory) {
   return { selected, skippedVariants };
 }
 
-function namespacedOffset(moduleId: string, offset?: string) {
-  return offset ? `${moduleId}@${offset}` : offset;
+function shiftedOffset(sourceStart: number, offset?: string) {
+  if (!offset) return offset;
+  const parsed = Number.parseInt(offset, 16);
+  return Number.isSafeInteger(parsed) && parsed >= 0
+    ? `0x${(sourceStart + parsed).toString(16).toUpperCase()}`
+    : offset;
 }
 
 function namespaceParsedModule(
   parsed: ParsedIfrText,
   module: UefiHiiModule,
+  sourceStart: number,
 ): ParsedIfrText {
   const remapSuppression = (suppression: Suppression): Suppression => ({
     ...suppression,
-    offset: namespacedOffset(module.id, suppression.offset) ?? suppression.offset,
-    start: namespacedOffset(module.id, suppression.start) ?? suppression.start,
-    end: namespacedOffset(module.id, suppression.end) ?? suppression.end,
+    offset: shiftedOffset(sourceStart, suppression.offset) ?? suppression.offset,
+    start: shiftedOffset(sourceStart, suppression.start) ?? suppression.start,
+    end: shiftedOffset(sourceStart, suppression.end) ?? suppression.end,
   });
   const forms = parsed.forms.map<Form>((form) => ({
     ...form,
-    ifrOffset: namespacedOffset(module.id, form.ifrOffset),
+    ifrOffset: shiftedOffset(sourceStart, form.ifrOffset),
     sourceModuleId: module.id,
     sourceModuleName: module.name,
     children: form.children.map((child) => ({
       ...child,
       ...(child.type === "Ref"
-        ? { ifrOffset: namespacedOffset(module.id, child.ifrOffset) }
+        ? { ifrOffset: shiftedOffset(sourceStart, child.ifrOffset) }
         : {}),
       suppressIf: child.suppressIf?.map(
-        (offset) => namespacedOffset(module.id, offset) ?? offset,
+        (offset) => shiftedOffset(sourceStart, offset) ?? offset,
       ),
       conditions: child.conditions?.map(
-        (offset) => namespacedOffset(module.id, offset) ?? offset,
+        (offset) => shiftedOffset(sourceStart, offset) ?? offset,
       ),
     })),
   }));
@@ -127,7 +136,10 @@ function workspaceRoots(roots: Menu, forms: Form[]) {
   });
 }
 
-function moduleSummary(module: UefiHiiModule): UefiHiiWorkspaceModule {
+function moduleSummary(
+  module: UefiHiiModule,
+  sourceStart: number,
+): UefiHiiWorkspaceModule {
   return {
     id: module.id,
     name: module.name,
@@ -136,7 +148,22 @@ function moduleSummary(module: UefiHiiModule): UefiHiiWorkspaceModule {
     formCount: module.formCount,
     referenceCount: module.referenceCount,
     mirroredBufferIds: [...module.duplicateBufferIds],
+    sourceStart,
+    sourceEnd: sourceStart + module.bytes.length,
   };
+}
+
+function concatenateModules(modules: UefiHiiModule[]) {
+  const starts = new Map<string, number>();
+  const length = modules.reduce((total, module) => total + module.bytes.length, 0);
+  const bytes = new Uint8Array(length);
+  let cursor = 0;
+  for (const module of modules) {
+    starts.set(module.id, cursor);
+    bytes.set(module.bytes, cursor);
+    cursor += module.bytes.length;
+  }
+  return { bytes, starts };
 }
 
 /** Builds one read-only navigation graph from independently owned HII drivers. */
@@ -154,12 +181,15 @@ export async function buildUefiHiiWorkspace(
     );
   }
 
+  const source = concatenateModules(modules);
   for (const module of modules) {
     try {
+      const sourceStart = source.starts.get(module.id) ?? 0;
       parsedModules.push(
         namespaceParsedModule(
           parseIfrText(await extractText(module.bytes), ""),
           module,
+          sourceStart,
         ),
       );
       accepted.push(module);
@@ -185,6 +215,7 @@ export async function buildUefiHiiWorkspace(
       forms,
       varStores: parsedModules.flatMap((parsed) => parsed.varStores),
       suppressions: parsedModules.flatMap((parsed) => parsed.suppressions),
+      ifrBinary: analyzeIfrBinary(source.bytes),
       version: "0.7.0",
       hashes: {
         setupTxt: "",
@@ -194,7 +225,10 @@ export async function buildUefiHiiWorkspace(
         offsetChecksum: "",
       },
     },
-    modules: accepted.map(moduleSummary),
+    modules: accepted.map((module) =>
+      moduleSummary(module, source.starts.get(module.id) ?? 0),
+    ),
+    sourceBytes: source.bytes,
     warnings,
   };
 }
