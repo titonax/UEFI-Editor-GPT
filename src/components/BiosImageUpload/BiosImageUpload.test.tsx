@@ -5,9 +5,19 @@ import BiosImageUpload from "./BiosImageUpload";
 import type { PopulatedFiles } from "../firmwareFiles";
 
 const extractAmiFirmwareBytes = vi.hoisted(() => vi.fn());
+const discoverUefiHiiModules = vi.hoisted(() => vi.fn());
+const buildUefiHiiWorkspace = vi.hoisted(() => vi.fn());
 
 vi.mock("../scripts/amiFirmwareExtractor", () => ({
   extractAmiFirmwareBytes,
+}));
+
+vi.mock("../scripts/uefiHiiDiscovery", () => ({
+  discoverUefiHiiModules,
+}));
+
+vi.mock("../scripts/uefiHiiWorkspace", () => ({
+  buildUefiHiiWorkspace,
 }));
 
 function validFirmwareVolumeImage() {
@@ -59,6 +69,8 @@ function setupDataProfile() {
 describe("complete firmware preflight", () => {
   beforeEach(() => {
     extractAmiFirmwareBytes.mockReset();
+    discoverUefiHiiModules.mockReset();
+    buildUefiHiiWorkspace.mockReset();
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -211,6 +223,91 @@ describe("complete firmware preflight", () => {
     });
     expect(onExtracted.mock.calls[0][0].firmwareSource?.fileName).toBe("board.F13d");
     expect(extractAmiFirmwareBytes).toHaveBeenCalledOnce();
+  });
+
+  it("offers the vendor-neutral HII view for a non-AMI UEFI image", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockReturnValue({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    );
+    const image = validFirmwareVolumeImage();
+    image.fill(0, 0x60, 0x6b);
+    const inventory = {
+      modules: [
+        {
+          id: "setup",
+          name: "Setup",
+          formCount: 150,
+          referenceCount: 154,
+          formSetGuids: ["E14F04FA-8706-4353-92F2-9C2424746F9F"],
+        },
+      ],
+      decodedBufferCount: 2,
+      uniqueBufferCount: 1,
+      decodeFailures: [],
+    };
+    discoverUefiHiiModules.mockResolvedValue(inventory);
+    const workspace = {
+      data: {
+        firmwareFamily: "uefi-hii",
+        menu: [],
+        forms: [
+          { name: "Main", type: "Form", formId: "0x1", referencedIn: [], children: [] },
+        ],
+        varStores: [],
+        suppressions: [],
+        version: "0.7.0",
+        hashes: {
+          setupTxt: "",
+          setupSct: "",
+          amitseSct: "",
+          setupdataBin: "",
+          offsetChecksum: "",
+        },
+      },
+      modules: [],
+      warnings: [],
+    };
+    buildUefiHiiWorkspace.mockResolvedValue(workspace);
+    const onUefiHiiExtracted = vi.fn();
+    const { container } = render(
+      <MantineProvider>
+        <BiosImageUpload
+          onExtracted={vi.fn().mockResolvedValue(undefined)}
+          onUefiHiiExtracted={onUefiHiiExtracted}
+        />
+      </MantineProvider>,
+    );
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Expected the firmware file input.");
+    const file = new File([image], "p53.bin");
+    Object.defineProperty(file, "arrayBuffer", {
+      value: () => Promise.resolve(image.slice().buffer),
+    });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(
+      await screen.findByText("Standard UEFI HII modules discovered"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Setup")).toBeInTheDocument();
+    expect(extractAmiFirmwareBytes).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Start vendor-neutral HII analysis",
+      }),
+    );
+    await waitFor(() => {
+      expect(onUefiHiiExtracted).toHaveBeenCalledOnce();
+    });
+    expect(onUefiHiiExtracted.mock.calls[0][0]).toMatchObject({
+      fileName: "p53.bin",
+      workspace,
+    });
   });
 
   it("requires an explicit slot choice when repeated Setup contexts exist", async () => {

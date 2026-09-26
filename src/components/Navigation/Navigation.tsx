@@ -26,6 +26,7 @@ interface NavigationProps {
   setCurrentFormIndex: React.Dispatch<React.SetStateAction<number>>;
   setData: Updater<Data>;
   originalSetupSct: string;
+  readOnly?: boolean;
 }
 
 export default function Navigation({
@@ -34,6 +35,7 @@ export default function Navigation({
   setCurrentFormIndex,
   setData,
   originalSetupSct,
+  readOnly = false,
 }: NavigationProps) {
   const tree = React.useMemo(() => buildMenuTree(data), [data]);
   const [moveNode, setMoveNode] = React.useState<MenuTreeNode | null>(null);
@@ -216,7 +218,8 @@ export default function Navigation({
             {node.uiStateDependent && <span className={s.uiStateLabel}>UI state</span>}
           </button>
 
-          {node.parentFormIndex !== undefined &&
+          {!readOnly &&
+            node.parentFormIndex !== undefined &&
             node.referenceChildIndex !== undefined && (
               <Tooltip label="Move this menu to another Form">
                 <ActionIcon
@@ -248,7 +251,7 @@ export default function Navigation({
 
   return (
     <>
-      {moveNode && (
+      {!readOnly && moveNode && (
         <MenuMoveDialog
           data={data}
           tree={tree}
@@ -267,7 +270,9 @@ export default function Navigation({
             <IconListTree size={20} className={s.headerIcon} />
             <div>
               <Text size="sm" fw={600}>
-                BIOS menu tree
+                {data.firmwareFamily === "uefi-hii"
+                  ? "UEFI HII menu tree"
+                  : "BIOS menu tree"}
               </Text>
               <Text size="xs" c="dimmed">
                 {data.forms.length} forms

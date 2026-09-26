@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PhoenixSetupItem } from "../scripts/phoenixSetupTable";
@@ -112,10 +112,8 @@ describe("Phoenix callback behavior dialog", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Trace callback" }));
 
-    await waitFor(() => {
-      expect(analyzePhoenixSetupCallback).toHaveBeenCalledOnce();
-    });
-    expect(screen.getByText("Complete static trace")).toBeInTheDocument();
+    expect(await screen.findByText("Complete static trace")).toBeInTheDocument();
+    expect(analyzePhoenixSetupCallback).toHaveBeenCalledOnce();
     expect(screen.getByText("AX=0x0013")).toBeInTheDocument();
     expect(screen.getByText("AX=0x0000")).toBeInTheDocument();
     expect(screen.getByText(/branch → 0x0086/)).toBeInTheDocument();

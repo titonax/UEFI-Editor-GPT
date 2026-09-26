@@ -2,7 +2,7 @@ import type { IfrBinaryModel } from "./ifrBinary";
 import type { IfrReferenceMove } from "./ifrEditing";
 
 export interface Data {
-  firmwareFamily: "aptio-v" | "aptio-iv" | "ami-aptio";
+  firmwareFamily: "aptio-v" | "aptio-iv" | "ami-aptio" | "uefi-hii";
   menu: Menu;
   formSetRoots?: Menu;
   varStores: VarStores;
@@ -120,7 +120,7 @@ export type Menu = {
   formId: string;
   offset: string | null;
   formSetGuid?: string;
-  source?: "amitse" | "setupdata" | "formset" | "ifr-hub";
+  source?: "amitse" | "setupdata" | "formset" | "ifr-hub" | "uefi-hii";
   pageMask?: string;
   pageInfoOffset?: string;
 }[];
@@ -134,6 +134,8 @@ export interface Form {
   ifrOffset?: string;
   formSetGuid?: string;
   formSetTitle?: string;
+  sourceModuleId?: string;
+  sourceModuleName?: string;
   referencedIn: string[];
   children: FormChildren[];
 }

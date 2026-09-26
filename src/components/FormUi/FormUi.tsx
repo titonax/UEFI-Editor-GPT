@@ -590,10 +590,12 @@ function ConditionDetails({
   child,
   data,
   setData,
+  readOnly,
 }: {
   child: FormChildren;
   data: Data;
   setData: Updater<Data>;
+  readOnly: boolean;
 }) {
   const conditions = conditionsForChild(data, child);
   if (conditions.length === 0 && child.accessLevel === null) {
@@ -632,7 +634,7 @@ function ConditionDetails({
                   </Badge>
                 </Tooltip>
               </Group>
-              {kind === "SuppressIf" ? (
+              {kind === "SuppressIf" && !readOnly ? (
                 <Tooltip label="Disable this suppression in the generated change set">
                   <Button
                     size="compact-xs"
@@ -697,6 +699,7 @@ interface TableRowProps {
   data: Data;
   setData: Updater<Data>;
   currentFormIndex: number;
+  readOnly: boolean;
 }
 
 const TableRow = React.memo(
@@ -707,6 +710,7 @@ const TableRow = React.memo(
     data,
     setData,
     currentFormIndex,
+    readOnly,
   }: TableRowProps) {
     const type = child.type;
     const visibility = childVisibility(data, child);
@@ -791,6 +795,7 @@ const TableRow = React.memo(
         <td className={s.width}>
           {child.accessLevel !== null && (
             <TextInput
+              disabled={readOnly}
               value={child.accessLevel}
               onChange={(ev) => {
                 const value = ev.target.value.toUpperCase();
@@ -807,6 +812,7 @@ const TableRow = React.memo(
         <td className={s.width}>
           {child.failsafe !== null && (
             <TextInput
+              disabled={readOnly}
               value={child.failsafe}
               onChange={(ev) => {
                 const value = ev.target.value.toUpperCase();
@@ -823,6 +829,7 @@ const TableRow = React.memo(
         <td className={s.width}>
           {child.optimal !== null && (
             <TextInput
+              disabled={readOnly}
               value={child.optimal}
               onChange={(ev) => {
                 const value = ev.target.value.toUpperCase();
@@ -837,7 +844,12 @@ const TableRow = React.memo(
           )}
         </td>
         <td>
-          <ConditionDetails child={child} data={data} setData={setData} />
+          <ConditionDetails
+            child={child}
+            data={data}
+            setData={setData}
+            readOnly={readOnly}
+          />
         </td>
         <td>
           <Spoiler
@@ -889,6 +901,7 @@ const TableRow = React.memo(
       newProps.data.forms[newProps.currentFormIndex].children[newProps.index];
 
     return (
+      oldProps.readOnly === newProps.readOnly &&
       oldChild.accessLevel === newChild.accessLevel &&
       oldChild.failsafe === newChild.failsafe &&
       oldChild.optimal === newChild.optimal &&
@@ -918,6 +931,7 @@ interface FormUiProps {
   originalSetupSct?: string;
   currentFormIndex: number;
   setCurrentFormIndex: React.Dispatch<React.SetStateAction<number>>;
+  readOnly?: boolean;
 }
 
 export default function FormUi({
@@ -926,6 +940,7 @@ export default function FormUi({
   originalSetupSct,
   currentFormIndex,
   setCurrentFormIndex,
+  readOnly = false,
 }: FormUiProps) {
   const [search, setSearch] = useDebouncedState("", 200);
   const semanticTree = React.useMemo(() => buildMenuTree(data), [data]);
@@ -986,7 +1001,7 @@ export default function FormUi({
         : -1;
     return (
       <Stack>
-        {menuMove && originalSetupSct !== undefined && (
+        {!readOnly && menuMove && originalSetupSct !== undefined && (
           <MenuMoveDialog
             data={data}
             tree={semanticTree}
@@ -1005,7 +1020,7 @@ export default function FormUi({
         <SingleFormSetNavigationAnalysis
           data={data}
           tree={semanticTree}
-          canEdit={originalSetupSct !== undefined}
+          canEdit={!readOnly && originalSetupSct !== undefined}
           originalSetupSct={originalSetupSct}
           setData={setData}
           onMovePage={(page, node) => {
@@ -1019,6 +1034,13 @@ export default function FormUi({
             });
           }}
         />
+        {data.firmwareFamily === "uefi-hii" && (
+          <Alert color="blue" title="Vendor-neutral UEFI HII graph · read-only">
+            Forms, strings and submenu references were joined across Setup-related FFS
+            modules. Full-image writing stays disabled until every enclosing compressed
+            section can be rebuilt and verified.
+          </Alert>
+        )}
         <Table striped withColumnBorders>
           <Table.Thead>
             <Table.Tr>
@@ -1226,6 +1248,15 @@ export default function FormUi({
               </Badge>
             </Tooltip>
           )}
+          {data.forms[currentFormIndex].sourceModuleName && (
+            <Tooltip
+              label={`FFS owner: ${data.forms[currentFormIndex].sourceModuleName}`}
+            >
+              <Badge color="violet" variant="outline">
+                {data.forms[currentFormIndex].sourceModuleName}
+              </Badge>
+            </Tooltip>
+          )}
           {(pageStatus === "hidden" || pageStatus === "conditional") && (
             <Tooltip label={pageNode.conditionSummary} multiline w={420}>
               <Badge color={visibilityColors[pageStatus]} variant="light">
@@ -1304,6 +1335,7 @@ export default function FormUi({
               data={data}
               setData={setData}
               currentFormIndex={currentFormIndex}
+              readOnly={readOnly}
             />
           ))}
         </Table.Tbody>

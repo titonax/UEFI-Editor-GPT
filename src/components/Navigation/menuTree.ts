@@ -156,9 +156,33 @@ function canonicalMenuRole(label: string) {
   return normalized;
 }
 
-function inferMenuProfiles(roots: MenuTreeNode[]): MenuProfile[] {
+function inferMenuProfiles(
+  roots: MenuTreeNode[],
+  vendorNeutral = false,
+): MenuProfile[] {
   if (roots.length === 0) {
     return [];
+  }
+
+  if (vendorNeutral) {
+    const profile: MenuProfile = {
+      id: "uefi-hii-module-graph",
+      label: "UEFI HII module graph",
+      assessment: "unresolved",
+      confidence: "high",
+      evidence: [
+        "Forms and Ref edges were decoded from standard HII packages across independently owned FFS modules.",
+      ],
+      roots,
+    };
+    function assignProfile(node: MenuTreeNode) {
+      node.profileId = profile.id;
+      node.profileLabel = profile.label;
+      node.profileAssessment = profile.assessment;
+      for (const child of node.children) assignProfile(child);
+    }
+    for (const root of roots) assignProfile(root);
+    return [profile];
   }
 
   if (roots.length === 1 && roots[0].rootSource === "ifr-navigation") {
@@ -601,7 +625,7 @@ export function buildMenuTree(data: Data): MenuTree {
     }
   }
 
-  const profiles = inferMenuProfiles(roots);
+  const profiles = inferMenuProfiles(roots, data.firmwareFamily === "uefi-hii");
 
   const remaining = new Set(
     data.forms

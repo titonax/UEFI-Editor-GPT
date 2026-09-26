@@ -12,6 +12,7 @@ import Footer from "./components/Footer/Footer";
 import { IconBrandGithub } from "@tabler/icons-react";
 import BiosImageUpload, {
   type PhoenixEditorSession,
+  type UefiHiiEditorSession,
 } from "./components/BiosImageUpload/BiosImageUpload";
 import CorpusRunner from "./components/CorpusRunner/CorpusRunner";
 import { parseData } from "./components/scripts/scripts";
@@ -19,6 +20,7 @@ import PhoenixNavigation from "./components/PhoenixEditor/PhoenixNavigation";
 import PhoenixHeader from "./components/PhoenixEditor/PhoenixHeader";
 import PhoenixFormUi from "./components/PhoenixEditor/PhoenixFormUi";
 import PhoenixFooter from "./components/PhoenixEditor/PhoenixFooter";
+import UefiHiiFooter from "./components/UefiHiiEditor/UefiHiiFooter";
 
 const emptyData: Data = {
   firmwareFamily: "ami-aptio",
@@ -63,6 +65,8 @@ export default function App({
   const [currentFormIndex, setCurrentFormIndex] = React.useState(-1);
   const [phoenixSession, setPhoenixSession] =
     React.useState<PhoenixEditorSession | null>(null);
+  const [uefiHiiSession, setUefiHiiSession] =
+    React.useState<UefiHiiEditorSession | null>(null);
   const [currentPhoenixSection, setCurrentPhoenixSection] = React.useState(-1);
   const [error, setError] = React.useState("");
   const handleError = React.useCallback((message: string) => {
@@ -71,7 +75,55 @@ export default function App({
 
   return (
     <>
-      {phoenixSession ? (
+      {uefiHiiSession ? (
+        <>
+          <AppShell.Navbar>
+            <Navigation
+              data={data}
+              currentFormIndex={currentFormIndex}
+              setCurrentFormIndex={setCurrentFormIndex}
+              setData={setData}
+              originalSetupSct=""
+              readOnly
+            />
+            <NavigationResizer
+              width={navigationWidth}
+              minWidth={navigationMinWidth}
+              maxWidth={navigationMaxWidth}
+              onChange={onNavigationWidthChange}
+              onReset={onNavigationWidthReset}
+            />
+          </AppShell.Navbar>
+          <AppShell.Header>
+            <Header
+              data={data}
+              fileName={uefiHiiSession.fileName}
+              currentFormIndex={currentFormIndex}
+              setCurrentFormIndex={setCurrentFormIndex}
+            />
+          </AppShell.Header>
+          <AppShell.Footer>
+            <UefiHiiFooter
+              moduleCount={uefiHiiSession.workspace.modules.length}
+              warningCount={uefiHiiSession.workspace.warnings.length}
+              onClose={() => {
+                setUefiHiiSession(null);
+                setData(emptyData);
+                setCurrentFormIndex(-1);
+              }}
+            />
+          </AppShell.Footer>
+          <AppShell.Main>
+            <FormUi
+              data={data}
+              setData={setData}
+              currentFormIndex={currentFormIndex}
+              setCurrentFormIndex={setCurrentFormIndex}
+              readOnly
+            />
+          </AppShell.Main>
+        </>
+      ) : phoenixSession ? (
         <>
           <AppShell.Navbar>
             <PhoenixNavigation
@@ -165,6 +217,11 @@ export default function App({
             </Alert>
           )}
           <BiosImageUpload
+            onUefiHiiExtracted={(session) => {
+              setData(session.workspace.data);
+              setUefiHiiSession(session);
+              setCurrentFormIndex(-1);
+            }}
             onPhoenixExtracted={(session) => {
               setPhoenixSession(session);
               setCurrentPhoenixSection(-1);

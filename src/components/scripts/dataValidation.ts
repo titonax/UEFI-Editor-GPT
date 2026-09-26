@@ -334,7 +334,8 @@ export function parseDataFile(text: string): Data {
   if (
     value.firmwareFamily !== "aptio-v" &&
     value.firmwareFamily !== "aptio-iv" &&
-    value.firmwareFamily !== "ami-aptio"
+    value.firmwareFamily !== "ami-aptio" &&
+    value.firmwareFamily !== "uefi-hii"
   ) {
     invalidData("has an invalid firmwareFamily");
   }

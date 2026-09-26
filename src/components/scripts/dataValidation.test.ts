@@ -17,6 +17,11 @@ describe("data.json validation", () => {
     expect(parseDataFile(JSON.stringify(data)).firmwareFamily).toBe("ami-aptio");
   });
 
+  it("accepts a read-only vendor-neutral UEFI HII workspace", () => {
+    const data = firmwareData({ firmwareFamily: "uefi-hii" });
+    expect(parseDataFile(JSON.stringify(data)).firmwareFamily).toBe("uefi-hii");
+  });
+
   it("rejects malformed and incomplete data", () => {
     expect(() => parseDataFile("{")).toThrow(/not valid JSON/);
     expect(() => parseDataFile(JSON.stringify({ version: "0.6.0" }))).toThrow(
