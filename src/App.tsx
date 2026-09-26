@@ -22,6 +22,7 @@ import PhoenixFormUi from "./components/PhoenixEditor/PhoenixFormUi";
 import PhoenixFooter from "./components/PhoenixEditor/PhoenixFooter";
 import UefiHiiFooter from "./components/UefiHiiEditor/UefiHiiFooter";
 import { bytesToHex } from "./components/scripts/hex";
+import { usePhoenixChangeQueue } from "./components/PhoenixEditor/usePhoenixChangeQueue";
 
 const emptyData: Data = {
   firmwareFamily: "ami-aptio",
@@ -73,6 +74,7 @@ export default function App({
   const handleError = React.useCallback((message: string) => {
     setError(message);
   }, []);
+  const phoenixQueue = usePhoenixChangeQueue(phoenixSession?.inventory ?? null);
 
   return (
     <>
@@ -152,9 +154,19 @@ export default function App({
           </AppShell.Header>
           <AppShell.Footer>
             <PhoenixFooter
+              templat={phoenixSession.inventory.templat}
+              entries={phoenixQueue.entries}
+              analysis={phoenixQueue.analysis}
+              appliedFingerprint={phoenixQueue.appliedFingerprint}
+              appliedItems={phoenixQueue.appliedItems}
+              onToggleEnabled={phoenixQueue.toggleEnabled}
+              onRemove={phoenixQueue.remove}
+              onClear={phoenixQueue.clear}
+              onApply={phoenixQueue.apply}
               onClose={() => {
                 setPhoenixSession(null);
                 setCurrentPhoenixSection(-1);
+                phoenixQueue.clear();
               }}
             />
           </AppShell.Footer>
@@ -163,6 +175,10 @@ export default function App({
               menu={phoenixSession.inventory.menu}
               templat={phoenixSession.inventory.templat}
               currentSectionIndex={currentPhoenixSection}
+              queueEntries={phoenixQueue.entries}
+              appliedFingerprint={phoenixQueue.appliedFingerprint}
+              currentFingerprint={phoenixQueue.analysis.fingerprint}
+              onToggleQueuedVisibility={phoenixQueue.toggleItem}
             />
           </AppShell.Main>
         </>
@@ -229,6 +245,7 @@ export default function App({
             onPhoenixExtracted={(session) => {
               setPhoenixSession(session);
               setCurrentPhoenixSection(-1);
+              phoenixQueue.clear();
             }}
             onExtracted={async (extractedFiles) => {
               setError("");

@@ -54,7 +54,9 @@ a parallel demo application.
   also distinguishes Aptio from other UEFI/legacy families and standalone
   firmware components when the bytes provide sufficient evidence.
 - Inventories PhoenixBIOS 4.0 modular ROMs and identifies Phoenix UEFI SecCore
-  provenance separately, while keeping unverified Phoenix menu editing disabled.
+  provenance separately. Verified legacy visibility callbacks can be staged and
+  exported as a PBE-compatible `TEMPLAT00.ROM`; unverified Phoenix edits remain
+  disabled.
 
 > Full-image reinsertion/export remains disabled until deterministic
 > recompression, bottom-up rebuilding, checksum handling and independent
@@ -72,10 +74,13 @@ as proof of Aptio IV or V; unresolved images remain clearly marked and
 full-image export stays disabled. If several coherent firmware contexts are
 present, select the intended slot before starting the HII tree.
 
-For PhoenixBIOS 4.0 modular ROMs, the same image selector displays a read-only
-module inventory, including Setup, template and strings when their directory
-entries validate. Phoenix UEFI images show SecCore module evidence and any
-competing vendor strings; their Setup menus cannot yet be opened for editing.
+For PhoenixBIOS 4.0 modular ROMs, the same image selector displays its module
+inventory and opens decoded Setup screens when the template and strings modules
+validate. A menu item with a structurally verified non-zero visibility callback
+can be staged as visible and exported as `TEMPLAT00.ROM` for replacement and
+rebuild in Phoenix BIOS Editor. This is an artifact-level bridge, not a complete
+firmware writer. Phoenix UEFI images show SecCore module evidence and, when
+standard HII packages are found, use the vendor-neutral HII workspace.
 
 The tree uses these states:
 
@@ -160,7 +165,7 @@ unnecessarily invalidate saved editor state.
 - VarStore and Form identities are scoped by FormSet GUID whenever possible.
 - New behaviour requires a regression test, especially for malformed input.
 
-See [architecture](docs/architecture.md) and
+See the [development roadmap](docs/roadmap.md), [architecture](docs/architecture.md) and
 [AMI comparison corpus](docs/ami/sample-corpus.md) for the evidence model,
 [local corpus runner](docs/ami/local-corpus-runner.md) for the report schema and
 compatibility denominators,
