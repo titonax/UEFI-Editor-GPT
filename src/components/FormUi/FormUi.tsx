@@ -47,6 +47,7 @@ import {
 import { errorMessage } from "../scripts/errors";
 import { describeSetupDataFlags } from "../scripts/setupDataFlags";
 import UefiHiiMenuActions from "./UefiHiiMenuActions";
+import UefiHiiNavigationTable from "./UefiHiiNavigationTable";
 
 const conditionSourceMeta: Record<
   ConditionSource,
@@ -1043,10 +1044,26 @@ export default function FormUi({
             title="Vendor-neutral UEFI HII graph · safe navigation editing"
           >
             Forms, strings and submenu references were joined across Setup-related FFS
-            modules. Use the tree controls to Hide, Show or Move proven menu Refs.
-            Question fields remain read-only, and full-image writing stays disabled
-            until every enclosing compressed section can be rebuilt and verified.
+            modules. Use the table or tree controls to Hide, Show or Move proven menu
+            Refs. Question fields remain read-only, and full-image writing stays
+            disabled until every enclosing compressed section can be rebuilt and
+            verified.
           </Alert>
+        )}
+        {data.firmwareFamily === "uefi-hii" && (
+          <UefiHiiNavigationTable
+            data={data}
+            tree={semanticTree}
+            originalSetupSct={originalSetupSct}
+            setData={setData}
+            setCurrentFormIndex={setCurrentFormIndex}
+            enabled={navigationEditable}
+          />
+        )}
+        {data.firmwareFamily === "uefi-hii" && (
+          <Text fw={600} size="sm">
+            HII FormSet roots · structural entries without a parent Ref
+          </Text>
         )}
         <Table striped withColumnBorders>
           <Table.Thead>
