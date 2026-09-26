@@ -50,6 +50,7 @@ export interface AptioIvExtractionOptions {
 }
 
 const decompressorModules = new Map<string, Promise<WebAssembly.Module>>();
+let ifrExtractorModule: Promise<WebAssembly.Module> | undefined;
 
 function loadDecompressor(name: string) {
   let pending = decompressorModules.get(name);
@@ -176,6 +177,13 @@ interface LocatedFile {
   depth: number;
 }
 
+export interface FirmwareFileInventoryEntry extends FirmwareFileReference {
+  depth: number;
+  fileType: number;
+  sectionTypes: number[];
+  uiNames: string[];
+}
+
 interface FirmwareFileBounds {
   bodyStart: number;
   end: number;
@@ -240,6 +248,11 @@ interface ExtractionGraph {
   nextId: number;
 }
 
+export interface DecodedFirmwareInventory {
+  buffers: FirmwareBufferNode[];
+  decodeFailures: string[];
+}
+
 function createExtractionGraph(
   image: Uint8Array,
   decompress: typeof firmwareDecompress,
@@ -277,9 +290,22 @@ function fileReference(file: LocatedFile): FirmwareFileReference {
   };
 }
 
-function findFiles(node: FirmwareBufferNode, wantedGuids: Set<string>) {
+function decodeUiSection(bytes: Uint8Array, section: FirmwareSection) {
+  let end = section.start + section.headerSize;
+  while (end + 1 < section.end && (bytes[end] !== 0 || bytes[end + 1] !== 0)) {
+    end += 2;
+  }
+  return new TextDecoder("utf-16le").decode(
+    bytes.slice(section.start + section.headerSize, end),
+  );
+}
+
+/** Enumerates every structurally valid FFS file in one decoded PI buffer. */
+export function inventoryFirmwareFiles(
+  node: FirmwareBufferNode,
+): FirmwareFileInventoryEntry[] {
   const bytes = node.bytes;
-  const found: LocatedFile[] = [];
+  const found: FirmwareFileInventoryEntry[] = [];
   for (const volumeStart of findTopLevelVolumes(bytes)) {
     const volumeEnd = volumeStart + readUint64AsNumber(bytes, volumeStart + 0x20);
     let fileStart = volumeStart + align(readUint16(bytes, volumeStart + 0x30), 8);
@@ -288,23 +314,53 @@ function findFiles(node: FirmwareBufferNode, wantedGuids: Set<string>) {
       const file = firmwareFileBounds(bytes, fileStart, volumeEnd);
       if (!file) break;
       const guid = readGuid(bytes, fileStart);
-      if (wantedGuids.has(guid)) {
-        found.push({
-          bufferId: node.id,
-          guid,
-          volumeStart,
-          volumeEnd,
-          fileStart,
-          bodyStart: file.bodyStart,
-          end: file.end,
-          headerSize: file.headerSize,
-          depth: node.depth,
-        });
+      const sectionTypes: number[] = [];
+      const uiNames: string[] = [];
+      let sectionStart = file.bodyStart;
+      while (sectionStart + 4 <= file.end) {
+        const section = readFirmwareSection(bytes, sectionStart, file.end);
+        if (!section) break;
+        sectionTypes.push(section.type);
+        if (section.type === 0x15) {
+          const name = decodeUiSection(bytes, section);
+          if (name) uiNames.push(name);
+        }
+        sectionStart = align(section.end, 4);
       }
+      found.push({
+        bufferId: node.id,
+        guid,
+        volumeStart,
+        volumeEnd,
+        fileStart,
+        bodyStart: file.bodyStart,
+        end: file.end,
+        headerSize: file.headerSize,
+        depth: node.depth,
+        fileType: bytes[fileStart + 18],
+        sectionTypes,
+        uiNames,
+      });
       fileStart = volumeStart + align(fileStart - volumeStart + file.size, 8);
     }
   }
   return found;
+}
+
+function findFiles(node: FirmwareBufferNode, wantedGuids: Set<string>) {
+  return inventoryFirmwareFiles(node)
+    .filter((file) => wantedGuids.has(file.guid))
+    .map<LocatedFile>((file) => ({
+      bufferId: file.bufferId,
+      guid: file.guid,
+      volumeStart: file.volumeStart,
+      volumeEnd: file.volumeEnd,
+      fileStart: file.fileStart,
+      bodyStart: file.bodyStart,
+      end: file.end,
+      headerSize: file.headerSize,
+      depth: file.depth,
+    }));
 }
 
 async function decodeEncapsulation(
@@ -441,6 +497,20 @@ async function locateFirmwareFiles(
     queue.push(...children);
   }
   return { graph, located };
+}
+
+// Vendor-neutral entry point for consumers that need the recursively decoded
+// PI buffers without assuming AMI's Setup/AMITSE GUIDs. The exact parent edge
+// remains attached to every buffer, so later HII discovery can retain its
+// provenance instead of flattening the image into anonymous byte arrays.
+export async function decodeFirmwareBuffers(
+  bytes: Uint8Array,
+): Promise<DecodedFirmwareInventory> {
+  const { graph } = await locateFirmwareFiles(bytes, [], firmwareDecompress);
+  return {
+    buffers: [...graph.nodes.values()],
+    decodeFailures: [...graph.decodeFailures],
+  };
 }
 
 interface CompanionMatch {
@@ -815,7 +885,10 @@ export function selectBestIfrTexts(
   ];
 }
 
-async function runIfrExtractor(hii: Uint8Array) {
+// Vendor-neutral HII/IFR text extraction. Despite this module's historical
+// filename, IFRExtractor consumes standard UEFI HII packages and does not
+// require an AMI Setup GUID.
+export async function extractIfrTextFromHii(hii: Uint8Array) {
   const directory = new Map<string, WasiFile>();
   directory.set("setup.bin", new WasiFile(hii));
   const stdout: string[] = [];
@@ -829,15 +902,18 @@ async function runIfrExtractor(hii: Uint8Array) {
       new PreopenDirectory(".", directory),
     ],
   );
-  const url = `${import.meta.env.BASE_URL}ifrextractor.wasm`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new FirmwareError(
-      "PARSE_FAILED",
-      "IFRExtractor WebAssembly is not available.",
-    );
-  }
-  const module = await WebAssembly.compileStreaming(response);
+  ifrExtractorModule ??= fetch(`${import.meta.env.BASE_URL}ifrextractor.wasm`).then(
+    (response) => {
+      if (!response.ok) {
+        throw new FirmwareError(
+          "PARSE_FAILED",
+          "IFRExtractor WebAssembly is not available.",
+        );
+      }
+      return WebAssembly.compileStreaming(response);
+    },
+  );
+  const module = await ifrExtractorModule;
   const instance = await WebAssembly.instantiate(module, {
     wasi_snapshot_preview1: wasi.wasiImport,
   });
@@ -895,7 +971,7 @@ function retainArtifactBranches(
 
 export async function extractAptioIvBytes(
   image: Uint8Array,
-  extractIfr: (hii: Uint8Array) => Promise<string> = runIfrExtractor,
+  extractIfr: (hii: Uint8Array) => Promise<string> = extractIfrTextFromHii,
   options: AptioIvExtractionOptions = {},
   decompress: typeof firmwareDecompress = firmwareDecompress,
 ): Promise<AptioIvArtifacts> {
@@ -957,7 +1033,7 @@ export async function extractAptioIvArtifacts(
 ): Promise<AptioIvArtifacts> {
   return extractAptioIvBytes(
     new Uint8Array(await file.arrayBuffer()),
-    runIfrExtractor,
+    extractIfrTextFromHii,
     options,
   );
 }

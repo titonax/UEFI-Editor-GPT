@@ -45,6 +45,14 @@ import {
   type PhoenixSetupInventory,
 } from "../scripts/phoenixSetupMenu";
 import type { PopulatedFiles } from "../firmwareFiles";
+import {
+  discoverUefiHiiModules,
+  type UefiHiiInventory,
+} from "../scripts/uefiHiiDiscovery";
+import {
+  buildUefiHiiWorkspace,
+  type UefiHiiWorkspace,
+} from "../scripts/uefiHiiWorkspace";
 
 const MAX_FIRMWARE_BYTES = 512 * 1024 * 1024;
 
@@ -61,11 +69,17 @@ function outerModuleOffsets(values: number[]) {
 interface BiosImageUploadProps {
   onExtracted: (files: PopulatedFiles) => Promise<void>;
   onPhoenixExtracted?: (session: PhoenixEditorSession) => void;
+  onUefiHiiExtracted?: (session: UefiHiiEditorSession) => void;
 }
 
 export interface PhoenixEditorSession {
   fileName: string;
   inventory: PhoenixSetupInventory;
+}
+
+export interface UefiHiiEditorSession {
+  fileName: string;
+  workspace: UefiHiiWorkspace;
 }
 
 function toHex(bytes: Uint8Array) {
@@ -77,6 +91,7 @@ function toHex(bytes: Uint8Array) {
 export default function BiosImageUpload({
   onExtracted,
   onPhoenixExtracted,
+  onUefiHiiExtracted,
 }: BiosImageUploadProps) {
   const operation = React.useRef(0);
   const firmwareBytes = React.useRef<Uint8Array | null>(null);
@@ -90,6 +105,8 @@ export default function BiosImageUpload({
   const [phoenixMenu, setPhoenixMenu] = React.useState<PhoenixSetupInventory | null>(
     null,
   );
+  const [uefiHiiInventory, setUefiHiiInventory] =
+    React.useState<UefiHiiInventory | null>(null);
   const [selectedArtifactSetId, setSelectedArtifactSetId] = React.useState<
     string | null
   >(null);
@@ -148,6 +165,34 @@ export default function BiosImageUpload({
     }
   };
 
+  const startUefiHiiAnalysis = async () => {
+    if (!uefiHiiInventory) return;
+    const currentOperation = operation.current;
+    setLoading(true);
+    setError("");
+    try {
+      setStage("Resolving HII strings and joining cross-module references…");
+      const workspace = await buildUefiHiiWorkspace(uefiHiiInventory);
+      if (currentOperation !== operation.current) return;
+      if (workspace.data.forms.length === 0) {
+        throw new Error("No Setup-related HII form could be resolved.");
+      }
+      onUefiHiiExtracted?.({
+        fileName: file?.name ?? "firmware.bin",
+        workspace,
+      });
+    } catch (reason: unknown) {
+      if (currentOperation === operation.current) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      }
+    } finally {
+      if (currentOperation === operation.current) {
+        setLoading(false);
+        setStage("");
+      }
+    }
+  };
+
   const inspectFirmware = async (selected: File | null) => {
     const currentOperation = ++operation.current;
     setFile(selected);
@@ -157,6 +202,7 @@ export default function BiosImageUpload({
     setArtifacts(null);
     setProfile(null);
     setPhoenixMenu(null);
+    setUefiHiiInventory(null);
     setSelectedArtifactSetId(null);
     firmwareBytes.current = null;
     artifactCache.current.clear();
@@ -223,6 +269,20 @@ export default function BiosImageUpload({
         }
       }
       if (classified.firmwareVolumes.length === 0) return;
+
+      if (
+        !classified.amiAptioCandidate &&
+        (classified.family.family === "uefi-unidentified" ||
+          classified.family.family === "unidentified")
+      ) {
+        setStage("Discovering vendor-neutral UEFI HII modules…");
+        const inventory = await discoverUefiHiiModules(image);
+        if (currentOperation !== operation.current) return;
+        if (inventory.modules.length > 0) {
+          setUefiHiiInventory(inventory);
+          return;
+        }
+      }
       // An unresolved UEFI image may hide AMI Setup in a nested volume.
       // A positively identified other family only needs the AMI scan when
       // there is competing AMI evidence in this very image.
@@ -303,11 +363,12 @@ export default function BiosImageUpload({
       : report.family
     : null;
   const showAmiPanel = Boolean(
-    artifacts !== null ||
-    family?.family === "ami-aptio" ||
-    family?.family === "uefi-unidentified" ||
-    (report?.firmwareVolumes.length &&
-      (family?.family === "unidentified" || family?.conflict)),
+    !uefiHiiInventory &&
+    (artifacts !== null ||
+      family?.family === "ami-aptio" ||
+      family?.family === "uefi-unidentified" ||
+      (report?.firmwareVolumes.length &&
+        (family?.family === "unidentified" || family?.conflict))),
   );
   const brand =
     report && file
@@ -726,6 +787,51 @@ export default function BiosImageUpload({
               }}
             >
               Start Phoenix Setup analysis
+            </Button>
+          )}
+          {uefiHiiInventory && (
+            <Alert color="blue" title="Standard UEFI HII modules discovered">
+              <Stack gap="xs">
+                <Text size="sm">
+                  Found {String(uefiHiiInventory.modules.length)} structurally valid HII
+                  module(s) across {String(uefiHiiInventory.uniqueBufferCount)} unique
+                  decoded buffer(s). Setup-related modules will be joined into one
+                  read-only navigation graph.
+                </Text>
+                <Table striped withColumnBorders>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Module</Table.Th>
+                      <Table.Th>Forms</Table.Th>
+                      <Table.Th>References</Table.Th>
+                      <Table.Th>FormSets</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {uefiHiiInventory.modules
+                      .filter((module) => module.name.toLowerCase().includes("setup"))
+                      .map((module) => (
+                        <Table.Tr key={module.id}>
+                          <Table.Td>{module.name}</Table.Td>
+                          <Table.Td>{String(module.formCount)}</Table.Td>
+                          <Table.Td>{String(module.referenceCount)}</Table.Td>
+                          <Table.Td>{String(module.formSetGuids.length)}</Table.Td>
+                        </Table.Tr>
+                      ))}
+                  </Table.Tbody>
+                </Table>
+              </Stack>
+            </Alert>
+          )}
+          {uefiHiiInventory && (
+            <Button
+              size="lg"
+              color="blue"
+              leftSection={<IconPlayerPlay />}
+              disabled={loading}
+              onClick={() => void startUefiHiiAnalysis()}
+            >
+              Start vendor-neutral HII analysis
             </Button>
           )}
           {evidence.length > 0 && (
