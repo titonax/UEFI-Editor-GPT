@@ -1,5 +1,5 @@
 import { Button, FileButton, Group, TextInput } from "@mantine/core";
-import { IconDownload, IconUpload } from "@tabler/icons-react";
+import { IconDownload, IconListCheck, IconUpload } from "@tabler/icons-react";
 import { saveAs } from "file-saver";
 import React from "react";
 import type { Updater } from "use-immer";
@@ -17,10 +17,14 @@ import { assertAmiRootVisibilityEditsMatch } from "../scripts/amiRootVisibilityE
 import { refreshSingleFormSetNavigation } from "../scripts/singleFormSetNavigation";
 import type { Data } from "../scripts/types";
 import s from "./Footer.module.css";
+import DataChangeQueueDialog from "../ChangeQueue/DataChangeQueueDialog";
+import type { DataChangeQueueController } from "../ChangeQueue/useDataChangeQueue";
 
 interface FooterProps {
   files: PopulatedFiles;
   data: Data;
+  appliedData: Data;
+  changeQueue: DataChangeQueueController;
   setData: Updater<Data>;
   currentFormIndex: number;
   onError: (message: string) => void;
@@ -30,11 +34,17 @@ export default function Footer({
   files,
   currentFormIndex,
   data,
+  appliedData,
+  changeQueue,
   setData,
   onError,
 }: FooterProps) {
   const resetRef = React.useRef<() => void>(null);
   const [input, setInput] = React.useState("05");
+  const [queueOpened, setQueueOpened] = React.useState(false);
+  const queueApplied =
+    changeQueue.analysis.canApply &&
+    changeQueue.appliedFingerprint === changeQueue.analysis.fingerprint;
 
   return (
     <div className={s.root}>
@@ -125,23 +135,37 @@ export default function Footer({
           <Button
             size="xs"
             variant="default"
+            leftSection={<IconListCheck />}
+            onClick={() => {
+              setQueueOpened(true);
+            }}
+          >
+            Change queue ({String(changeQueue.entries.length)})
+          </Button>
+
+          <Button
+            size="xs"
+            variant="default"
             leftSection={<IconDownload />}
             disabled={
-              data.firmwareFamily !== "aptio-v" ||
-              (data.rootVisibilityEdits?.length ?? 0) > 0
+              !queueApplied ||
+              appliedData.firmwareFamily !== "aptio-v" ||
+              (appliedData.rootVisibilityEdits?.length ?? 0) > 0
             }
             title={
-              (data.rootVisibilityEdits?.length ?? 0) > 0
-                ? "Root visibility changes require the verified full-image reconstruction path"
-                : data.firmwareFamily === "aptio-iv"
-                  ? "Aptio IV export is disabled until safe reinsertion is implemented"
-                  : data.firmwareFamily === "ami-aptio"
-                    ? "Export is disabled until the firmware generation and write path are proven"
-                    : undefined
+              !queueApplied
+                ? "Apply the selected change queue before exporting."
+                : (appliedData.rootVisibilityEdits?.length ?? 0) > 0
+                  ? "Root visibility changes require the verified full-image reconstruction path"
+                  : appliedData.firmwareFamily === "aptio-iv"
+                    ? "Aptio IV export is disabled until safe reinsertion is implemented"
+                    : appliedData.firmwareFamily === "ami-aptio"
+                      ? "Export is disabled until the firmware generation and write path are proven"
+                      : undefined
             }
             onClick={() => {
               try {
-                downloadModifiedFiles(data, files);
+                downloadModifiedFiles(appliedData, files);
               } catch (reason) {
                 onError(errorMessage(reason));
               }
@@ -205,6 +229,13 @@ export default function Footer({
           </Group>
         )}
       </Group>
+      <DataChangeQueueDialog
+        opened={queueOpened}
+        queue={changeQueue}
+        onClose={() => {
+          setQueueOpened(false);
+        }}
+      />
     </div>
   );
 }
