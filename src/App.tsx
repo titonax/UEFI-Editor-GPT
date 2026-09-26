@@ -119,9 +119,11 @@ export default function App({
             <FormUi
               data={data}
               setData={setData}
+              originalSetupSct={bytesToHex(uefiHiiSession.workspace.sourceBytes)}
               currentFormIndex={currentFormIndex}
               setCurrentFormIndex={setCurrentFormIndex}
               readOnly
+              navigationEditable
             />
           </AppShell.Main>
         </>

@@ -46,6 +46,7 @@ import {
 } from "../scripts/menuEditing";
 import { errorMessage } from "../scripts/errors";
 import { describeSetupDataFlags } from "../scripts/setupDataFlags";
+import UefiHiiMenuActions from "./UefiHiiMenuActions";
 
 const conditionSourceMeta: Record<
   ConditionSource,
@@ -932,6 +933,7 @@ interface FormUiProps {
   currentFormIndex: number;
   setCurrentFormIndex: React.Dispatch<React.SetStateAction<number>>;
   readOnly?: boolean;
+  navigationEditable?: boolean;
 }
 
 export default function FormUi({
@@ -941,6 +943,7 @@ export default function FormUi({
   currentFormIndex,
   setCurrentFormIndex,
   readOnly = false,
+  navigationEditable = false,
 }: FormUiProps) {
   const [search, setSearch] = useDebouncedState("", 200);
   const semanticTree = React.useMemo(() => buildMenuTree(data), [data]);
@@ -1260,6 +1263,16 @@ export default function FormUi({
                 {data.forms[currentFormIndex].sourceModuleName}
               </Badge>
             </Tooltip>
+          )}
+          {data.firmwareFamily === "uefi-hii" && (
+            <UefiHiiMenuActions
+              data={data}
+              tree={semanticTree}
+              node={pageNode}
+              originalSetupSct={originalSetupSct}
+              setData={setData}
+              enabled={navigationEditable}
+            />
           )}
           {(pageStatus === "hidden" || pageStatus === "conditional") && (
             <Tooltip label={pageNode.conditionSummary} multiline w={420}>
