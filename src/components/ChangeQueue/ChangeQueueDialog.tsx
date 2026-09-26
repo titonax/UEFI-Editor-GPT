@@ -13,6 +13,11 @@ import {
 import { IconAlertTriangle, IconCheck, IconTrash } from "@tabler/icons-react";
 import type { ChangeQueueAnalysis, ChangeQueueEntry } from "../scripts/changeQueue";
 
+const defaultMetricLabels = {
+  units: "byte(s)",
+  spans: "optimized patch span(s)",
+};
+
 export default function ChangeQueueDialog<TPayload>({
   opened,
   entries,
@@ -23,6 +28,7 @@ export default function ChangeQueueDialog<TPayload>({
   onRemove,
   onClear,
   onApply,
+  metricLabels = defaultMetricLabels,
 }: {
   opened: boolean;
   entries: ChangeQueueEntry<TPayload>[];
@@ -33,6 +39,7 @@ export default function ChangeQueueDialog<TPayload>({
   onRemove: (id: string) => void;
   onClear: () => void;
   onApply: () => void;
+  metricLabels?: { units: string; spans: string };
 }) {
   const isApplied = analysis.canApply && appliedFingerprint === analysis.fingerprint;
   const errors = analysis.issues.filter((issue) => issue.severity === "error");
@@ -45,10 +52,10 @@ export default function ChangeQueueDialog<TPayload>({
             {String(analysis.stats.selectedChanges)} selected
           </Badge>
           <Badge color="gray" variant="light">
-            {String(analysis.stats.changedBytes)} byte(s)
+            {String(analysis.stats.changedBytes)} {metricLabels.units}
           </Badge>
           <Badge color="gray" variant="light">
-            {String(analysis.stats.patchSpans)} optimized patch span(s)
+            {String(analysis.stats.patchSpans)} {metricLabels.spans}
           </Badge>
           {analysis.stats.deduplicatedSpans > 0 && (
             <Badge color="violet" variant="light">

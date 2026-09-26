@@ -23,6 +23,7 @@ import PhoenixFooter from "./components/PhoenixEditor/PhoenixFooter";
 import UefiHiiFooter from "./components/UefiHiiEditor/UefiHiiFooter";
 import { bytesToHex } from "./components/scripts/hex";
 import { usePhoenixChangeQueue } from "./components/PhoenixEditor/usePhoenixChangeQueue";
+import { useDataChangeQueue } from "./components/ChangeQueue/useDataChangeQueue";
 
 const emptyData: Data = {
   firmwareFamily: "ami-aptio",
@@ -62,7 +63,9 @@ export default function App({
     setupdataBinContainer: { isWrongFile: false },
   });
 
-  const [data, setData] = useImmer<Data>(emptyData);
+  const dataQueue = useDataChangeQueue(emptyData);
+  const data = dataQueue.previewData;
+  const setData = dataQueue.enqueueData;
 
   const [currentFormIndex, setCurrentFormIndex] = React.useState(-1);
   const [phoenixSession, setPhoenixSession] =
@@ -109,10 +112,12 @@ export default function App({
               moduleCount={uefiHiiSession.workspace.modules.length}
               warningCount={uefiHiiSession.workspace.warnings.length}
               data={data}
+              appliedData={dataQueue.appliedData}
+              changeQueue={dataQueue}
               workspace={uefiHiiSession.workspace}
               onClose={() => {
                 setUefiHiiSession(null);
-                setData(emptyData);
+                dataQueue.replaceBase(emptyData);
                 setCurrentFormIndex(-1);
               }}
             />
@@ -215,6 +220,8 @@ export default function App({
               currentFormIndex={currentFormIndex}
               files={files}
               data={data}
+              appliedData={dataQueue.appliedData}
+              changeQueue={dataQueue}
               setData={setData}
               onError={handleError}
             />
@@ -238,11 +245,12 @@ export default function App({
           )}
           <BiosImageUpload
             onUefiHiiExtracted={(session) => {
-              setData(session.workspace.data);
+              dataQueue.replaceBase(session.workspace.data);
               setUefiHiiSession(session);
               setCurrentFormIndex(-1);
             }}
             onPhoenixExtracted={(session) => {
+              dataQueue.replaceBase(emptyData);
               setPhoenixSession(session);
               setCurrentPhoenixSection(-1);
               phoenixQueue.clear();
@@ -251,7 +259,7 @@ export default function App({
               setError("");
               setFiles(extractedFiles);
               const parsed = await parseData(extractedFiles);
-              setData(parsed);
+              dataQueue.replaceBase(parsed);
             }}
           />
           <Divider label="Or measure a local firmware corpus" />

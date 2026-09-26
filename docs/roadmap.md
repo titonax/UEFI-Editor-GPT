@@ -14,6 +14,7 @@ producing a flashable image are separate capabilities.
 | Vendor-neutral UEFI HII   | Multi-module tree plus validated Hide, Show and same-module moves available                         |
 | Phoenix legacy reading    | FFV inventory, bounded LH5 decoding, strings, root screens, submenus and unlinked screens available |
 | Phoenix behavior analysis | Bounded static x86-16 callback tracing available                                                    |
+| Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
 | Full-image writing        | Blocked until each enclosing container can be rebuilt and independently verified                    |
 
 PhoenixBIOS legacy FFV, Phoenix SecureCore hybrids and Phoenix UEFI/HII are
@@ -21,6 +22,8 @@ tracked separately. A shared vendor string is not evidence that they share a
 Setup format or reconstruction path.
 
 ## 0. Transactional change queue
+
+Status: complete.
 
 Route every editor action through one vendor-neutral plan before adding more
 writers. The source buffers remain immutable until export.
@@ -35,14 +38,13 @@ writers. The source buffers remain immutable until export.
   and buffer count.
 - Invalidate an applied plan after any queue mutation; export only the exact
   fingerprint that passed analysis.
-- Land the common planner and Phoenix adapter first, then migrate AMI Aptio and
-  vendor-neutral UEFI HII actions onto the same queue before extending their
-  write paths.
+- Use the common planner and queue dialog for Phoenix, AMI Aptio and
+  vendor-neutral UEFI HII actions before extending any write path.
 
-Exit gate: Phoenix visibility edits use the common queue end to end, and the
-planner has automated coverage for selection, dependency, conflict, overlap,
-stale-source and deduplication behavior. AMI and UEFI adapter migration remains
-an explicit follow-up before their next writer work.
+Exit gate: Phoenix, AMI Aptio and vendor-neutral UEFI HII edits use the shared
+queue end to end. Automated coverage includes selection, removal, clearing,
+application invalidation, dependency, conflict, overlap, stale-state,
+deduplication and cancellation behavior.
 
 ## 1. Phoenix legacy module editor
 
