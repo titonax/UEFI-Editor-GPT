@@ -1,5 +1,5 @@
 import type { ChangeQueueAnalysis, ChangeQueueEntry } from "../scripts/changeQueue";
-import type { Data } from "../scripts/types";
+import type { Data, RefPrompt, UefiHiiReferenceIdentity } from "../scripts/types";
 
 type DataPathPart = string | number;
 
@@ -150,63 +150,375 @@ function writePath(root: unknown, patch: DataValuePatch) {
   }
 }
 
-function operationDescription(patches: DataValuePatch[], after: Data) {
-  const paths = patches.map((patch) => pathLabel(patch.path));
-  if (paths.some((path) => path.startsWith("rootVisibilityEdits"))) {
-    const edit = after.rootVisibilityEdits?.[after.rootVisibilityEdits.length - 1];
-    return {
-      operation: "Visibility",
-      title: edit?.description ?? "AMI root visibility",
-    };
-  }
-  if (paths.some((path) => path.startsWith("ifrEdits"))) {
-    const edit = after.ifrEdits?.[after.ifrEdits.length - 1];
-    return {
-      operation: "Structure",
-      title: edit?.description ?? "HII menu structure",
-    };
-  }
-  if (paths.some((path) => path.startsWith("uefiHiiVisibilityEdits"))) {
-    return { operation: "Visibility", title: "UEFI HII menu visibility" };
-  }
-  if (paths.some((path) => path.startsWith("suppressions"))) {
-    const activePatch = patches.find(
-      (patch) =>
-        patch.path[0] === "suppressions" &&
-        typeof patch.path[1] === "number" &&
-        patch.path[2] === "active",
-    );
-    const index = activePatch?.path[1];
-    const condition = typeof index === "number" ? after.suppressions[index] : undefined;
-    return {
-      operation: "Visibility",
-      title: condition
-        ? `${condition.active ? "Restore" : "Show content guarded by"} SuppressIf ${condition.offset}`
-        : "HII suppression state",
-    };
-  }
-  const questionPatch = patches.find((patch) =>
-    /^forms\.\d+\.children\.\d+\.(accessLevel|failsafe|optimal)$/.test(
-      pathLabel(patch.path),
+interface OperationDescription {
+  operation: string;
+  title: string;
+  description: string;
+}
+
+function normalizedId(value: string) {
+  const parsed = Number.parseInt(value);
+  return Number.isNaN(parsed) ? value.toLowerCase() : String(parsed);
+}
+
+function identityKey(identity: UefiHiiReferenceIdentity) {
+  return [
+    identity.sourceModuleId ?? "",
+    normalizedId(identity.questionId),
+    normalizedId(identity.targetFormId),
+    (identity.targetFormSetGuid ?? "").toLowerCase(),
+  ].join("|");
+}
+
+function referenceKey(reference: RefPrompt, ownerGuid?: string) {
+  return [
+    normalizedId(reference.questionId),
+    normalizedId(reference.formId),
+    (reference.targetFormSetGuid ?? ownerGuid ?? "").toLowerCase(),
+  ].join("|");
+}
+
+function referenceLocations(data: Data) {
+  return data.forms.flatMap((form, formIndex) =>
+    form.children.flatMap((child, childIndex) =>
+      child.type === "Ref" ? [{ form, formIndex, childIndex, reference: child }] : [],
     ),
   );
-  if (questionPatch) {
-    const formIndex = questionPatch.path[1];
-    const childIndex = questionPatch.path[3];
-    const field = questionPatch.path[4];
-    const child =
-      typeof formIndex === "number" && typeof childIndex === "number"
-        ? after.forms[formIndex]?.children[childIndex]
-        : undefined;
+}
+
+function findReference(data: Data, identity: UefiHiiReferenceIdentity) {
+  return referenceLocations(data).find(({ form, reference }) => {
+    const target = data.forms.find(
+      (candidate) =>
+        normalizedId(candidate.formId) === normalizedId(reference.formId) &&
+        (candidate.formSetGuid ?? "").toLowerCase() ===
+          (reference.targetFormSetGuid ?? form.formSetGuid ?? "").toLowerCase(),
+    );
+    return (
+      identityKey({
+        sourceModuleId: target?.sourceModuleId,
+        questionId: reference.questionId,
+        targetFormId: reference.formId,
+        targetFormSetGuid: reference.targetFormSetGuid ?? form.formSetGuid,
+      }) === identityKey(identity)
+    );
+  });
+}
+
+function movedReference(before: Data, after: Data) {
+  const afterLocations = referenceLocations(after);
+  for (const previous of referenceLocations(before)) {
+    const key = referenceKey(previous.reference, previous.form.formSetGuid);
+    const current = afterLocations.find(
+      (candidate) =>
+        referenceKey(candidate.reference, candidate.form.formSetGuid) === key,
+    );
+    if (current && current.formIndex !== previous.formIndex) {
+      return { previous, current };
+    }
+  }
+  return undefined;
+}
+
+function displayValue(value: unknown) {
+  if (value === undefined) return "not set";
+  if (value === null) return "none";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "enabled" : "disabled";
+  return JSON.stringify(value);
+}
+
+function textOr(value: string | undefined, fallback: string) {
+  return value?.trim().length ? value : fallback;
+}
+
+function visibilityDescription(
+  before: Data,
+  after: Data,
+): OperationDescription | undefined {
+  const beforeEdits = before.uefiHiiVisibilityEdits ?? [];
+  const afterEdits = after.uefiHiiVisibilityEdits ?? [];
+  const added = afterEdits.find(
+    (edit) =>
+      !beforeEdits.some(
+        (candidate) => identityKey(candidate.reference) === identityKey(edit.reference),
+      ),
+  );
+  const removed = beforeEdits.find(
+    (edit) =>
+      !afterEdits.some(
+        (candidate) => identityKey(candidate.reference) === identityKey(edit.reference),
+      ),
+  );
+  const edit = added ?? removed;
+  if (!edit) return undefined;
+  const location = findReference(added ? after : before, edit.reference);
+  const menuName = textOr(
+    location?.reference.name,
+    `Form ${edit.reference.targetFormId}`,
+  );
+  const parent = (added ? after : before).forms.find(
+    (form) =>
+      normalizedId(form.formId) === normalizedId(edit.originalParentFormId) &&
+      (form.formSetGuid ?? "").toLowerCase() ===
+        (edit.originalParentFormSetGuid ?? "").toLowerCase(),
+  );
+  const sibling = edit.nextSibling
+    ? findReference(added ? after : before, edit.nextSibling)?.reference.name
+    : undefined;
+  return added
+    ? {
+        operation: "Hide",
+        title: `Hide menu ${menuName}`,
+        description: `Keep its logical position under ${textOr(parent?.name, edit.originalParentFormId)}${sibling ? `, before ${sibling}` : ""}, and park its Ref in the proven SuppressIf scope.`,
+      }
+    : {
+        operation: "Show",
+        title: `Show menu ${menuName}`,
+        description: `Restore its Ref under ${textOr(parent?.name, edit.originalParentFormId)}${sibling ? `, before ${sibling}` : ""}.`,
+      };
+}
+
+function rootVisibilityDescription(
+  before: Data,
+  after: Data,
+): OperationDescription | undefined {
+  const roots = new Set([
+    ...(before.rootVisibilityEdits ?? []).map((edit) => edit.rootIndex),
+    ...(after.rootVisibilityEdits ?? []).map((edit) => edit.rootIndex),
+  ]);
+  for (const rootIndex of roots) {
+    const previous = before.rootVisibilityEdits?.find(
+      (edit) => edit.rootIndex === rootIndex,
+    );
+    const current = after.rootVisibilityEdits?.find(
+      (edit) => edit.rootIndex === rootIndex,
+    );
+    if (equal(previous, current)) continue;
+    const evidence = after.rootVisibility?.entries.find(
+      (entry) => entry.rootIndex === rootIndex,
+    );
+    const previousValue = previous?.replacement ?? evidence?.value;
+    const currentValue = current?.replacement ?? evidence?.value;
+    const name =
+      evidence?.name ??
+      current?.description ??
+      previous?.description ??
+      `root ${String(rootIndex)}`;
+    const action = currentValue === 1 ? "Show" : "Hide";
     return {
-      operation: "Value",
-      title: `${child?.name ?? "Setup question"} · ${String(field)}`,
+      operation: action,
+      title: `${action} root menu ${name}`,
+      description: `Root visibility ${String(previousValue ?? "?")} → ${String(currentValue ?? "?")}.`,
     };
   }
-  if (paths.some((path) => path.startsWith("menu"))) {
-    return { operation: "Navigation", title: "AMI root menu mapping" };
+  return undefined;
+}
+
+function structuralDescription(
+  before: Data,
+  after: Data,
+): OperationDescription | undefined {
+  const newEdits = (after.ifrEdits ?? []).slice(before.ifrEdits?.length ?? 0);
+  const newEdit = newEdits[newEdits.length - 1];
+  if (!newEdit) return undefined;
+  const moved = movedReference(before, after);
+  const visibilityMatch = /^(Hide|Show) top-level tab (.+?) by /.exec(
+    newEdit.description,
+  );
+  if (visibilityMatch) {
+    const action = visibilityMatch[1] ?? "Change";
+    const name = visibilityMatch[2] ?? moved?.previous.reference.name ?? "menu";
+    return {
+      operation: action,
+      title: `${action} menu ${name}`,
+      description: moved
+        ? `${moved.previous.form.name} → ${moved.current.form.name}. ${newEdit.description}.`
+        : newEdit.description,
+    };
   }
-  return { operation: "Edit", title: "Firmware editor state" };
+  if (moved) {
+    const name = textOr(
+      moved.previous.reference.name,
+      `Form ${moved.previous.reference.formId}`,
+    );
+    return {
+      operation: "Move",
+      title: `Move menu ${name}`,
+      description: `${moved.previous.form.name} (${moved.previous.form.formId}) → ${moved.current.form.name} (${moved.current.form.formId}).`,
+    };
+  }
+  return {
+    operation: "Move",
+    title: newEdit.description,
+    description: `IFR Ref 0x${newEdit.sourceOffset.toString(16).toUpperCase()} → 0x${newEdit.destinationOffset.toString(16).toUpperCase()}.`,
+  };
+}
+
+function suppressionDescription(
+  patches: DataValuePatch[],
+  after: Data,
+): OperationDescription | undefined {
+  const changes = patches.flatMap((patch) => {
+    if (
+      patch.path[0] !== "suppressions" ||
+      typeof patch.path[1] !== "number" ||
+      patch.path[2] !== "active"
+    ) {
+      return [];
+    }
+    const condition = after.suppressions[patch.path[1]];
+    return condition ? [condition] : [];
+  });
+  if (changes.length === 0) return undefined;
+  const offsets = new Set(changes.map((condition) => condition.offset));
+  const affected = after.forms.flatMap((form) =>
+    form.children.flatMap((child) =>
+      (child.suppressIf ?? []).some((offset) => offsets.has(offset))
+        ? [{ form, child }]
+        : [],
+    ),
+  );
+  const active = changes.every((condition) => condition.active);
+  const action = active ? "Hide" : "Show";
+  if (affected.length === 1) {
+    const target = affected[0];
+    const kind = target?.child.type === "Ref" ? "menu" : "option";
+    return {
+      operation: action,
+      title: `${action} ${kind} ${textOr(target?.child.name, "unnamed")}`,
+      description: `${active ? "Restore" : "Disable"} SuppressIf ${changes.map((condition) => condition.offset).join(", ")} in ${textOr(target?.form.name, "unknown Form")}.`,
+    };
+  }
+  const names = affected.map(({ child }) => textOr(child.name, "unnamed"));
+  const forms = [...new Set(affected.map(({ form }) => form.name))];
+  return {
+    operation: action,
+    title: `${action} ${String(affected.length > 0 ? affected.length : changes.length)} suppressed item(s)${forms.length === 1 ? ` in ${forms[0]}` : ""}`,
+    description:
+      names.length > 0
+        ? names.join(", ")
+        : `${active ? "Restore" : "Disable"} SuppressIf ${changes.map((condition) => condition.offset).join(", ")}.`,
+  };
+}
+
+function valueDescription(
+  patches: DataValuePatch[],
+  after: Data,
+): OperationDescription | undefined {
+  const fields = new Map([
+    ["accessLevel", "access level"],
+    ["failsafe", "failsafe default"],
+    ["optimal", "optimal default"],
+  ]);
+  const changes = patches.flatMap((patch) => {
+    const [forms, formIndex, children, childIndex, field] = patch.path;
+    if (
+      forms !== "forms" ||
+      typeof formIndex !== "number" ||
+      children !== "children" ||
+      typeof childIndex !== "number" ||
+      typeof field !== "string" ||
+      !fields.has(field)
+    ) {
+      return [];
+    }
+    return [
+      {
+        patch,
+        form: after.forms[formIndex],
+        child: after.forms[formIndex]?.children[childIndex],
+        field,
+      },
+    ];
+  });
+  if (changes.length === 0) return undefined;
+  if (changes.length === 1) {
+    const change = changes[0];
+    const label = fields.get(change?.field ?? "") ?? change?.field;
+    return {
+      operation: "Change",
+      title: `Set ${label} for ${textOr(change?.child?.name, "unnamed option")}`,
+      description: `${displayValue(change?.patch.expected)} → ${displayValue(change?.patch.replacement)} in ${textOr(change?.form?.name, "unknown Form")}.`,
+    };
+  }
+  const first = changes[0];
+  const sameField = changes.every((change) => change.field === first?.field);
+  const sameForm = changes.every((change) => change.form === first?.form);
+  const label = sameField
+    ? (fields.get(first?.field ?? "") ?? first?.field)
+    : "Setup values";
+  return {
+    operation: "Change",
+    title: `Set ${label}${sameForm ? ` in ${textOr(first?.form?.name, "Form")}` : ""}`,
+    description: changes
+      .map(
+        (change) =>
+          `${textOr(change.child?.name, "unnamed")}: ${displayValue(change.patch.expected)} → ${displayValue(change.patch.replacement)}`,
+      )
+      .join("; "),
+  };
+}
+
+function menuMappingDescription(
+  patches: DataValuePatch[],
+  before: Data,
+  after: Data,
+): OperationDescription | undefined {
+  const index = patches.find(
+    (patch) => patch.path[0] === "menu" && typeof patch.path[1] === "number",
+  )?.path[1];
+  if (typeof index !== "number") return undefined;
+  const previous = before.menu[index];
+  const current = after.menu[index];
+  if (!previous || !current) return undefined;
+  return {
+    operation: "Retarget",
+    title: `Retarget root menu ${previous.name} to ${current.name}`,
+    description: `Form ${previous.formId} → ${current.formId}.`,
+  };
+}
+
+function operationDescription(
+  patches: DataValuePatch[],
+  before: Data,
+  after: Data,
+): OperationDescription {
+  const paths = patches.map((patch) => pathLabel(patch.path));
+  if (paths.some((path) => path.startsWith("uefiHiiVisibilityEdits"))) {
+    const description = visibilityDescription(before, after);
+    if (description) return description;
+  }
+  if (paths.some((path) => path.startsWith("rootVisibilityEdits"))) {
+    const description = rootVisibilityDescription(before, after);
+    if (description) return description;
+  }
+  if (paths.some((path) => path.startsWith("ifrEdits"))) {
+    const description = structuralDescription(before, after);
+    if (description) return description;
+  }
+  if (paths.some((path) => path.startsWith("suppressions"))) {
+    const description = suppressionDescription(patches, after);
+    if (description) return description;
+  }
+  const value = valueDescription(patches, after);
+  if (value) return value;
+  if (paths.some((path) => path.startsWith("menu"))) {
+    const description = menuMappingDescription(patches, before, after);
+    if (description) return description;
+  }
+  const first = patches[0];
+  return {
+    operation: "Edit",
+    title: `Update ${first ? pathLabel(first.path) : "firmware data"}`,
+    description:
+      patches.length === 1 && first
+        ? `${displayValue(first.expected)} → ${displayValue(first.replacement)}.`
+        : `${String(patches.length)} explicit fields changed: ${patches
+            .slice(0, 4)
+            .map((patch) => pathLabel(patch.path))
+            .join(", ")}${patches.length > 4 ? ", …" : ""}.`,
+  };
 }
 
 export function createDataChangeEntry(
@@ -216,7 +528,7 @@ export function createDataChangeEntry(
 ): ChangeQueueEntry<DataChangePayload> | null {
   const patches = diffData(before, after);
   if (patches.length === 0) return null;
-  const description = operationDescription(patches, after);
+  const description = operationDescription(patches, before, after);
   return {
     id,
     family: after.firmwareFamily,
@@ -226,64 +538,18 @@ export function createDataChangeEntry(
       .sort()
       .join("|"),
     title: description.title,
-    description: `${String(patches.length)} validated logical field change(s)`,
+    description: description.description,
     enabled: true,
     patches: [],
     payload: { patches },
   };
 }
 
-function samePath(left: DataPathPart[], right: DataPathPart[]) {
-  return (
-    left.length === right.length && left.every((part, index) => part === right[index])
-  );
-}
-
 export function appendDataChangeEntry(
   entries: ChangeQueueEntry<DataChangePayload>[],
   next: ChangeQueueEntry<DataChangePayload>,
 ) {
-  const previous = entries[entries.length - 1];
-  if (
-    !previous?.enabled ||
-    previous.payload.patches.length !== next.payload.patches.length
-  ) {
-    return [...entries, next];
-  }
-  const merged: DataValuePatch[] = [];
-  for (const before of previous.payload.patches) {
-    const after = next.payload.patches.find((patch) =>
-      samePath(patch.path, before.path),
-    );
-    if (!after) return [...entries, next];
-    if (
-      before.replacementExists !== after.expectedExists ||
-      (after.expectedExists && !equal(before.replacement, after.expected))
-    ) {
-      return [...entries, next];
-    }
-    merged.push({
-      path: after.path,
-      expectedExists: before.expectedExists,
-      expected: clone(before.expected),
-      replacementExists: after.replacementExists,
-      replacement: clone(after.replacement),
-    });
-  }
-  const effective = merged.filter(
-    (patch) =>
-      patch.expectedExists !== patch.replacementExists ||
-      !equal(patch.expected, patch.replacement),
-  );
-  if (effective.length === 0) return entries.slice(0, -1);
-  return [
-    ...entries.slice(0, -1),
-    {
-      ...next,
-      description: `${String(effective.length)} validated logical field change(s)`,
-      payload: { patches: effective },
-    },
-  ];
+  return [...entries, next];
 }
 
 export function projectDataChangeQueue(

@@ -85,7 +85,7 @@ describe("firmware data change queue", () => {
     );
   });
 
-  it("collapses consecutive edits of the same target and removes a cancelled pair", () => {
+  it("keeps consecutive user actions visible while optimizing their net result", () => {
     const base = firmwareData({ suppressions: [condition()] });
     const hidden = structuredClone(base);
     hidden.suppressions[0].active = false;
@@ -95,7 +95,156 @@ describe("firmware data change queue", () => {
     const second = createDataChangeEntry(hidden, restored, "restore");
     if (!first || !second) throw new Error("Expected two queue entries.");
 
-    expect(appendDataChangeEntry([first], second)).toEqual([]);
+    const entries = appendDataChangeEntry([first], second);
+    expect(entries.map((entry) => entry.title)).toEqual([first.title, second.title]);
+    expect(projectDataChangeQueue(base, entries).analysis).toMatchObject({
+      canApply: false,
+      stats: { selectedChanges: 2, patchSpans: 0 },
+    });
+  });
+
+  it("names the exact menu and direction of a structural move", () => {
+    const base = firmwareData({
+      firmwareFamily: "uefi-hii",
+      forms: [
+        form({
+          name: "Advanced",
+          formId: "0x100",
+          children: [
+            prompt({
+              type: "Ref",
+              name: "Debug Settings",
+              questionId: "0x10",
+              formId: "0x200",
+              pageId: null,
+            }),
+          ],
+        }),
+        form({ name: "Security", formId: "0x300" }),
+        form({ name: "Debug Settings", formId: "0x200" }),
+      ],
+    });
+    const moved = structuredClone(base);
+    const [reference] = moved.forms[0].children.splice(0, 1);
+    if (!reference) throw new Error("Expected the Ref fixture.");
+    moved.forms[1].children.push(reference);
+    moved.ifrEdits = [
+      {
+        kind: "move-ref",
+        sourceOffset: 0x10,
+        sourceEnd: 0x20,
+        destinationOffset: 0x30,
+        expected: [1],
+        destinationExpected: [2],
+        description: "Move Ref at 0x10 from FormId 0x100 to FormId 0x300",
+      },
+    ];
+
+    expect(createDataChangeEntry(base, moved, "move")).toMatchObject({
+      operation: "Move",
+      title: "Move menu Debug Settings",
+      description: "Advanced (0x100) → Security (0x300).",
+    });
+  });
+
+  it("names the menu affected by a suppression visibility action", () => {
+    const base = firmwareData({
+      firmwareFamily: "uefi-hii",
+      suppressions: [condition({ offset: "0x20", active: true })],
+      forms: [
+        form({
+          name: "Advanced",
+          children: [
+            prompt({
+              type: "Ref",
+              name: "Trusted Computing",
+              formId: "0x200",
+              pageId: null,
+              suppressIf: ["0x20"],
+            }),
+          ],
+        }),
+      ],
+    });
+    const shown = structuredClone(base);
+    shown.suppressions[0].active = false;
+
+    expect(createDataChangeEntry(base, shown, "show")).toMatchObject({
+      operation: "Show",
+      title: "Show menu Trusted Computing",
+      description: "Disable SuppressIf 0x20 in Advanced.",
+    });
+  });
+
+  it("describes a queued structural hide by menu name and original position", () => {
+    const guid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
+    const reference = prompt({
+      type: "Ref",
+      name: "Trusted Computing",
+      questionId: "0x10",
+      formId: "0x200",
+      targetFormSetGuid: guid,
+      pageId: null,
+    });
+    const base = firmwareData({
+      firmwareFamily: "uefi-hii",
+      forms: [
+        form({
+          name: "Advanced",
+          formId: "0x100",
+          formSetGuid: guid,
+          children: [reference],
+        }),
+        form({ name: "Trusted Computing", formId: "0x200", formSetGuid: guid }),
+        form({ name: "Suppression host", formId: "0x300", formSetGuid: guid }),
+      ],
+    });
+    const hidden = structuredClone(base);
+    const [movedReference] = hidden.forms[0].children.splice(0, 1);
+    if (movedReference?.type !== "Ref") {
+      throw new Error("Expected the Ref fixture.");
+    }
+    movedReference.suppressIf = ["0x90"];
+    movedReference.conditions = ["0x90"];
+    hidden.forms[2].children.push(movedReference);
+    hidden.uefiHiiVisibilityEdits = [
+      {
+        reference: {
+          questionId: "0x10",
+          targetFormId: "0x200",
+          targetFormSetGuid: guid,
+        },
+        originalParentFormId: "0x100",
+        originalParentFormSetGuid: guid,
+        editCount: 1,
+      },
+    ];
+
+    expect(createDataChangeEntry(base, hidden, "hide")).toMatchObject({
+      operation: "Hide",
+      title: "Hide menu Trusted Computing",
+      description:
+        "Keep its logical position under Advanced, and park its Ref in the proven SuppressIf scope.",
+    });
+  });
+
+  it("shows the exact option field and old/new values", () => {
+    const base = firmwareData({
+      forms: [
+        form({
+          name: "Power & Performance",
+          children: [prompt({ name: "Turbo Mode", accessLevel: "00" })],
+        }),
+      ],
+    });
+    const changed = structuredClone(base);
+    changed.forms[0].children[0].accessLevel = "05";
+
+    expect(createDataChangeEntry(base, changed, "access")).toMatchObject({
+      operation: "Change",
+      title: "Set access level for Turbo Mode",
+      description: "00 → 05 in Power & Performance.",
+    });
   });
 
   it("keeps export data immutable until apply and invalidates it after a mutation", () => {
