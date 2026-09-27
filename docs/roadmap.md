@@ -63,6 +63,11 @@ changes match the previously hardware-verified callback patch.
 
 ## 2. LH5 encoder and Phoenix FFV reconstruction
 
+Status: in progress. The raw codec boundary and deterministic literal encoder
+are covered by independent-reader round trips. LZSS/Huffman optimization and
+the FFV/container writer remain pending; the baseline encoder is not treated as
+fit-capable until it satisfies the original Z03 allocation.
+
 Complete the write half of the existing bounded LH5 reader and remove the PBE
 dependency.
 
