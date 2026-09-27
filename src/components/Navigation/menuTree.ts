@@ -1,4 +1,9 @@
-import type { Data, VisibilityStatus } from "../scripts/types";
+import type {
+  Data,
+  RefPrompt,
+  UefiHiiReferenceIdentity,
+  VisibilityStatus,
+} from "../scripts/types";
 import {
   childVisibility,
   combineVisibility,
@@ -50,6 +55,7 @@ export interface MenuTreeNode {
   rootVisibilityOriginal?: 0 | 1;
   rootVisibilityDesired?: 0 | 1;
   rootVisibilityPending?: boolean;
+  visibilityPending?: "hide";
   parentFormIndex?: number;
   referenceChildIndex?: number;
 }
@@ -70,6 +76,115 @@ function normalizedFormId(formId: string) {
 
 function sameGuid(left?: string, right?: string) {
   return (left ?? "").toLowerCase() === (right ?? "").toLowerCase();
+}
+
+interface ProjectedReference {
+  reference: RefPrompt;
+  ownerFormIndex: number;
+  referenceChildIndex: number;
+  visibilityPending?: "hide";
+}
+
+function referenceIdentityKey(identity: UefiHiiReferenceIdentity) {
+  return [
+    identity.sourceModuleId ?? "",
+    normalizedFormId(identity.questionId),
+    normalizedFormId(identity.targetFormId),
+    (identity.targetFormSetGuid ?? "").toLowerCase(),
+  ].join("|");
+}
+
+function referenceIdentity(
+  data: Data,
+  ownerFormIndex: number,
+  reference: RefPrompt,
+): UefiHiiReferenceIdentity {
+  const owner = data.forms[ownerFormIndex];
+  const targetGuid = reference.targetFormSetGuid ?? owner?.formSetGuid;
+  const target = data.forms.find(
+    (form) =>
+      normalizedFormId(form.formId) === normalizedFormId(reference.formId) &&
+      sameGuid(form.formSetGuid, targetGuid),
+  );
+  return {
+    sourceModuleId: target?.sourceModuleId,
+    questionId: reference.questionId,
+    targetFormId: reference.formId,
+    targetFormSetGuid: targetGuid,
+  };
+}
+
+function projectedReferences(data: Data) {
+  const result = new Map<number, ProjectedReference[]>();
+  const physical: ProjectedReference[] = [];
+  for (const [ownerFormIndex, owner] of data.forms.entries()) {
+    for (const [referenceChildIndex, child] of owner.children.entries()) {
+      if (child.type !== "Ref") continue;
+      physical.push({ reference: child, ownerFormIndex, referenceChildIndex });
+    }
+  }
+
+  const pending = (data.uefiHiiVisibilityEdits ?? []).flatMap((edit) => {
+    const key = referenceIdentityKey(edit.reference);
+    const location = physical.find(
+      (candidate) =>
+        referenceIdentityKey(
+          referenceIdentity(data, candidate.ownerFormIndex, candidate.reference),
+        ) === key,
+    );
+    const originalParentIndex = findFormIndex(
+      data,
+      edit.originalParentFormId,
+      edit.originalParentFormSetGuid,
+    );
+    return location && originalParentIndex >= 0
+      ? [{ ...location, edit, originalParentIndex, key }]
+      : [];
+  });
+  const pendingKeys = new Set(pending.map((item) => item.key));
+
+  for (const location of physical) {
+    const key = referenceIdentityKey(
+      referenceIdentity(data, location.ownerFormIndex, location.reference),
+    );
+    if (pendingKeys.has(key)) continue;
+    const list = result.get(location.ownerFormIndex) ?? [];
+    list.push(location);
+    result.set(location.ownerFormIndex, list);
+  }
+
+  const remaining = [...pending];
+  while (remaining.length > 0) {
+    let inserted = false;
+    for (let index = remaining.length - 1; index >= 0; index -= 1) {
+      const item = remaining[index];
+      if (!item) continue;
+      const list = result.get(item.originalParentIndex) ?? [];
+      const nextKey = item.edit.nextSibling
+        ? referenceIdentityKey(item.edit.nextSibling)
+        : undefined;
+      const nextIndex = nextKey
+        ? list.findIndex(
+            (candidate) =>
+              referenceIdentityKey(
+                referenceIdentity(data, candidate.ownerFormIndex, candidate.reference),
+              ) === nextKey,
+          )
+        : list.length;
+      if (nextKey && nextIndex < 0) continue;
+      list.splice(nextIndex, 0, { ...item, visibilityPending: "hide" });
+      result.set(item.originalParentIndex, list);
+      remaining.splice(index, 1);
+      inserted = true;
+    }
+    if (inserted) continue;
+    for (const item of remaining.splice(0)) {
+      const list = result.get(item.originalParentIndex) ?? [];
+      list.push({ ...item, visibilityPending: "hide" });
+      result.set(item.originalParentIndex, list);
+    }
+  }
+  return result;
 }
 
 function formDisplayName(form: Data["forms"][number]) {
@@ -326,6 +441,7 @@ export function buildMenuTree(data: Data): MenuTree {
       form.formSetGuid ? [form.formSetGuid.toLowerCase()] : [],
     ),
   );
+  const referencesByForm = projectedReferences(data);
 
   function buildFormNode(
     formIndex: number,
@@ -361,101 +477,100 @@ export function buildMenuTree(data: Data): MenuTree {
 
     const children = cycle
       ? []
-      : form.children
-          .map((child, childIndex): MenuTreeNode | null => {
-            if (child.type !== "Ref") {
-              return null;
-            }
+      : (referencesByForm.get(formIndex) ?? []).map((projected): MenuTreeNode => {
+          const reference = projected.reference;
+          const childIndex = projected.referenceChildIndex;
+          const targetFormSetGuid = reference.targetFormSetGuid ?? form.formSetGuid;
+          const targetIndex = findFormIndex(data, reference.formId, targetFormSetGuid);
+          const childKey = `${key}/ref-${String(projected.ownerFormIndex)}-${String(
+            childIndex,
+          )}-${normalizedFormId(reference.formId)}`;
+          const visibility = childVisibility(data, reference);
+          const descriptions = conditionDescriptions(visibility);
+          const nextConditionPath = [...conditionPath, ...descriptions];
+          const nextHardwareDependent =
+            hardwareDependent || visibility.hardwareDependent;
+          const nextAccessDependent = accessDependent || visibility.accessDependent;
+          const nextUiStateDependent = uiStateDependent || visibility.uiStateDependent;
 
-            const reference = child;
-            const targetFormSetGuid = reference.targetFormSetGuid ?? form.formSetGuid;
-            const targetIndex = findFormIndex(
-              data,
-              reference.formId,
-              targetFormSetGuid,
+          if (targetIndex < 0) {
+            const external = Boolean(
+              reference.targetFormSetGuid &&
+              !loadedFormSetGuids.has(reference.targetFormSetGuid.toLowerCase()),
             );
-            const childKey = `${key}/ref-${String(childIndex)}-${normalizedFormId(
-              reference.formId,
-            )}`;
-            const visibility = childVisibility(data, reference);
-            const descriptions = conditionDescriptions(visibility);
-            const nextConditionPath = [...conditionPath, ...descriptions];
-            const nextHardwareDependent =
-              hardwareDependent || visibility.hardwareDependent;
-            const nextAccessDependent = accessDependent || visibility.accessDependent;
-            const nextUiStateDependent =
-              uiStateDependent || visibility.uiStateDependent;
+            return {
+              key: childKey,
+              label:
+                reference.name.length > 0
+                  ? reference.name
+                  : `Missing form ${reference.formId}`,
+              formName: external
+                ? "Referenced FormSet is not loaded"
+                : "Referenced form was not found",
+              formId: reference.formId,
+              formIndex: null,
+              children: [],
+              missing: true,
+              external,
+              status: "unknown",
+              statusLabel: external
+                ? "Requires an external HII package"
+                : "Target absent from static Setup HII",
+              reachability: external ? "external" : "unresolved",
+              reachabilityLabel: external
+                ? "External HII FormSet"
+                : "Unresolved Ref target",
+              hardwareDependent: nextHardwareDependent,
+              accessDependent: nextAccessDependent,
+              uiStateDependent: nextUiStateDependent,
+              incomingReferenceCount: 1,
+              outgoingReferenceCount: 0,
+              parentageLabel: external
+                ? `Referenced by ${form.name || form.formId}; target FormSet ${reference.targetFormSetGuid ?? ""} is not part of the extracted Setup HII and may be registered by another firmware driver.`
+                : `Referenced by ${form.name || form.formId}, but the target is absent from the extracted Setup HII. It may be created at runtime, intentionally unreachable under this build, or invalid.`,
+              conditionSummary:
+                nextConditionPath.join("; ") ||
+                (external
+                  ? "The Ref names a different FormSet that is not present in the extracted Setup package."
+                  : "The static package does not contain the Ref target; runtime firmware behavior is required to distinguish a dynamic target from a defect."),
+              parentFormIndex: projected.ownerFormIndex,
+              referenceChildIndex: childIndex,
+            };
+          }
 
-            if (targetIndex < 0) {
-              const external = Boolean(
-                reference.targetFormSetGuid &&
-                !loadedFormSetGuids.has(reference.targetFormSetGuid.toLowerCase()),
-              );
-              return {
-                key: childKey,
-                label:
-                  reference.name.length > 0
-                    ? reference.name
-                    : `Missing form ${reference.formId}`,
-                formName: external
-                  ? "Referenced FormSet is not loaded"
-                  : "Referenced form was not found",
-                formId: reference.formId,
-                formIndex: null,
-                children: [],
-                missing: true,
-                external,
-                status: "unknown",
-                statusLabel: external
-                  ? "Requires an external HII package"
-                  : "Target absent from static Setup HII",
-                reachability: external ? "external" : "unresolved",
-                reachabilityLabel: external
-                  ? "External HII FormSet"
-                  : "Unresolved Ref target",
-                hardwareDependent: nextHardwareDependent,
-                accessDependent: nextAccessDependent,
-                uiStateDependent: nextUiStateDependent,
-                incomingReferenceCount: 1,
-                outgoingReferenceCount: 0,
-                parentageLabel: external
-                  ? `Referenced by ${form.name || form.formId}; target FormSet ${reference.targetFormSetGuid ?? ""} is not part of the extracted Setup HII and may be registered by another firmware driver.`
-                  : `Referenced by ${form.name || form.formId}, but the target is absent from the extracted Setup HII. It may be created at runtime, intentionally unreachable under this build, or invalid.`,
-                conditionSummary:
-                  nextConditionPath.join("; ") ||
-                  (external
-                    ? "The Ref names a different FormSet that is not present in the extracted Setup package."
-                    : "The static package does not contain the Ref target; runtime firmware behavior is required to distinguish a dynamic target from a defect."),
-                parentFormIndex: formIndex,
-                referenceChildIndex: childIndex,
-              };
-            }
-
-            const target = data.forms[targetIndex];
-            const status = combineVisibility(inheritedStatus, visibility.status);
-            return buildFormNode(
-              targetIndex,
-              childKey,
-              reference.name.length > 0 ? reference.name : target.name,
-              nextAncestors,
-              status,
-              reachability === "detached" ? "detached" : "reachable",
-              nextConditionPath,
-              nextHardwareDependent,
-              nextAccessDependent,
-              nextUiStateDependent,
-              inheritedStatusLabel(status, visibility.status, visibility.label),
-              reachability === "detached"
-                ? "Detached descendant"
-                : "Reachable through Ref",
-              undefined,
-              undefined,
-              `Referenced by ${form.name || form.formId} through an IFR Ref opcode.`,
-              formIndex,
-              childIndex,
-            );
-          })
-          .filter((node): node is MenuTreeNode => node !== null);
+          const target = data.forms[targetIndex];
+          const directStatus = projected.visibilityPending
+            ? "hidden"
+            : visibility.status;
+          const status = combineVisibility(inheritedStatus, directStatus);
+          const node = buildFormNode(
+            targetIndex,
+            childKey,
+            reference.name.length > 0 ? reference.name : target.name,
+            nextAncestors,
+            status,
+            reachability === "detached" ? "detached" : "reachable",
+            nextConditionPath,
+            nextHardwareDependent,
+            nextAccessDependent,
+            nextUiStateDependent,
+            projected.visibilityPending
+              ? "Pending: menu will be hidden"
+              : inheritedStatusLabel(status, visibility.status, visibility.label),
+            reachability === "detached"
+              ? "Detached descendant"
+              : "Reachable through Ref",
+            undefined,
+            undefined,
+            projected.visibilityPending
+              ? `Hidden from ${form.name || form.formId} by a queued visibility operation; its Ref remains projected in the original menu position.`
+              : `Referenced by ${form.name || form.formId} through an IFR Ref opcode.`,
+            projected.ownerFormIndex,
+            childIndex,
+          );
+          node.visibilityPending = projected.visibilityPending;
+          return node;
+        });
 
     if (children.length > 0) {
       expandableKeys.push(key);

@@ -1293,7 +1293,12 @@ export default function FormUi({
           )}
           {(pageStatus === "hidden" || pageStatus === "conditional") && (
             <Tooltip label={pageNode.conditionSummary} multiline w={420}>
-              <Badge color={visibilityColors[pageStatus]} variant="light">
+              <Badge
+                color={
+                  pageNode.visibilityPending ? "orange" : visibilityColors[pageStatus]
+                }
+                variant="light"
+              >
                 {pageNode.statusLabel}
               </Badge>
             </Tooltip>

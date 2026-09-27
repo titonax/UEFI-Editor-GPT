@@ -292,4 +292,106 @@ describe("HII menu graph", () => {
       rootVisibilityPending: true,
     });
   });
+
+  it("keeps a queued hidden UEFI HII menu in its original tree position", () => {
+    const guid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
+    const hiddenReference = prompt({
+      type: "Ref",
+      name: "Debug Settings",
+      questionId: "0x10",
+      formId: "0x200",
+      targetFormSetGuid: guid,
+      pageId: null,
+      suppressIf: ["0x90"],
+      conditions: ["0x90"],
+    });
+    const bootReference = prompt({
+      type: "Ref",
+      name: "Boot",
+      questionId: "0x11",
+      formId: "0x300",
+      targetFormSetGuid: guid,
+      pageId: null,
+    });
+    const data = firmwareData({
+      firmwareFamily: "uefi-hii",
+      menu: [
+        {
+          name: "Setup",
+          formId: "0x100",
+          formSetGuid: guid,
+          offset: null,
+          source: "uefi-hii",
+        },
+      ],
+      forms: [
+        form({
+          name: "Setup",
+          formId: "0x100",
+          formSetGuid: guid,
+          sourceModuleId: "setup-module",
+          children: [bootReference],
+        }),
+        form({
+          name: "Debug Settings",
+          formId: "0x200",
+          formSetGuid: guid,
+          sourceModuleId: "setup-module",
+        }),
+        form({
+          name: "Suppression host",
+          formId: "0x250",
+          formSetGuid: guid,
+          sourceModuleId: "setup-module",
+          children: [hiddenReference],
+        }),
+        form({
+          name: "Boot",
+          formId: "0x300",
+          formSetGuid: guid,
+          sourceModuleId: "setup-module",
+        }),
+      ],
+      suppressions: [
+        {
+          offset: "0x90",
+          active: true,
+          start: "0x90",
+          end: "0xA0",
+          kind: "SuppressIf",
+          constant: true,
+          source: "constant",
+        },
+      ],
+      uefiHiiVisibilityEdits: [
+        {
+          reference: {
+            sourceModuleId: "setup-module",
+            questionId: "0x10",
+            targetFormId: "0x200",
+            targetFormSetGuid: guid,
+          },
+          originalParentFormId: "0x100",
+          originalParentFormSetGuid: guid,
+          nextSibling: {
+            sourceModuleId: "setup-module",
+            questionId: "0x11",
+            targetFormId: "0x300",
+            targetFormSetGuid: guid,
+          },
+          editCount: 1,
+        },
+      ],
+    });
+
+    const children = buildMenuTree(data).roots[0]?.children;
+    expect(children?.map((node) => node.label)).toEqual(["Debug Settings", "Boot"]);
+    expect(children?.[0]).toMatchObject({
+      status: "hidden",
+      statusLabel: "Pending: menu will be hidden",
+      visibilityPending: "hide",
+      parentFormIndex: 2,
+      referenceChildIndex: 0,
+    });
+  });
 });

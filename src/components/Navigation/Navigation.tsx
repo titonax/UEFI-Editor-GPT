@@ -160,14 +160,16 @@ export default function Navigation({
       node.label === node.formName
         ? `${node.formName} (${node.formId})`
         : `${node.label} — ${node.formName} (${node.formId})`;
-    const gateClass = {
-      visible: s.statusVisible,
-      hidden: s.statusHidden,
-      conditional: s.statusConditional,
-      unknown: s.statusUnknown,
-      orphaned: s.statusHidden,
-      broken: s.statusBroken,
-    }[node.status];
+    const gateClass = node.visibilityPending
+      ? s.statusConditional
+      : {
+          visible: s.statusVisible,
+          hidden: s.statusHidden,
+          conditional: s.statusConditional,
+          unknown: s.statusUnknown,
+          orphaned: s.statusHidden,
+          broken: s.statusBroken,
+        }[node.status];
     const iconClass =
       node.reachability === "detached"
         ? s.statusDetached
