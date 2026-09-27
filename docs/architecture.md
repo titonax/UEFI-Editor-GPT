@@ -31,34 +31,37 @@
 
 ## Module boundaries
 
-| Module                        | Responsibility                                                |
-| ----------------------------- | ------------------------------------------------------------- |
-| `amiFirmwareImage.ts`         | Image inspection, container detection and Aptio evidence      |
-| `amiFirmwareExtractor.ts`     | Generation-neutral entry point for shared extraction          |
-| `aptioIvExtractor.ts`         | Recursive FV/FFS extraction and WASM adapters                 |
-| `firmwareSections.ts`         | PI section headers and safe encapsulation dispatch            |
-| `binaryReader.ts`             | Bounds-checked little-endian reads, GUIDs and alignment       |
-| `scripts.ts`                  | Source validation and final IFR data-model assembly           |
-| `ifrTextParser.ts`            | Compatibility parsing of verbose IFRExtractor text            |
-| `menuDiscovery.ts`            | AMITSE menu matching and ordered source fallback              |
-| `singleFormSetNavigation.ts`  | IFR-hub tab detection and AMITSE role separation              |
-| `setupData.ts`                | SetupData page-table and question metadata discovery          |
-| `ifrBinary.ts`                | Binary opcode spans, scope matching and HII provenance        |
-| `ifrEditing.ts`               | Transactional, fixed-size IFR editing primitives              |
-| `menuEditing.ts`              | Safe Ref moves, graph checks and IFR offset remapping         |
-| `ifrConditions.ts`            | Condition scope parsing, source classification and literals   |
-| `visibility.ts`               | Pure visibility and branch summaries                          |
-| `amiRootVisibility.ts`        | Code-corroborated AMI multi-FormSet root byte-vector analysis |
-| `amiRootVisibilityEditing.ts` | Provenance-bound desired root-state edit plans                |
-| `menuTree.ts`                 | GUID-aware graph construction and reachability                |
-| `hex.ts`                      | Validated hexadecimal conversion and bounded replacement      |
-| `checksum.ts`                 | Source and offset integrity hashes                            |
-| `dataValidation.ts`           | Deep runtime validation of imported `data.json`               |
-| `patcher.ts`                  | Pure patch planning plus the download adapter                 |
-| `errors.ts`                   | Stable domain error codes and user-facing messages            |
-| `corpusAnalysis.ts`           | Layered local extraction, navigation and editing assessment   |
-| `corpusTypes.ts`              | Versioned corpus result and Worker message contracts          |
-| `corpusReport.ts`             | Coverage denominators plus metadata-only JSON/CSV export      |
+| Module                        | Responsibility                                                 |
+| ----------------------------- | -------------------------------------------------------------- |
+| `amiFirmwareImage.ts`         | Image inspection, container detection and Aptio evidence       |
+| `amiFirmwareExtractor.ts`     | Generation-neutral entry point for shared extraction           |
+| `aptioIvExtractor.ts`         | Recursive FV/FFS extraction and WASM adapters                  |
+| `firmwareSections.ts`         | PI section headers and safe encapsulation dispatch             |
+| `binaryReader.ts`             | Bounds-checked little-endian reads, GUIDs and alignment        |
+| `scripts.ts`                  | Source validation and final IFR data-model assembly            |
+| `ifrTextParser.ts`            | Compatibility parsing of verbose IFRExtractor text             |
+| `menuDiscovery.ts`            | AMITSE menu matching and ordered source fallback               |
+| `singleFormSetNavigation.ts`  | IFR-hub tab detection and AMITSE role separation               |
+| `setupData.ts`                | SetupData page-table and question metadata discovery           |
+| `ifrBinary.ts`                | Binary opcode spans, scope matching and HII provenance         |
+| `ifrEditing.ts`               | Transactional, fixed-size IFR editing primitives               |
+| `menuEditing.ts`              | Safe Ref moves, graph checks and IFR offset remapping          |
+| `ifrConditions.ts`            | Condition scope parsing, source classification and literals    |
+| `visibility.ts`               | Pure visibility and branch summaries                           |
+| `amiRootVisibility.ts`        | Code-corroborated AMI multi-FormSet root byte-vector analysis  |
+| `amiRootVisibilityEditing.ts` | Provenance-bound desired root-state edit plans                 |
+| `menuTree.ts`                 | GUID-aware graph construction and reachability                 |
+| `hex.ts`                      | Validated hexadecimal conversion and bounded replacement       |
+| `checksum.ts`                 | Source and offset integrity hashes                             |
+| `dataValidation.ts`           | Deep runtime validation of imported `data.json`                |
+| `patcher.ts`                  | Pure patch planning plus the download adapter                  |
+| `errors.ts`                   | Stable domain error codes and user-facing messages             |
+| `corpusAnalysis.ts`           | Layered local extraction, navigation and editing assessment    |
+| `corpusTypes.ts`              | Versioned corpus result and Worker message contracts           |
+| `corpusReport.ts`             | Coverage denominators plus metadata-only JSON/CSV export       |
+| `phoenixCompressionCodec.ts`  | Raw Phoenix body codec contract; no FFV/container policy       |
+| `phoenixLh5.ts`               | Bounded LH5 adapter and deterministic raw LH5 encoding         |
+| `phoenixFfvRebuilder.ts`      | Provenance checks and fixed-allocation LH5 payload replacement |
 
 React components may orchestrate these modules, but domain modules must not
 display dialogs, mutate the DOM or reload the page.
@@ -102,6 +105,9 @@ display dialogs, mutate the DOM or reload the page.
   complete provenance trace.
 - Corpus exports may include filenames, hashes, structural counts and diagnostic
   text, but never source, decoded or extracted firmware bytes.
+- Phoenix compression codecs receive and return raw module bodies only. They do
+  not alter FFV headers, allocations, padding, sizes or checksums; reconstruction
+  validates those independently before changing a complete image.
 
 ## Versioning
 
