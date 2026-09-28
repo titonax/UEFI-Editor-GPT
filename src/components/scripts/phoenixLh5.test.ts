@@ -48,12 +48,12 @@ describe("compressPhoenixLh5", () => {
     );
   });
 
-  it("uses one block for a run and splits at the 16-bit block limit", async () => {
+  it("compresses and round-trips a run across match blocks", async () => {
     const source = new Uint8Array(0x10000).fill(0xa5);
 
     const compressed = compressPhoenixLh5(source);
 
-    expect(compressed).toHaveLength(14);
+    expect(compressed.length).toBeLessThan(source.length);
     await expect(decompressPhoenixLh5(compressed, source.length)).resolves.toEqual(
       source,
     );
@@ -69,6 +69,23 @@ describe("compressPhoenixLh5", () => {
     expect(second).toEqual(first);
     const decoded = await phoenixLh5Codec.decompress(first, source.length);
     expect(Array.from(decoded)).toEqual(Array.from(source));
+  });
+
+  it("round-trips deterministic mixed literal and repeated data", async () => {
+    let state = 0x5735a5a5;
+    const nextByte = () => {
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      return state & 0xff;
+    };
+    for (const size of [1, 2, 3, 31, 257, 1024, 4096]) {
+      const source = Uint8Array.from({ length: size }, (_, index) =>
+        index % 29 < 12 ? index % 7 : nextByte(),
+      );
+      const compressed = compressPhoenixLh5(source);
+      await expect(decompressPhoenixLh5(compressed, size)).resolves.toEqual(source);
+    }
   });
 
   it("represents an empty module as an empty raw body", () => {

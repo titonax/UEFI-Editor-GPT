@@ -15,7 +15,7 @@ producing a flashable image are separate capabilities.
 | Phoenix legacy reading    | FFV inventory, bounded LH5 decoding, strings, root screens, submenus and unlinked screens available |
 | Phoenix behavior analysis | Bounded static x86-16 callback tracing available                                                    |
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
-| Full-image writing        | Blocked until each enclosing container can be rebuilt and independently verified                    |
+| Full-image writing        | Phoenix legacy fixed-allocation TEMPLAT output available; other container paths remain blocked      |
 
 PhoenixBIOS legacy FFV, Phoenix SecureCore hybrids and Phoenix UEFI/HII are
 tracked separately. A shared vendor string is not evidence that they share a
@@ -63,10 +63,10 @@ changes match the previously hardware-verified callback patch.
 
 ## 2. LH5 encoder and Phoenix FFV reconstruction
 
-Status: in progress. The raw codec boundary and deterministic literal encoder
-are covered by independent-reader round trips. LZSS/Huffman optimization and
-the FFV/container writer remain pending; the baseline encoder is not treated as
-fit-capable until it satisfies the original Z03 allocation.
+Status: complete for fixed-allocation Phoenix FFV TEMPLAT edits. The optimized
+LZSS/Huffman encoder, FFV writer and frontend full-image download are covered by
+independent-reader round trips. The real modified Z03 template compresses to
+13,074 bytes inside its 13,112-byte allocation.
 
 Complete the write half of the existing bounded LH5 reader and remove the PBE
 dependency.
@@ -84,6 +84,10 @@ dependency.
 Exit gate: a complete rebuilt Z03 image re-extracts successfully, contains the
 requested logical change and preserves every byte outside the proven module
 path.
+
+Verified: the 1 MiB Z03 result re-opened with 34 modules, no inventory warnings,
+24 Setup screens and the requested `Cache Ram` visibility immediate set to zero;
+all bytes outside the 13,112-byte compressed allocation remained identical.
 
 ## 3. Phoenix structural menu editing
 

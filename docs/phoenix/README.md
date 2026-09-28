@@ -60,8 +60,21 @@ AMI Setup evidence.
 3. For Phoenix-derived UEFI, locate HII packages by validated FFS/section
    ownership rather than assuming AMI Setup GUIDs. Prove menu roots and
    variable stores before offering an edit plan.
-4. Only enable ROM writing after same-size module replacement, directory and
-   checksum repair, and independent full-image re-extraction are verified.
+4. Full-image output is enabled for fixed-allocation TEMPLAT edits. The writer
+   rejects compressed growth, leaves the FFV and outer-image boundaries
+   untouched, round-trips the generated LH5 body and independently re-opens the
+   complete image before download. Structural edits that require allocation or
+   directory changes remain blocked.
+
+## Z03 reconstruction acceptance
+
+The frontend's optimized encoder compresses the modified 32,356-byte
+`TEMPLAT0.ROM` body to 13,074 bytes, fitting its original 13,112-byte packed
+allocation with 38 bytes of padding. The rebuilt 1 MiB image was then parsed
+again: all 34 modules remained discoverable, the inventory reported no warnings,
+all 24 Setup screens were recovered and the requested `Cache Ram` visibility
+immediate was zero. Bytes outside the packed TEMPLAT allocation were identical
+to the source image.
 
 The local corpus exports these observations in JSON schema `0.5.0` and CSV;
 neither format contains BIOS or decompressed module bytes.
