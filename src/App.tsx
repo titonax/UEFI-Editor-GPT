@@ -159,7 +159,9 @@ export default function App({
           </AppShell.Header>
           <AppShell.Footer>
             <PhoenixFooter
-              templat={phoenixSession.inventory.templat}
+              fileName={phoenixSession.fileName}
+              sourceBytes={phoenixSession.sourceBytes}
+              inventory={phoenixSession.inventory}
               entries={phoenixQueue.entries}
               analysis={phoenixQueue.analysis}
               appliedFingerprint={phoenixQueue.appliedFingerprint}

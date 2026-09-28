@@ -74,6 +74,7 @@ interface BiosImageUploadProps {
 
 export interface PhoenixEditorSession {
   fileName: string;
+  sourceBytes: Uint8Array;
   inventory: PhoenixSetupInventory;
 }
 
@@ -458,7 +459,7 @@ export default function BiosImageUpload({
           >
             {!showAmiPanel
               ? phoenixMenu
-                ? "Phoenix Setup screens and items are decoded below. Full-image writing is not available."
+                ? "Phoenix Setup screens and items are decoded below. Applied changes can be rebuilt into a complete firmware image."
                 : report.phoenixLegacy
                   ? "Phoenix modules are inventoried below. This image did not yield a readable Setup menu."
                   : "The detected family and its evidence are shown below. AMI Aptio fields do not apply to this image."
@@ -782,6 +783,7 @@ export default function BiosImageUpload({
               onClick={() => {
                 onPhoenixExtracted?.({
                   fileName: file?.name ?? "firmware.bin",
+                  sourceBytes: firmwareBytes.current?.slice() ?? new Uint8Array(),
                   inventory: phoenixMenu,
                 });
               }}

@@ -1,16 +1,23 @@
 import React from "react";
-import { Button, Group, Text } from "@mantine/core";
+import { Button, Group, Loader, Text } from "@mantine/core";
 import { IconArrowBackUp, IconDownload, IconListCheck } from "@tabler/icons-react";
+import { saveAs } from "file-saver";
 import type { ChangeQueueAnalysis, ChangeQueueEntry } from "../scripts/changeQueue";
 import type { PhoenixVisibilityPayload } from "../scripts/phoenixChangeQueue";
 import type { PhoenixSetupItem } from "../scripts/phoenixSetupTable";
-import { savePhoenixSetupChanges } from "../scripts/phoenixSetupTable";
+import type { PhoenixSetupInventory } from "../scripts/phoenixSetupMenu";
+import {
+  phoenixModifiedFileName,
+  rebuildPhoenixFirmware,
+} from "../scripts/phoenixFirmwareRebuilder";
 import { errorMessage } from "../scripts/errors";
 import ChangeQueueDialog from "../ChangeQueue/ChangeQueueDialog";
 import s from "../Footer/Footer.module.css";
 
 export default function PhoenixFooter({
-  templat,
+  fileName,
+  sourceBytes,
+  inventory,
   entries,
   analysis,
   appliedFingerprint,
@@ -21,7 +28,9 @@ export default function PhoenixFooter({
   onApply,
   onClose,
 }: {
-  templat: Uint8Array;
+  fileName: string;
+  sourceBytes: Uint8Array;
+  inventory: PhoenixSetupInventory;
   entries: ChangeQueueEntry<PhoenixVisibilityPayload>[];
   analysis: ChangeQueueAnalysis<PhoenixVisibilityPayload>;
   appliedFingerprint: string | null;
@@ -33,6 +42,7 @@ export default function PhoenixFooter({
   onClose: () => void;
 }) {
   const [error, setError] = React.useState("");
+  const [building, setBuilding] = React.useState(false);
   const [queueOpened, setQueueOpened] = React.useState(false);
   const isApplied = analysis.canApply && appliedFingerprint === analysis.fingerprint;
   return (
@@ -63,18 +73,32 @@ export default function PhoenixFooter({
           <Button
             size="xs"
             variant="default"
-            leftSection={<IconDownload size={14} />}
-            disabled={!isApplied || appliedItems.length === 0}
+            leftSection={building ? <Loader size={14} /> : <IconDownload size={14} />}
+            disabled={!isApplied || appliedItems.length === 0 || building}
             onClick={() => {
+              setBuilding(true);
               try {
-                savePhoenixSetupChanges(templat, appliedItems);
-                setError("");
-              } catch (reason) {
+                void rebuildPhoenixFirmware(sourceBytes, inventory, appliedItems)
+                  .then((result) => {
+                    saveAs(
+                      new Blob([result.image], { type: "application/octet-stream" }),
+                      phoenixModifiedFileName(fileName),
+                    );
+                    setError("");
+                  })
+                  .catch((reason: unknown) => {
+                    setError(errorMessage(reason));
+                  })
+                  .finally(() => {
+                    setBuilding(false);
+                  });
+              } catch (reason: unknown) {
                 setError(errorMessage(reason));
+                setBuilding(false);
               }
             }}
           >
-            Modified TEMPLAT00.ROM
+            {building ? "Building and verifying…" : "Modified firmware image"}
           </Button>
           <Button
             size="xs"

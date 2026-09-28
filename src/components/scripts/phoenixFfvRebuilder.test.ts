@@ -49,11 +49,11 @@ describe("replacePhoenixFfvLh5Payload", () => {
     );
 
     expect(result).toMatchObject({
-      compressedSize: 8,
       allocationSize: 16,
       changedOffset: 36,
       changedLength: 16,
     });
+    expect(result.compressedSize).toBeLessThanOrEqual(result.allocationSize);
     expect(bytes).toEqual(original);
     expect(result.image.subarray(0, 36)).toEqual(original.subarray(0, 36));
     await expect(

@@ -61,7 +61,9 @@
 | `corpusReport.ts`             | Coverage denominators plus metadata-only JSON/CSV export       |
 | `phoenixCompressionCodec.ts`  | Raw Phoenix body codec contract; no FFV/container policy       |
 | `phoenixLh5.ts`               | Bounded LH5 adapter and deterministic raw LH5 encoding         |
+| `phoenixLh5Encoder.ts`        | 8 KiB LZSS tokenizer and canonical static-Huffman writer       |
 | `phoenixFfvRebuilder.ts`      | Provenance checks and fixed-allocation LH5 payload replacement |
+| `phoenixFirmwareRebuilder.ts` | Full-image Phoenix rebuild and independent Setup re-open       |
 
 React components may orchestrate these modules, but domain modules must not
 display dialogs, mutate the DOM or reload the page.
@@ -108,6 +110,9 @@ display dialogs, mutate the DOM or reload the page.
 - Phoenix compression codecs receive and return raw module bodies only. They do
   not alter FFV headers, allocations, padding, sizes or checksums; reconstruction
   validates those independently before changing a complete image.
+- Phoenix full-image output preserves every byte outside the inventoried
+  compressed TEMPLAT allocation, rejects compression growth, round-trips the
+  encoded body and re-opens the complete image before enabling the download.
 
 ## Versioning
 

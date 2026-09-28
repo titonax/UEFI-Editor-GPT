@@ -1,42 +1,6 @@
 import { LhaReader, Uint8ArrayReader, Uint8ArrayWriter } from "@kirinsaninc/lhats";
 import type { PhoenixCompressionCodec } from "./phoenixCompressionCodec";
-
-const LH5_MAX_BLOCK_SYMBOLS = 0xffff;
-
-class MostSignificantBitWriter {
-  private bytes: number[] = [];
-  private currentByte = 0;
-  private usedBits = 0;
-
-  write(value: number, bitCount: number) {
-    if (!Number.isInteger(value) || value < 0 || value >= 2 ** bitCount) {
-      throw new RangeError(
-        `Value ${String(value)} does not fit in ${String(bitCount)} bits.`,
-      );
-    }
-
-    for (let bit = bitCount - 1; bit >= 0; bit -= 1) {
-      this.currentByte = (this.currentByte << 1) | ((value >>> bit) & 1);
-      this.usedBits += 1;
-      if (this.usedBits === 8) {
-        this.bytes.push(this.currentByte);
-        this.currentByte = 0;
-        this.usedBits = 0;
-      }
-    }
-  }
-
-  finish(appendGuardByte = false) {
-    if (this.usedBits > 0) {
-      this.bytes.push(this.currentByte << (8 - this.usedBits));
-    }
-    // Some bounded readers reject a constant-table final symbol when no
-    // physical input bit remains, even though decoding it consumes zero bits.
-    // A trailing zero byte is valid padding and makes that boundary explicit.
-    if (appendGuardByte && this.bytes.length > 0) this.bytes.push(0);
-    return Uint8Array.from(this.bytes);
-  }
-}
+import { encodePhoenixLh5 } from "./phoenixLh5Encoder";
 
 // Phoenix FFV modules store their compressed body as a bare -lh5- stream -
 // the LZSS+static-Huffman payload only, with none of the surrounding LHA
@@ -102,42 +66,11 @@ export async function decompressPhoenixLh5(
 }
 
 /**
- * Produces a standards-valid raw -lh5- body using single-symbol blocks.
- *
- * This first writer intentionally emits literals only. Equal adjacent bytes
- * share one block, so long runs remain compact, but general LZSS matching and
- * multi-symbol Huffman tables are left to the optimizing encoder. Keeping this
- * baseline makes codec/container integration independently testable: callers
- * can already require exact round-trips and reject a body that does not fit the
- * original Phoenix allocation.
+ * Produces a deterministic raw -lh5- body using an 8 KiB LZSS dictionary and
+ * canonical static-Huffman blocks.
  */
 export function compressPhoenixLh5(uncompressed: Uint8Array): Uint8Array {
-  const writer = new MostSignificantBitWriter();
-  let offset = 0;
-
-  while (offset < uncompressed.length) {
-    const literal = uncompressed[offset];
-    let runLength = 1;
-    while (
-      runLength < LH5_MAX_BLOCK_SYMBOLS &&
-      offset + runLength < uncompressed.length &&
-      uncompressed[offset + runLength] === literal
-    ) {
-      runLength += 1;
-    }
-
-    writer.write(runLength, 16); // number of decoded C symbols in this block
-    writer.write(0, 5); // single-symbol T table
-    writer.write(0, 5); // unused T symbol
-    writer.write(0, 9); // single-symbol C table
-    writer.write(literal, 9); // literal produced for every symbol in the block
-    writer.write(0, 4); // single-symbol P table
-    writer.write(0, 4); // unused position symbol
-
-    offset += runLength;
-  }
-
-  return writer.finish(true);
+  return encodePhoenixLh5(uncompressed);
 }
 
 export const phoenixLh5Codec: PhoenixCompressionCodec = {

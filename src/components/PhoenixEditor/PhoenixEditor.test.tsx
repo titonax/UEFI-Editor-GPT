@@ -144,7 +144,9 @@ function Workspace() {
       </AppShell.Main>
       <AppShell.Footer>
         <PhoenixFooter
-          templat={templat}
+          fileName="phoenix.bin"
+          sourceBytes={new Uint8Array()}
+          inventory={{ menu, templat }}
           entries={queue}
           analysis={analysis}
           appliedFingerprint={appliedFingerprint}
@@ -230,7 +232,7 @@ describe("Phoenix full editor workspace", () => {
       screen.getByText("Phoenix Setup editor · 1 queued · 0 applied"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Modified TEMPLAT00.ROM" }),
+      screen.getByRole("button", { name: "Modified firmware image" }),
     ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
     expect(await screen.findByText("2 byte(s)")).toBeInTheDocument();
@@ -240,7 +242,7 @@ describe("Phoenix full editor workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
     expect(screen.getByText("Plan applied")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Modified TEMPLAT00.ROM" }),
+      screen.getByRole("button", { name: "Modified firmware image" }),
     ).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.getByText("Shown · applied plan")).toBeInTheDocument();
