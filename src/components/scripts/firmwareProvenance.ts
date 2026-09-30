@@ -83,7 +83,7 @@ export interface FirmwareArtifactTrace {
 
 export interface FirmwareReconstructionAssessment {
   traceComplete: boolean;
-  writeEnabled: false;
+  writeEnabled: boolean;
   traces: FirmwareArtifactTrace[];
   compressions: FirmwareCompression[];
   blockers: string[];
@@ -204,8 +204,8 @@ function traceArtifact(
 
 /**
  * Reports whether all retained artifacts can be traced back to the source image.
- * Full-image writing deliberately remains disabled until the bottom-up builder,
- * deterministic compressors, checksum repair and independent verification exist.
+ * Fixed-size uncompressed paths are write-ready. Compressed paths remain
+ * blocked until their deterministic codec is available.
  */
 export function assessFirmwareReconstruction(
   graph: FirmwareProvenanceGraph,
@@ -222,13 +222,11 @@ export function assessFirmwareReconstruction(
   if (compressions.includes("standard")) {
     blockers.push("Deterministic EFI/Tiano recompression is not implemented yet.");
   }
-  blockers.push(
-    "Bottom-up section replacement, FFS checksum repair and full re-extraction verification are not implemented yet.",
-  );
+  const traceComplete = traces.length > 0 && traces.every((trace) => trace.complete);
 
   return {
-    traceComplete: traces.length > 0 && traces.every((trace) => trace.complete),
-    writeEnabled: false,
+    traceComplete,
+    writeEnabled: traceComplete && blockers.length === 0,
     traces,
     compressions,
     blockers,

@@ -213,7 +213,7 @@ describe("complete firmware preflight", () => {
     expect(screen.getByText(/2 nested layer/)).toBeInTheDocument();
     expect(screen.getByText("Reconstruction trace")).toBeInTheDocument();
     expect(
-      screen.getByText("Full-image reconstruction — trace captured"),
+      screen.getByText("Full-image reconstruction — fixed-size path ready"),
     ).toBeInTheDocument();
     expect(extractAmiFirmwareBytes).toHaveBeenCalledOnce();
 

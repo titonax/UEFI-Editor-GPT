@@ -15,7 +15,7 @@ producing a flashable image are separate capabilities.
 | Phoenix legacy reading    | FFV inventory, bounded LH5 decoding, strings, root screens, submenus and unlinked screens available |
 | Phoenix behavior analysis | Bounded static x86-16 callback tracing available                                                    |
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
-| Full-image writing        | Phoenix legacy fixed-allocation TEMPLAT output available; other container paths remain blocked      |
+| Full-image writing        | Phoenix legacy plus fixed-size uncompressed UEFI paths; compressed UEFI paths remain blocked        |
 
 PhoenixBIOS legacy FFV, Phoenix SecureCore hybrids and Phoenix UEFI/HII are
 tracked separately. A shared vendor string is not evidence that they share a
@@ -130,6 +130,12 @@ rule, or the UI labels the rule as sample-specific.
 
 ## 6. Generic UEFI reconstruction engine
 
+Status: in progress. Fixed-size uncompressed PI paths now rebuild bottom-up,
+repair affected FFS checksums, preserve all unowned bytes and re-open AMI
+artefacts before download. Intel SPI inputs retain Descriptor, ME, GbE and every
+non-BIOS byte exactly; BIOS-only inputs remain BIOS-only. Output is always
+`.bin`, never a rebuilt capsule.
+
 Build edited PI artefacts from leaves back to the original image.
 
 - Add deterministic EFI/Tiano and LZMA encoders.
@@ -138,6 +144,10 @@ Build edited PI artefacts from leaves back to the original image.
 - Initially require every rebuilt payload to fit its original allocation.
 - Re-extract the completed image and verify requested edits and untouched
   boundaries.
+- For a complete SPI input, rebuild only inside the descriptor-declared BIOS
+  region and return the complete same-size SPI image.
+- Do not generate capsules or modify Descriptor, ME, GbE, EC or other flash
+  regions.
 
 Exit gate: a complete UEFI image can be downloaded, re-opened and shown to
 contain exactly the requested HII edit.

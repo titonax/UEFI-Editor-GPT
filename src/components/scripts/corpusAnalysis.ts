@@ -406,8 +406,9 @@ export function buildCorpusContextReport(
       "The selected firmware context is absent from the extraction inventory.",
     );
   }
-  const navigation = summarizeNavigation(data);
   const reconstruction = assessFirmwareReconstruction(artifacts.provenance);
+  const navigation = summarizeNavigation(data);
+  const editing = summarizeEditing(data, artifacts.hii);
   return {
     id: selected.id,
     label: selected.label,
@@ -423,10 +424,13 @@ export function buildCorpusContextReport(
     generation,
     hii: summarizeHii(data),
     navigation,
-    editing: summarizeEditing(data, artifacts.hii),
+    editing: {
+      ...editing,
+      fullImageReady: reconstruction.writeEnabled,
+    },
     reconstruction: {
       traceComplete: reconstruction.traceComplete,
-      writeEnabled: false,
+      writeEnabled: reconstruction.writeEnabled,
       compressions: reconstruction.compressions,
       blockers: reconstruction.blockers,
     },
@@ -481,6 +485,9 @@ function stagesForContexts(contexts: CorpusContextReport[]): CorpusStageResult[]
   const traceable = contexts.filter(
     (context) => context.reconstruction.traceComplete,
   ).length;
+  const writable = contexts.filter(
+    (context) => context.reconstruction.writeEnabled,
+  ).length;
   return [
     makeStage(
       "extraction",
@@ -504,8 +511,8 @@ function stagesForContexts(contexts: CorpusContextReport[]): CorpusStageResult[]
     ),
     makeStage(
       "reconstruction",
-      "blocked",
-      `${String(traceable)} of ${String(contexts.length)} context(s) have complete provenance, but full-image writing remains disabled until bottom-up reconstruction and verification exist.`,
+      writable === contexts.length ? "passed" : writable > 0 ? "warning" : "blocked",
+      `${String(writable)} of ${String(contexts.length)} context(s) support complete fixed-size image output; ${String(traceable)} have a complete provenance path.`,
     ),
   ];
 }
