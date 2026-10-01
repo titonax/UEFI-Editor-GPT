@@ -36,6 +36,27 @@ function validFirmwareVolumeImage(...payloads: { offset: number; bytes: number[]
 }
 
 describe("AMI firmware image inspection", () => {
+  it("confirms a structurally bounded AMIBIOS8 legacy ROM", () => {
+    const bytes = new Uint8Array(0x20000).fill(0xff);
+    bytes.set(new TextEncoder().encode("AMIBIOSC0800"), 0x17fea);
+    bytes.set(new TextEncoder().encode("AMIBOOT ROM"), 0x1804c);
+    bytes.set(new TextEncoder().encode("11/24/08"), bytes.length - 10);
+    bytes.set([0xea, 0xaa, 0xff, 0x00, 0xf0], bytes.length - 16);
+
+    expect(inspectAmiFirmwareBytes(bytes)).toMatchObject({
+      container: "ami-legacy-rom",
+      family: { family: "ami-legacy", confidence: "confirmed" },
+      amiLegacy: {
+        format: "AMIBIOS 8",
+        version: "0800",
+        signatureOffset: 0x17fea,
+        bootBlockOffset: 0x1804c,
+        resetVectorOffset: 0x1fff0,
+        biosDate: "11/24/08",
+      },
+    });
+  });
+
   it("classifies non-UEFI families and standalone components from payload evidence", () => {
     const cases = [
       ["PhoenixBIOS 4.0 Release 6.1", "phoenix"],

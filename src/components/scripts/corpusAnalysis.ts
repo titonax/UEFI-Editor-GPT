@@ -526,7 +526,8 @@ export async function analyzeCorpusFirmware(
   onProgress({ stage: "preflight", detail: "Inspecting the outer image…" });
   const sha256 = await dependencies.hash(input.bytes);
   const outerReport = dependencies.inspect(input.bytes);
-  const phoenixDetails = {
+  const legacyDetails = {
+    ...(outerReport.amiLegacy ? { amiLegacy: outerReport.amiLegacy } : {}),
     ...(outerReport.phoenixLegacy ? { phoenixLegacy: outerReport.phoenixLegacy } : {}),
     ...(outerReport.phoenixUefi ? { phoenixUefi: outerReport.phoenixUefi } : {}),
   };
@@ -549,7 +550,7 @@ export async function analyzeCorpusFirmware(
       fileName: input.fileName,
       brand,
       family: outerReport.family,
-      ...phoenixDetails,
+      ...legacyDetails,
       ifrFormat: "unknown",
       size: input.size,
       lastModified: input.lastModified ?? null,
@@ -651,7 +652,7 @@ export async function analyzeCorpusFirmware(
         ),
       ),
       family: withParsedAmiContext(outerReport.family),
-      ...phoenixDetails,
+      ...legacyDetails,
       ifrFormat,
       ...(frameworkInventory ? { frameworkInventory } : {}),
       size: input.size,
@@ -673,7 +674,7 @@ export async function analyzeCorpusFirmware(
       family: extractedAmiContext
         ? withExtractedAmiContext(outerReport.family)
         : outerReport.family,
-      ...phoenixDetails,
+      ...legacyDetails,
       ifrFormat,
       ...(frameworkInventory ? { frameworkInventory } : {}),
       size: input.size,

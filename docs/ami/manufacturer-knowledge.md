@@ -25,12 +25,12 @@ No marker on its own establishes a firmware generation or navigation mechanism.
 
 ## Current observations
 
-The catalogue contains **13 identified image or payload hashes** drawn from
+The catalogue contains **14 identified image or payload hashes** drawn from
 the repository's existing metadata-only sample records:
 
 | Manufacturer   | Samples | Aptio generation documented  | Observed input containers                                                       | Proven top-level navigation         |
 | -------------- | ------: | ---------------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
-| ASUS           |       5 | IV in 3 samples              | Vendor images, including capsules                                               | Single-FormSet IFR hub in 2 samples |
+| ASUS           |       6 | IV in 3 samples              | 5 vendor images/capsules, 1 AMIBIOS8 legacy ROM                                 | Single-FormSet IFR hub in 2 samples |
 | HP             |       3 | IV in 3 samples              | 2 Intel flash images, 1 firmware-volume image                                   | Not yet catalogued                  |
 | Intel (NUC)    |       1 | Probable V in browser report | Firmware-volume image, despite `.CAP` extension                                 | Single-FormSet IFR hub in 1 sample  |
 | MSI            |       2 | IV in 2 samples              | 1 Intel flash image, 1 vendor image                                             | Not yet catalogued                  |
@@ -52,7 +52,7 @@ ASUS hub evidence comes from
 other samples are in the HP, Supermicro and cross-vendor records under
 [`docs/aptio-iv/samples`](../aptio-iv/samples). Samples without a verified
 navigation observation contribute to manufacturer/container counts, not to a
-navigation prediction. For example, five ASUS images do **not** mean five
+navigation prediction. For example, six ASUS images do **not** mean six
 confirmed single-FormSet hubs.
 
 ## How a new image is treated
@@ -70,7 +70,7 @@ confirmed single-FormSet hubs.
 
 The initial implementation surfaces the leads in the single-image preflight
 and local corpus report; it does not reorder detectors or learn new patterns
-automatically. Corpus JSON schema `0.5.0` exports the evidence, counts and
+automatically. Corpus JSON schema `0.6.0` exports the evidence, counts and
 comparison outcome. The CSV includes manufacturer, source, prior navigation
 and outcome for grouping new observations. Firmware bytes stay in the browser.
 

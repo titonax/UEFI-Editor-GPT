@@ -462,7 +462,9 @@ export default function BiosImageUpload({
                 ? "Phoenix Setup screens and items are decoded below. Applied changes can be rebuilt into a complete firmware image."
                 : report.phoenixLegacy
                   ? "Phoenix modules are inventoried below. This image did not yield a readable Setup menu."
-                  : "The detected family and its evidence are shown below. AMI Aptio fields do not apply to this image."
+                  : report.amiLegacy
+                    ? "A validated AMIBIOS8 legacy boot block was found. This format predates UEFI HII and requires its own module and Setup parser."
+                    : "The detected family and its evidence are shown below. AMI Aptio fields do not apply to this image."
               : assessment.conflict
                 ? "Outer metadata and the extracted HII layout disagree. The application will not force a generation."
                 : profile
@@ -585,6 +587,27 @@ export default function BiosImageUpload({
                 <Table.Th>Firmware volumes</Table.Th>
                 <Table.Td>{offsets(report.firmwareVolumes)}</Table.Td>
               </Table.Tr>
+              {report.amiLegacy && (
+                <>
+                  <Table.Tr>
+                    <Table.Th>Legacy AMI core</Table.Th>
+                    <Table.Td>
+                      {report.amiLegacy.format} · {report.amiLegacy.signature} at{" "}
+                      {formatHexOffset(report.amiLegacy.signatureOffset)}
+                    </Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Th>Boot block / reset vector</Table.Th>
+                    <Table.Td>
+                      {formatHexOffset(report.amiLegacy.bootBlockOffset)} /{" "}
+                      {formatHexOffset(report.amiLegacy.resetVectorOffset)}
+                      {report.amiLegacy.biosDate
+                        ? ` · BIOS date ${report.amiLegacy.biosDate}`
+                        : ""}
+                    </Table.Td>
+                  </Table.Tr>
+                </>
+              )}
               {showAmiPanel && (
                 <>
                   <Table.Tr>
@@ -728,6 +751,15 @@ export default function BiosImageUpload({
               {String(frameworkInventory.references)} references in the AMI Setup
               payload. This editor requires UEFI HII packages to build and validate edit
               plans for this image.
+            </Alert>
+          )}
+          {report.amiLegacy && (
+            <Alert color="blue" title="AMIBIOS 8 legacy ROM recognized">
+              This is not Aptio and does not contain UEFI PI volumes or HII Forms.
+              Recognition is confirmed from the versioned AMIBIOS core signature,
+              boot-block marker and x86 reset vector. Menu extraction and editing will
+              require a separate bounded AMIBIOS8 module pipeline; the current UEFI
+              editor will not attempt an incompatible HII scan.
             </Alert>
           )}
           {report.phoenixLegacy && (
@@ -955,6 +987,7 @@ function coherenceLabel(
 
 function containerLabel(container: FirmwareContainer) {
   if (container === "intel-flash") return "Complete Intel flash";
+  if (container === "ami-legacy-rom") return "AMIBIOS legacy ROM";
   if (container === "phoenix-rom") return "Phoenix module ROM";
   if (container === "firmware-volume-image") return "Raw firmware volume image";
   if (container === "vendor-image") return "Vendor update image";

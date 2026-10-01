@@ -112,6 +112,12 @@ const documentedSamples: DocumentedSample[] = [
     container: "vendor-image",
   },
   {
+    brand: "ASUS",
+    sha256: "78575954ba80c09b40b0283a0dc6b918ffeb4b9623a58613225cd85dd544ca4b",
+    source: "docs/ami/asus-n10j-amibios8.md",
+    container: "ami-legacy-rom",
+  },
+  {
     brand: "HP",
     sha256: "c13e4495042f0bda3deadf4d110bf241cdeb6679153cde001b24e7e337b4e2c1",
     source: "docs/aptio-iv/samples/hp-server-l01-0278.md",

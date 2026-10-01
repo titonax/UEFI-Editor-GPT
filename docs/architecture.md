@@ -56,6 +56,7 @@
 | `dataValidation.ts`           | Deep runtime validation of imported `data.json`                |
 | `patcher.ts`                  | Pure patch planning plus the download adapter                  |
 | `firmwareImageContainer.ts`   | BIOS/Intel SPI boundaries and untouched-region enforcement     |
+| `amiLegacyFirmware.ts`        | Bounded AMIBIOS8 boot-block and reset-vector recognition       |
 | `uefiImageRebuilder.ts`       | Bottom-up fixed-size PI rebuild and FFS checksum repair        |
 | `amiFirmwareRebuilder.ts`     | AMI patch orchestration and independent artefact re-extraction |
 | `errors.ts`                   | Stable domain error codes and user-facing messages             |
@@ -118,6 +119,9 @@ display dialogs, mutate the DOM or reload the page.
   encoded body and re-opens the complete image before enabling the download.
 - Intel SPI reconstruction permits changes only inside the descriptor-declared
   BIOS region and returns Descriptor, ME, GbE, EC and every other byte unchanged.
+- AMIBIOS8 legacy detection is separate from Aptio: a versioned core signature,
+  boot-block marker and x86 reset vector are required before the container is
+  promoted from a loose vendor string to a confirmed legacy ROM.
 
 ## Versioning
 
@@ -127,3 +131,5 @@ is `0.7.0`; it distinguishes single-FormSet IFR navigation hubs from AMITSE
 page registration and stores provenance-bound pending root-visibility changes
 without trusting imported binary analysis. The two versions are intentionally
 independent.
+Corpus JSON/CSV uses schema `0.6.0`; AMIBIOS8 boot-block metadata was added
+without changing the editable `data.json` contract.
