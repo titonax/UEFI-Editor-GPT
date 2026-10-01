@@ -222,7 +222,7 @@ describe("local firmware corpus analysis", () => {
     expect(context.editing).toMatchObject({
       hideAvailable: 1,
       showAvailable: 1,
-      fullImageReady: false,
+      fullImageReady: true,
     });
     expect(context.editing.actions).toEqual(
       expect.arrayContaining([
@@ -375,7 +375,7 @@ describe("local firmware corpus analysis", () => {
       navigationOutcome: "new-pattern",
     });
     expect(result.contexts[0]?.navigation.mechanism).toBe("multi-formset-root-vector");
-    expect(result.contexts[0]?.editing.fullImageReady).toBe(false);
+    expect(result.contexts[0]?.editing.fullImageReady).toBe(true);
   });
 
   it("classifies expected extraction failures without hiding their stage", async () => {
@@ -525,7 +525,7 @@ describe("local firmware corpus analysis", () => {
       extractionRate: 66.7,
       navigationRate: 100,
       hiiEditRate: 100,
-      fullImageRate: 0,
+      fullImageRate: 100,
     });
     expect(corpusRunToCsv(report)).toContain('"board,""one"".bin"');
     expect(report.privacy).toBe("metadata-only-no-firmware-bytes");
@@ -645,7 +645,7 @@ describe("local firmware corpus analysis", () => {
       duplicateHashes: 1,
       unhashedCases: 1,
       noHiiEdit: 1,
-      fullImageBlocked: 3,
+      fullImageBlocked: 0,
       unknownManufacturer: 2,
     });
     expect(report.summary.uniqueFiles).toBe(6);

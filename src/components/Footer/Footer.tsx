@@ -1,4 +1,4 @@
-import { Button, FileButton, Group, TextInput } from "@mantine/core";
+import { Button, FileButton, Group, Loader, TextInput } from "@mantine/core";
 import { IconDownload, IconListCheck, IconUpload } from "@tabler/icons-react";
 import { saveAs } from "file-saver";
 import React from "react";
@@ -7,7 +7,6 @@ import type { PopulatedFiles } from "../firmwareFiles";
 import {
   calculateJsonChecksum,
   dataSchemaVersion,
-  downloadModifiedFiles,
   validateByteInput,
 } from "../scripts/scripts";
 import { parseDataFile } from "../scripts/dataValidation";
@@ -19,6 +18,7 @@ import type { Data } from "../scripts/types";
 import s from "./Footer.module.css";
 import DataChangeQueueDialog from "../ChangeQueue/DataChangeQueueDialog";
 import type { DataChangeQueueController } from "../ChangeQueue/useDataChangeQueue";
+import { buildAmiFirmwareImage } from "../scripts/amiFirmwareRebuilder";
 
 interface FooterProps {
   files: PopulatedFiles;
@@ -42,6 +42,7 @@ export default function Footer({
   const resetRef = React.useRef<() => void>(null);
   const [input, setInput] = React.useState("05");
   const [queueOpened, setQueueOpened] = React.useState(false);
+  const [building, setBuilding] = React.useState(false);
   const queueApplied =
     changeQueue.analysis.canApply &&
     changeQueue.appliedFingerprint === changeQueue.analysis.fingerprint;
@@ -146,32 +147,45 @@ export default function Footer({
           <Button
             size="xs"
             variant="default"
-            leftSection={<IconDownload />}
+            leftSection={building ? <Loader size={16} /> : <IconDownload />}
             disabled={
               !queueApplied ||
-              appliedData.firmwareFamily !== "aptio-v" ||
-              (appliedData.rootVisibilityEdits?.length ?? 0) > 0
+              !files.firmwareSource ||
+              (appliedData.rootVisibilityEdits?.length ?? 0) > 0 ||
+              building
             }
             title={
               !queueApplied
                 ? "Apply the selected change queue before exporting."
-                : (appliedData.rootVisibilityEdits?.length ?? 0) > 0
-                  ? "Root visibility changes require the verified full-image reconstruction path"
-                  : appliedData.firmwareFamily === "aptio-iv"
-                    ? "Aptio IV export is disabled until safe reinsertion is implemented"
-                    : appliedData.firmwareFamily === "ami-aptio"
-                      ? "Export is disabled until the firmware generation and write path are proven"
-                      : undefined
+                : !files.firmwareSource
+                  ? "Load a complete firmware image before exporting."
+                  : (appliedData.rootVisibilityEdits?.length ?? 0) > 0
+                    ? "Root visibility changes require the verified full-image reconstruction path"
+                    : undefined
             }
             onClick={() => {
-              try {
-                downloadModifiedFiles(appliedData, files);
-              } catch (reason) {
-                onError(errorMessage(reason));
-              }
+              setBuilding(true);
+              void buildAmiFirmwareImage(appliedData, files)
+                .then((result) => {
+                  saveAs(
+                    new Blob([result.image], { type: "application/octet-stream" }),
+                    result.fileName,
+                  );
+                  saveAs(
+                    new Blob([result.changeLog], { type: "text/plain" }),
+                    "changelog.txt",
+                  );
+                  onError("");
+                })
+                .catch((reason: unknown) => {
+                  onError(errorMessage(reason));
+                })
+                .finally(() => {
+                  setBuilding(false);
+                });
             }}
           >
-            UEFI files
+            {building ? "Building and verifying…" : "Modified firmware image"}
           </Button>
         </Group>
 

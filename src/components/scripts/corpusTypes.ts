@@ -118,13 +118,13 @@ export interface CorpusEditSummary {
   showAvailable: number;
   moveAvailable: number;
   blocked: number;
-  fullImageReady: false;
+  fullImageReady: boolean;
   actions: CorpusEditCapability[];
 }
 
 export interface CorpusReconstructionSummary {
   traceComplete: boolean;
-  writeEnabled: false;
+  writeEnabled: boolean;
   compressions: string[];
   blockers: string[];
 }

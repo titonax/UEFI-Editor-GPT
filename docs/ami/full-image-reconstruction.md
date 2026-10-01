@@ -2,7 +2,7 @@
 
 Full-image analysis and full-image writing are separate capabilities. A parsed
 Setup HII tree is not proof that a modified firmware image can be rebuilt
-safely. The application therefore keeps full-image writing disabled until every
+safely. The application therefore enables full-image writing only when every
 layer between an edited artefact and the original image can be reconstructed and
 verified.
 
@@ -26,9 +26,9 @@ The extractor retains a local graph with these invariants:
 The preflight validates every artefact path back to buffer `0`. This is a
 read-only statement: **trace captured** does not mean **write ready**.
 
-## Required write pipeline
+## Write pipeline
 
-A future builder must work from edited leaves back to the source image:
+The builder works from edited leaves back to the source image:
 
 1. Apply all edits that share a decoded buffer before rebuilding its parent.
 2. Recreate each PI section with its original metadata and deterministic
@@ -41,18 +41,24 @@ A future builder must work from edited leaves back to the source image:
 6. Re-run the independent extractor on the completed image and require all
    requested logical edits, structure checks and size constraints to match.
 
-Relocation, volume growth, authenticated capsule resigning and platform-specific
-flash-region changes are separate capabilities. They must not be silently
-approximated by the fixed-allocation builder.
+Relocation and volume growth are outside the fixed-allocation builder. Capsule
+output is deliberately out of scope. A complete Intel SPI input produces a
+complete same-size SPI output, but only bytes inside the descriptor-declared
+BIOS region may change; Descriptor, ME, GbE, EC and all other regions remain
+bit-for-bit identical.
 
-## Current blockers
+## Current support and blockers
 
-Full-image download remains unavailable while any of these are missing:
+Fixed-size uncompressed section paths are rebuilt bottom-up today. The builder
+repairs affected FFS header/data checksums, rejects changes outside owned FFS
+paths or the BIOS region, and independently re-extracts the requested AMI
+artefacts before download.
+
+The remaining path-specific blockers are:
 
 - deterministic LZMA and EFI/Tiano encoders compatible with the source section;
-- bottom-up section replacement and shared-ancestor merging;
-- FFS/FV checksum and padding repair;
-- full-image re-extraction and byte-boundary verification.
+- compressed section size/header repair and padding preservation;
+- real-sample acceptance for every newly enabled encapsulation combination.
 
 All firmware bytes, decoded buffers and provenance metadata remain in the
 browser session. They are not uploaded by the application.

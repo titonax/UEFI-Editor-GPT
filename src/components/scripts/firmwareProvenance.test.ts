@@ -79,9 +79,26 @@ describe("firmware reconstruction provenance", () => {
       expect.arrayContaining([
         expect.stringContaining("LZMA"),
         expect.stringContaining("EFI/Tiano"),
-        expect.stringContaining("checksum"),
       ]),
     );
+  });
+
+  it("enables a complete fixed-size path without compression", () => {
+    const graph = traceableGraph();
+    graph.buffers = [graph.buffers[0]];
+    graph.artifacts[0] = {
+      ...graph.artifacts[0],
+      bufferId: 0,
+      payloadStart: 0x30,
+      payloadEnd: 0x90,
+      sourceFile: { ...graph.artifacts[0].sourceFile, bufferId: 0 },
+    };
+
+    expect(assessFirmwareReconstruction(graph)).toMatchObject({
+      traceComplete: true,
+      writeEnabled: true,
+      blockers: [],
+    });
   });
 
   it("refuses an artifact path with a missing parent buffer", () => {

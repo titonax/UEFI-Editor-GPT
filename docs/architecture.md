@@ -55,6 +55,9 @@
 | `checksum.ts`                 | Source and offset integrity hashes                             |
 | `dataValidation.ts`           | Deep runtime validation of imported `data.json`                |
 | `patcher.ts`                  | Pure patch planning plus the download adapter                  |
+| `firmwareImageContainer.ts`   | BIOS/Intel SPI boundaries and untouched-region enforcement     |
+| `uefiImageRebuilder.ts`       | Bottom-up fixed-size PI rebuild and FFS checksum repair        |
+| `amiFirmwareRebuilder.ts`     | AMI patch orchestration and independent artefact re-extraction |
 | `errors.ts`                   | Stable domain error codes and user-facing messages             |
 | `corpusAnalysis.ts`           | Layered local extraction, navigation and editing assessment    |
 | `corpusTypes.ts`              | Versioned corpus result and Worker message contracts           |
@@ -94,8 +97,8 @@ display dialogs, mutate the DOM or reload the page.
 - Cross-FormSet moves require an existing explicit `FormSetGuid` (`REF3` or
   `REF4`). Implicit `REF`/`REF2` conversion remains disabled because it would
   grow the opcode. Nested Refs, duplicates and graph cycles are rejected.
-- Aptio IV and generation-unresolved binary export remain disabled while their
-  write/reinsertion paths are not proven safe.
+- AMI full-image export is enabled only when every selected artefact has a
+  complete supported path; unsupported compression rejects the entire build.
 - Runtime/HW classification is evidence, not proof of the current machine state.
 - In a single-FormSet hub layout, direct hub Refs and hub Refs inside proven
   constant-true `SuppressIf` scopes are classified in physical IFR order.
@@ -113,6 +116,8 @@ display dialogs, mutate the DOM or reload the page.
 - Phoenix full-image output preserves every byte outside the inventoried
   compressed TEMPLAT allocation, rejects compression growth, round-trips the
   encoded body and re-opens the complete image before enabling the download.
+- Intel SPI reconstruction permits changes only inside the descriptor-declared
+  BIOS region and returns Descriptor, ME, GbE, EC and every other byte unchanged.
 
 ## Versioning
 

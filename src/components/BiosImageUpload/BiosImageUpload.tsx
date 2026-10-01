@@ -852,11 +852,19 @@ export default function BiosImageUpload({
           )}
           {reconstruction && (
             <Alert
-              color={reconstruction.traceComplete ? "gray" : "orange"}
+              color={
+                reconstruction.writeEnabled
+                  ? "green"
+                  : reconstruction.traceComplete
+                    ? "gray"
+                    : "orange"
+              }
               title={
-                reconstruction.traceComplete
-                  ? "Full-image reconstruction — trace captured"
-                  : "Full-image reconstruction — not traceable"
+                reconstruction.writeEnabled
+                  ? "Full-image reconstruction — fixed-size path ready"
+                  : reconstruction.traceComplete
+                    ? "Full-image reconstruction — trace captured"
+                    : "Full-image reconstruction — not traceable"
               }
             >
               <Stack gap="xs">
@@ -866,7 +874,9 @@ export default function BiosImageUpload({
                   </Text>
                 ))}
                 <Text size="xs" c="dimmed">
-                  Writing remains disabled: {reconstruction.blockers.join(" ")}
+                  {reconstruction.writeEnabled
+                    ? "The edited image will be rebuilt and independently re-opened before download."
+                    : `Writing remains disabled: ${reconstruction.blockers.join(" ")}`}
                 </Text>
               </Stack>
             </Alert>
