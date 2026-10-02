@@ -136,11 +136,12 @@ and failure categories.
 
 ## Export privacy
 
-JSON reports use schema `0.5.0` and contain:
+JSON reports use schema `0.6.0` and contain:
 
 - filename, size, last-modified timestamp and SHA-256;
 - firmware family evidence, confidence and conflicting signatures;
 - observed IFR format and read-only Framework inventory when present;
+- validated AMIBIOS8 version, boot-block, reset-vector and BIOS-date metadata;
 - Phoenix BCP/FFV module inventory or UEFI debug module provenance when present;
 - brand evidence with its source, documented sample counts, candidate navigation
   mechanisms and whether the analyzed image matches or extends the observed

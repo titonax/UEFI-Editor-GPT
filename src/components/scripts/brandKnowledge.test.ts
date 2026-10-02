@@ -27,9 +27,12 @@ describe("manufacturer evidence catalogue", () => {
     expect(result).toMatchObject({
       brand: "ASUS",
       basis: "documented-hash",
-      documentedSamples: 5,
+      documentedSamples: 6,
       observedGenerations: [{ generation: "aptio-iv", samples: 3 }],
-      observedContainers: [{ container: "vendor-image", samples: 5 }],
+      observedContainers: [
+        { container: "vendor-image", samples: 5 },
+        { container: "ami-legacy-rom", samples: 1 },
+      ],
       observedLayouts: [{ layout: "unified-setup-formset", samples: 2 }],
       navigationPrior: [{ mechanism: "single-formset-ifr-hub", samples: 2 }],
       navigationOutcome: "unmeasured",

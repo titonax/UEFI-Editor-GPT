@@ -81,6 +81,48 @@ describe("complete firmware preflight", () => {
     );
   });
 
+  it("recognizes AMIBIOS8 legacy without attempting an incompatible HII scan", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockReturnValue({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    );
+    const image = new Uint8Array(0x20000).fill(0xff);
+    image.set(new TextEncoder().encode("AMIBIOSC0800"), 0x17fea);
+    image.set(new TextEncoder().encode("AMIBOOT ROM"), 0x1804c);
+    image.set(new TextEncoder().encode("11/24/08"), image.length - 10);
+    image.set([0xea, 0xaa, 0xff, 0x00, 0xf0], image.length - 16);
+    const { container } = render(
+      <MantineProvider>
+        <BiosImageUpload
+          onExtracted={vi
+            .fn<(files: PopulatedFiles) => Promise<void>>()
+            .mockResolvedValue(undefined)}
+        />
+      </MantineProvider>,
+    );
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Expected the firmware file input.");
+    const file = new File([image], "ASUS N10J BIOS.BIN");
+    Object.defineProperty(file, "arrayBuffer", {
+      value: () => Promise.resolve(image.slice().buffer),
+    });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByText("AMIBIOS 8 legacy ROM recognized")).toBeVisible();
+    expect(
+      screen.getByRole("cell", { name: /AMIBIOS 8.*AMIBIOSC0800.*0x0?17FEA/ }),
+    ).toBeVisible();
+    expect(screen.getByRole("cell", { name: /BIOS date 11\/24\/08/ })).toBeVisible();
+    expect(extractAmiFirmwareBytes).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Start HII analysis" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows Phoenix UEFI module evidence without attempting AMI Setup extraction", async () => {
     vi.stubGlobal(
       "matchMedia",

@@ -272,6 +272,16 @@ function FileDetails({ file }: { file: CorpusFileReport }) {
           separate Framework parser.
         </Text>
       )}
+      {file.amiLegacy && (
+        <Text size="sm">
+          {file.amiLegacy.format}: {file.amiLegacy.signature} at 0x
+          {file.amiLegacy.signatureOffset.toString(16).toUpperCase()} · boot block at 0x
+          {file.amiLegacy.bootBlockOffset.toString(16).toUpperCase()} · reset vector at
+          0x{file.amiLegacy.resetVectorOffset.toString(16).toUpperCase()}
+          {file.amiLegacy.biosDate ? ` · ${file.amiLegacy.biosDate}` : ""}. Legacy Setup
+          requires its own parser; UEFI HII does not apply.
+        </Text>
+      )}
       {file.phoenixLegacy && (
         <Stack gap="xs">
           <Text size="sm">

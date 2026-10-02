@@ -7,11 +7,17 @@ import {
   type PhoenixLegacyInventory,
   type PhoenixUefiInventory,
 } from "./phoenixFirmware";
+import { inspectAmiLegacyFirmware, type AmiLegacyInventory } from "./amiLegacyFirmware";
 
 export type AmiFirmwareGeneration = "aptio-iv" | "aptio-v" | "unresolved";
 export type DetectionConfidence = "confirmed" | "probable" | "unresolved";
 export type FirmwareContainer =
-  "intel-flash" | "firmware-volume-image" | "vendor-image" | "phoenix-rom" | "unknown";
+  | "intel-flash"
+  | "firmware-volume-image"
+  | "vendor-image"
+  | "ami-legacy-rom"
+  | "phoenix-rom"
+  | "unknown";
 export type IfrExtractionMode = "uefi" | "framework" | "unknown";
 
 export interface FrameworkIfrInventory {
@@ -124,6 +130,7 @@ export interface AmiFirmwareImageReport {
   size: number;
   container: FirmwareContainer;
   family: FirmwareFamilyAssessment;
+  amiLegacy?: AmiLegacyInventory;
   phoenixLegacy?: PhoenixLegacyInventory;
   phoenixUefi?: PhoenixUefiInventory;
   intelDescriptor: boolean;
@@ -375,6 +382,7 @@ function assessFirmwareFamily(
   firmwareVolumes: number[],
   intelDescriptor: boolean,
   amiAptioCandidate: boolean,
+  amiLegacy: AmiLegacyInventory | null,
   phoenixLegacy: PhoenixLegacyInventory | null,
   phoenixUefi: PhoenixUefiInventory | null,
 ): FirmwareFamilyAssessment {
@@ -402,6 +410,13 @@ function assessFirmwareFamily(
     "AMI vendor string (may occur in a component).",
   );
   add("amiLegacy", "ami-legacy", "AMIBIOS legacy marker.");
+  if (amiLegacy) {
+    signals.push({
+      code: "amibios8-boot-block",
+      detail: `Validated ${amiLegacy.signature} boot block and reset vector${amiLegacy.biosDate ? ` dated ${amiLegacy.biosDate}` : ""}.`,
+      offset: amiLegacy.signatureOffset,
+    });
+  }
   if (phoenixLegacy) {
     signals.push({
       code: "phoenix-bcp-directory",
@@ -482,6 +497,9 @@ function assessFirmwareFamily(
       signals,
     };
   }
+  if (amiLegacy) {
+    return { family: "ami-legacy", confidence: "confirmed", conflict: false, signals };
+  }
   if (has(found, "amiLegacy")) {
     return { family: "ami-legacy", confidence: "probable", conflict: false, signals };
   }
@@ -539,12 +557,14 @@ function assessFirmwareFamily(
 function containerOf(
   firmwareVolumes: number[],
   intelDescriptor: boolean,
+  amiLegacy: AmiLegacyInventory | null,
   phoenixLegacy: PhoenixLegacyInventory | null,
 ): FirmwareContainer {
   if (intelDescriptor) return "intel-flash";
   if (phoenixLegacy) return "phoenix-rom";
   if (firmwareVolumes.includes(0)) return "firmware-volume-image";
   if (firmwareVolumes.length > 0) return "vendor-image";
+  if (amiLegacy) return "ami-legacy-rom";
   return "unknown";
 }
 
@@ -604,6 +624,7 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
     firmwareVolumes.length > 0 && has(found, "phoenixSecCorePath")
       ? inspectPhoenixUefiBytes(bytes)
       : null;
+  const amiLegacy = has(found, "amiLegacy") ? inspectAmiLegacyFirmware(bytes) : null;
   const fidMarker = intelFidMarker(
     bytes,
     offsets(found, "amiFidGuid"),
@@ -752,16 +773,18 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
     firmwareVolumes.length > 0 && (setupFfs.length === 0 || amitseFfs.length === 0);
   return {
     size: bytes.length,
-    container: containerOf(firmwareVolumes, intelDescriptor, phoenixLegacy),
+    container: containerOf(firmwareVolumes, intelDescriptor, amiLegacy, phoenixLegacy),
     family: assessFirmwareFamily(
       bytes,
       found,
       firmwareVolumes,
       intelDescriptor,
       amiAptioCandidate,
+      amiLegacy,
       phoenixLegacy,
       phoenixUefi,
     ),
+    ...(amiLegacy ? { amiLegacy } : {}),
     ...(phoenixLegacy ? { phoenixLegacy } : {}),
     ...(phoenixUefi ? { phoenixUefi } : {}),
     intelDescriptor,
