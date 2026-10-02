@@ -637,7 +637,7 @@ describe("local firmware corpus analysis", () => {
     );
     const dashboard = report.dashboard;
 
-    expect(report.schemaVersion).toBe("0.6.0");
+    expect(report.schemaVersion).toBe("0.7.0");
     expect(dashboard).toMatchObject({
       selected: 8,
       completed: 7,

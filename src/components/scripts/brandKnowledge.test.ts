@@ -39,6 +39,21 @@ describe("manufacturer evidence catalogue", () => {
     });
   });
 
+  it("recognizes the documented eMachines Award image after renaming", () => {
+    expect(
+      classifyBrand(
+        "renamed.bin",
+        "d7ec1c70607c9186fbdd9d30e657b32e139fee2cf144c2f59b36fb48bec42c71",
+        [],
+      ),
+    ).toMatchObject({
+      brand: "eMachines",
+      basis: "documented-hash",
+      documentedSamples: 1,
+      observedContainers: [{ container: "award-rom", samples: 1 }],
+    });
+  });
+
   it("records conflicting filename evidence without replacing an internal marker", () => {
     const result = classifyBrand("ASUS.CAP", "", [
       { brand: "HP", marker: "SECURE_HP_SIGNATURE", offset: 0x80 },

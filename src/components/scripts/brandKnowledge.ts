@@ -4,10 +4,18 @@ import type {
   FirmwareContainer,
 } from "./amiFirmwareImage";
 
-export const brandCatalogueVersion = "0.1.0";
+export const brandCatalogueVersion = "0.2.0";
 
 export type FirmwareBrand =
-  "ASRock" | "ASUS" | "Dell" | "Gigabyte" | "HP" | "Intel" | "MSI" | "Supermicro";
+  | "ASRock"
+  | "ASUS"
+  | "Dell"
+  | "eMachines"
+  | "Gigabyte"
+  | "HP"
+  | "Intel"
+  | "MSI"
+  | "Supermicro";
 export type BrandSignalSource =
   "documented-hash" | "user-supplied" | "firmware-marker" | "filename";
 export type BrandNavigation = "multi-formset-root-vector" | "single-formset-ifr-hub";
@@ -16,6 +24,7 @@ export const supportedBrands: FirmwareBrand[] = [
   "ASRock",
   "ASUS",
   "Dell",
+  "eMachines",
   "Gigabyte",
   "HP",
   "Intel",
@@ -66,6 +75,12 @@ export interface BrandClassification {
 // Hashes identify the exact payloads documented in the repository. These
 // observations describe the corpus; they do not grant edit or write support.
 const documentedSamples: DocumentedSample[] = [
+  {
+    brand: "eMachines",
+    sha256: "d7ec1c70607c9186fbdd9d30e657b32e139fee2cf144c2f59b36fb48bec42c71",
+    source: "docs/award/emachines-el1200-r01a2.md",
+    container: "award-rom",
+  },
   {
     brand: "Intel",
     sha256: "12770cbddbab0fd071e91142afe6b1882c7a50c0e7b438866f6b99b5c660da64",
@@ -171,6 +186,7 @@ const documentedSamples: DocumentedSample[] = [
 ];
 
 const filenameBrands: { brand: FirmwareBrand; pattern: RegExp }[] = [
+  { brand: "eMachines", pattern: /(?:^|[^a-z])emachines?(?:[^a-z]|$)/i },
   { brand: "Intel", pattern: /(?:^|[^a-z0-9])(?:intel|fncml357)(?:[^a-z0-9]|$)/i },
   { brand: "ASUS", pattern: /(?:^|[^a-z])(?:asus|asustek)(?:[^a-z]|$)/i },
   { brand: "HP", pattern: /(?:^|[^a-z])(?:hp|hewlett.packard)(?:[^a-z]|$)/i },

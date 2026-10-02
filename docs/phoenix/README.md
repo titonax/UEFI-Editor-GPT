@@ -76,5 +76,5 @@ all 24 Setup screens were recovered and the requested `Cache Ram` visibility
 immediate was zero. Bytes outside the packed TEMPLAT allocation were identical
 to the source image.
 
-The local corpus exports these observations in JSON schema `0.6.0` and CSV;
+The local corpus exports these observations in JSON schema `0.7.0` and CSV;
 neither format contains BIOS or decompressed module bytes.

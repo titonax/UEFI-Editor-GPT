@@ -122,6 +122,9 @@ display dialogs, mutate the DOM or reload the page.
 - AMIBIOS8 legacy detection is separate from Aptio: a versioned core signature,
   boot-block marker and x86 reset vector are required before the container is
   promoted from a loose vendor string to a confirmed legacy ROM.
+- Award Legacy detection is also separate from UEFI: the final boot-block
+  banner, decompression core, far-jump reset vector and multiple checksum-valid,
+  size-bounded LHA members are all required before exposing its module inventory.
 
 ## Versioning
 
@@ -131,5 +134,5 @@ is `0.7.0`; it distinguishes single-FormSet IFR navigation hubs from AMITSE
 page registration and stores provenance-bound pending root-visibility changes
 without trusting imported binary analysis. The two versions are intentionally
 independent.
-Corpus JSON/CSV uses schema `0.6.0`; AMIBIOS8 boot-block metadata was added
-without changing the editable `data.json` contract.
+Corpus JSON/CSV uses schema `0.7.0`; AMIBIOS8 and Award Legacy metadata are
+exported without changing the editable `data.json` contract.

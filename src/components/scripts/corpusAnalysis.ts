@@ -528,6 +528,7 @@ export async function analyzeCorpusFirmware(
   const outerReport = dependencies.inspect(input.bytes);
   const legacyDetails = {
     ...(outerReport.amiLegacy ? { amiLegacy: outerReport.amiLegacy } : {}),
+    ...(outerReport.awardLegacy ? { awardLegacy: outerReport.awardLegacy } : {}),
     ...(outerReport.phoenixLegacy ? { phoenixLegacy: outerReport.phoenixLegacy } : {}),
     ...(outerReport.phoenixUefi ? { phoenixUefi: outerReport.phoenixUefi } : {}),
   };

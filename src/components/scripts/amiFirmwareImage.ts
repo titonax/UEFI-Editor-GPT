@@ -8,6 +8,7 @@ import {
   type PhoenixUefiInventory,
 } from "./phoenixFirmware";
 import { inspectAmiLegacyFirmware, type AmiLegacyInventory } from "./amiLegacyFirmware";
+import { inspectAwardLegacyFirmware, type AwardLegacyInventory } from "./awardFirmware";
 
 export type AmiFirmwareGeneration = "aptio-iv" | "aptio-v" | "unresolved";
 export type DetectionConfidence = "confirmed" | "probable" | "unresolved";
@@ -16,6 +17,7 @@ export type FirmwareContainer =
   | "firmware-volume-image"
   | "vendor-image"
   | "ami-legacy-rom"
+  | "award-rom"
   | "phoenix-rom"
   | "unknown";
 export type IfrExtractionMode = "uefi" | "framework" | "unknown";
@@ -131,6 +133,7 @@ export interface AmiFirmwareImageReport {
   container: FirmwareContainer;
   family: FirmwareFamilyAssessment;
   amiLegacy?: AmiLegacyInventory;
+  awardLegacy?: AwardLegacyInventory;
   phoenixLegacy?: PhoenixLegacyInventory;
   phoenixUefi?: PhoenixUefiInventory;
   intelDescriptor: boolean;
@@ -224,6 +227,8 @@ const signatures: SignatureDefinition[] = [
   },
   { name: "awardBios", bytes: ascii("AwardBIOS"), insensitiveAscii: true },
   { name: "awardModular", bytes: ascii("Award Modular BIOS"), insensitiveAscii: true },
+  { name: "awardBootBlock", bytes: ascii("Award BootBlock BIOS v1.0") },
+  { name: "awardDecompressor", bytes: ascii("= Award Decompression Bios =") },
   { name: "insydeH2O", bytes: ascii("InsydeH2O"), insensitiveAscii: true },
   {
     name: "insydeVendor",
@@ -385,6 +390,7 @@ function assessFirmwareFamily(
   amiLegacy: AmiLegacyInventory | null,
   phoenixLegacy: PhoenixLegacyInventory | null,
   phoenixUefi: PhoenixUefiInventory | null,
+  awardLegacy: AwardLegacyInventory | null,
 ): FirmwareFamilyAssessment {
   const signals: FirmwareFamilySignal[] = [];
   function add(name: string, code: string, detail: string) {
@@ -430,6 +436,13 @@ function assessFirmwareFamily(
       "phoenix-sec-core-debug",
       "Phoenix SecCore module provenance in a UEFI debug record; Setup implementation is not established.",
     );
+  }
+  if (awardLegacy) {
+    signals.push({
+      code: "award-modular-rom",
+      detail: `Validated Award boot block, reset vector and ${String(awardLegacy.modules.length)} checksum-valid LHA module(s).`,
+      offset: awardLegacy.bootBlockOffset,
+    });
   }
 
   const strongAmi =
@@ -477,6 +490,8 @@ function assessFirmwareFamily(
       signals,
     };
   }
+  if (awardLegacy)
+    return { family: "award", confidence: "confirmed", conflict: false, signals };
   if (strongAward)
     return { family: "award", confidence: "probable", conflict: false, signals };
   if (strongPhoenix)
@@ -559,9 +574,11 @@ function containerOf(
   intelDescriptor: boolean,
   amiLegacy: AmiLegacyInventory | null,
   phoenixLegacy: PhoenixLegacyInventory | null,
+  awardLegacy: AwardLegacyInventory | null,
 ): FirmwareContainer {
   if (intelDescriptor) return "intel-flash";
   if (phoenixLegacy) return "phoenix-rom";
+  if (awardLegacy) return "award-rom";
   if (firmwareVolumes.includes(0)) return "firmware-volume-image";
   if (firmwareVolumes.length > 0) return "vendor-image";
   if (amiLegacy) return "ami-legacy-rom";
@@ -625,6 +642,9 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
       ? inspectPhoenixUefiBytes(bytes)
       : null;
   const amiLegacy = has(found, "amiLegacy") ? inspectAmiLegacyFirmware(bytes) : null;
+  const awardLegacy = has(found, "awardBootBlock", "awardDecompressor")
+    ? inspectAwardLegacyFirmware(bytes)
+    : null;
   const fidMarker = intelFidMarker(
     bytes,
     offsets(found, "amiFidGuid"),
@@ -773,7 +793,13 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
     firmwareVolumes.length > 0 && (setupFfs.length === 0 || amitseFfs.length === 0);
   return {
     size: bytes.length,
-    container: containerOf(firmwareVolumes, intelDescriptor, amiLegacy, phoenixLegacy),
+    container: containerOf(
+      firmwareVolumes,
+      intelDescriptor,
+      amiLegacy,
+      phoenixLegacy,
+      awardLegacy,
+    ),
     family: assessFirmwareFamily(
       bytes,
       found,
@@ -783,8 +809,10 @@ export function inspectAmiFirmwareBytes(bytes: Uint8Array): AmiFirmwareImageRepo
       amiLegacy,
       phoenixLegacy,
       phoenixUefi,
+      awardLegacy,
     ),
     ...(amiLegacy ? { amiLegacy } : {}),
+    ...(awardLegacy ? { awardLegacy } : {}),
     ...(phoenixLegacy ? { phoenixLegacy } : {}),
     ...(phoenixUefi ? { phoenixUefi } : {}),
     intelDescriptor,

@@ -136,7 +136,7 @@ and failure categories.
 
 ## Export privacy
 
-JSON reports use schema `0.6.0` and contain:
+JSON reports use schema `0.7.0` and contain:
 
 - filename, size, last-modified timestamp and SHA-256;
 - firmware family evidence, confidence and conflicting signatures;
