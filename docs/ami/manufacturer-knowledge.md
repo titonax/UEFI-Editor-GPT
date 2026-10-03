@@ -47,10 +47,7 @@ record and `INTEL` vendor field supplies an internal manufacturer clue even
 when a future revision changes the image hash.
 
 The per-sample source paths and hashes are in
-[`src/knowledge/cases`](../../src/knowledge/cases/index.ts).
-[`brandKnowledge.ts`](../../src/components/scripts/brandKnowledge.ts) derives
-the branded observations from that shared catalogue, preserving confirmed
-generation counts and its existing evidence precedence. The
+[`brandKnowledge.ts`](../../src/components/scripts/brandKnowledge.ts). The
 ASUS hub evidence comes from
 [`single-formset-ifr-navigation.md`](single-formset-ifr-navigation.md). The
 other samples are in the HP, Supermicro and cross-vendor records under
