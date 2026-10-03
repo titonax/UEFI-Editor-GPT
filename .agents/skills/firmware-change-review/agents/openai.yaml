@@ -1,0 +1,4 @@
+interface:
+  display_name: "Firmware Change Review"
+  short_description: "Review parser and reconstruction changes with evidence"
+  default_prompt: "Use $firmware-change-review to verify this firmware change and its regression coverage."
