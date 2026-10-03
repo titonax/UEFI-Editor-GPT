@@ -47,6 +47,7 @@ import {
 import type { CorpusRunnerRequest, CorpusRunnerResponse } from "./protocol";
 import CorpusDashboard from "./CorpusDashboard";
 import CorpusKnowledge, { KnowledgeBadge } from "./CorpusKnowledge";
+import { caseDraftBlocker, createCaseDraft } from "../../knowledge/caseDraft";
 import s from "./CorpusRunner.module.css";
 
 interface CorpusWorkerLike {
@@ -225,6 +226,27 @@ function FileDetails({ file }: { file: CorpusFileReport }) {
         SHA-256: {file.sha256 || "not calculated"}
       </Text>
       <CorpusKnowledge knowledge={file.knowledge} />
+      <Group align="center" gap="sm">
+        <Button
+          variant="light"
+          leftSection={<IconDownload />}
+          disabled={caseDraftBlocker(file) !== null}
+          onClick={() => {
+            saveAs(
+              new Blob([JSON.stringify(createCaseDraft(file), null, 2)], {
+                type: "application/json",
+              }),
+              "case.json",
+            );
+          }}
+        >
+          Add case · download draft
+        </Button>
+        <Text size="xs" c="dimmed">
+          {caseDraftBlocker(file) ??
+            "Review the local draft with a source, regression tests and limitations before inclusion."}
+        </Text>
+      </Group>
       <Group gap="xs">
         <Badge variant="light" color={file.family.conflict ? "orange" : "blue"}>
           {firmwareFamilyLabels[file.family.family]} · {file.family.confidence}
