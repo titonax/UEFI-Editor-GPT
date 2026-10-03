@@ -100,7 +100,7 @@ imported into the frontend, and no upstream code is copied.
 3. **Reviewed case intake:** add the metadata-only Add case flow, `case.json`,
    a local `npm run case:add` command and CI validation before new evidence is
    shipped. No automatic case learning.
-4. **Rule registry:** connect explicit format rules to reviewed cases, tests and
+4. **Rule registry (completed):** connect explicit format rules to reviewed cases, tests and
    implementations. Keep case resemblance separate from rule preconditions.
 
 Later agent orchestration is outside these four changes. CorpusRunner now shows
@@ -110,3 +110,8 @@ conflicting fields; CSV adds equivalent summary columns. Multiple Setup contexts
 are compared separately without the complete-image hash or summed Form counts.
 Unreadable inputs leave structural observations absent rather than reporting
 unmeasured zero counts. Catalogue matches never enable edits or reconstruction.
+
+The [format rule registry](rules.md) links implementations and regressions to
+reviewed sample references and explicit prerequisites. Exact catalogue identity
+exposes those references in CorpusRunner; applicability and writing remain
+governed by the relevant parser, editor and reconstruction checks.

@@ -75,7 +75,7 @@ describe("local corpus runner UI", () => {
         stage.id === "preflight" ? { ...stage, status: "failed" } : stage,
       ),
     });
-    render(
+    const { rerender } = render(
       <MantineProvider>
         <CorpusKnowledge knowledge={file.knowledge} />
       </MantineProvider>,
@@ -83,11 +83,24 @@ describe("local corpus runner UI", () => {
     expect(screen.getByText("Catalogue conflict")).toBeInTheDocument();
     expect(screen.getByText(entry.label)).toBeInTheDocument();
     expect(screen.getByText(/Conflicts: outer firmware volumes/)).toBeInTheDocument();
+    expect(screen.queryByText("Related format rules")).not.toBeInTheDocument();
     expect(
       screen.getByText(
         /Award module editing and full-image reconstruction remain unsupported/,
       ),
     ).toBeInTheDocument();
+    const known = withCorpusKnowledge({
+      ...file,
+      outer: { ...file.outer, firmwareVolumeOffsets: [] },
+    });
+    rerender(
+      <MantineProvider>
+        <CorpusKnowledge knowledge={known.knowledge} />
+      </MantineProvider>,
+    );
+    expect(screen.getByText("Related format rules")).toBeInTheDocument();
+    expect(screen.getByText(/Award legacy bounded LHA inventory/)).toBeInTheDocument();
+    expect(screen.getByText(/References only/)).toBeInTheDocument();
   });
 
   it("runs selected files in a worker and exposes metadata-only reports", async () => {
