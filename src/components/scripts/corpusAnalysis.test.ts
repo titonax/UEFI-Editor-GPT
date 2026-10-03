@@ -281,7 +281,11 @@ describe("local firmware corpus analysis", () => {
           }),
         extract: vi.fn().mockResolvedValue(extracted),
         parseArtifacts: vi.fn().mockResolvedValue(multiFormSetData()),
-        hash: vi.fn().mockResolvedValue("abc123"),
+        hash: vi
+          .fn()
+          .mockResolvedValue(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          ),
         now: () => {
           now += 5;
           return now;
@@ -291,7 +295,7 @@ describe("local firmware corpus analysis", () => {
 
     expect(result).toMatchObject({
       fileName: "board.bin",
-      sha256: "abc123",
+      sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       durationMs: 5,
       status: "recognized",
     });
@@ -336,7 +340,11 @@ describe("local firmware corpus analysis", () => {
           }),
         extract,
         parseArtifacts: vi.fn(),
-        hash: vi.fn().mockResolvedValue("deadbeef"),
+        hash: vi
+          .fn()
+          .mockResolvedValue(
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          ),
         now: () => 0,
       },
     );
@@ -394,7 +402,11 @@ describe("local firmware corpus analysis", () => {
             new FirmwareError("PARSE_FAILED", "Setup FFS was not found."),
           ),
         parseArtifacts: vi.fn(),
-        hash: vi.fn().mockResolvedValue("deadbeef"),
+        hash: vi
+          .fn()
+          .mockResolvedValue(
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          ),
         now: () => 0,
       },
     );
@@ -425,7 +437,11 @@ describe("local firmware corpus analysis", () => {
         parseArtifacts: vi
           .fn()
           .mockRejectedValue(new FirmwareError("PARSE_FAILED", "IFR invalid")),
-        hash: vi.fn().mockResolvedValue("new-board"),
+        hash: vi
+          .fn()
+          .mockResolvedValue(
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          ),
         now: () => 0,
       },
     );
@@ -454,7 +470,11 @@ describe("local firmware corpus analysis", () => {
           ].join("\n"),
         }),
         parseArtifacts: parsed,
-        hash: vi.fn().mockResolvedValue("framework"),
+        hash: vi
+          .fn()
+          .mockResolvedValue(
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          ),
         now: () => 0,
       },
     );
@@ -479,7 +499,11 @@ describe("local firmware corpus analysis", () => {
         inspect: () => outerReport(),
         extract: vi.fn().mockResolvedValue({ ...artifacts(), artifactSets: [] }),
         parseArtifacts: vi.fn(),
-        hash: vi.fn().mockResolvedValue("empty"),
+        hash: vi
+          .fn()
+          .mockResolvedValue(
+            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          ),
         now: () => 0,
       },
     );
@@ -637,7 +661,7 @@ describe("local firmware corpus analysis", () => {
     );
     const dashboard = report.dashboard;
 
-    expect(report.schemaVersion).toBe("0.7.0");
+    expect(report.schemaVersion).toBe("0.8.0");
     expect(dashboard).toMatchObject({
       selected: 8,
       completed: 7,

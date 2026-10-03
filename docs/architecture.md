@@ -77,7 +77,7 @@ fingerprint matching separately from these format rules. `brandKnowledge.ts`
 consumes its shared case identities; structural matching remains an
 investigation lead and cannot grant editing or reconstruction capability. See
 [Firmware knowledge foundation](knowledge/README.md) for contracts, migration
-and the planned CorpusRunner integration.
+and the read-only CorpusRunner integration.
 
 ## Safety invariants
 
@@ -141,5 +141,5 @@ is `0.7.0`; it distinguishes single-FormSet IFR navigation hubs from AMITSE
 page registration and stores provenance-bound pending root-visibility changes
 without trusting imported binary analysis. The two versions are intentionally
 independent.
-Corpus JSON/CSV uses schema `0.7.0`; AMIBIOS8 and Award Legacy metadata are
+Corpus JSON/CSV uses schema `0.8.0`; AMIBIOS8 and Award Legacy metadata are
 exported without changing the editable `data.json` contract.

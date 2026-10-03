@@ -14,6 +14,7 @@ import {
   distinctCorpusCases,
   firstRecognitionBlocker,
 } from "./corpusDashboard";
+import { withCorpusKnowledge } from "../../knowledge/corpusKnowledge";
 
 function stage(
   id: CorpusStageId,
@@ -88,7 +89,7 @@ export function createCorpusInputFailure(
   message: string,
   declaredBrand?: FirmwareBrand,
 ): CorpusFileReport {
-  return {
+  return withCorpusKnowledge({
     fileName: file.name,
     brand: classifyBrand(file.name, "", [], declaredBrand),
     family: {
@@ -140,7 +141,7 @@ export function createCorpusInputFailure(
       stage("reconstruction", "not-run", "Reconstruction was not analysed."),
     ],
     failure: { stage: "reading", message },
-  };
+  });
 }
 
 function csvCell(value: string | number | boolean) {
@@ -191,6 +192,12 @@ export function corpusRunToCsv(report: CorpusRunReport) {
     "duplicate_sha256",
     "failure_stage",
     "failure",
+    "knowledge_status",
+    "knowledge_version",
+    "knowledge_case_ids",
+    "knowledge_match_basis",
+    "knowledge_conflicting_fields",
+    "context_knowledge",
   ];
   const seenHashes = new Set<string>();
   const rows = report.files.map((file) => {
@@ -245,6 +252,16 @@ export function corpusRunToCsv(report: CorpusRunReport) {
       duplicate,
       file.failure?.stage ?? "",
       file.failure?.message ?? "",
+      file.knowledge?.match.status ?? "not-assessed",
+      file.knowledge?.match.knowledgeVersion ?? "",
+      file.knowledge?.match.matches.map((match) => match.caseId).join("; ") ?? "",
+      file.knowledge?.match.matches.map((match) => match.basis).join("; ") ?? "",
+      file.knowledge?.match.matches
+        .map((match) => `${match.caseId}: ${match.conflictingFields.join("|")}`)
+        .join("; ") ?? "",
+      file.knowledge?.contexts
+        .map((context) => `${context.contextId}: ${context.match.status}`)
+        .join("; ") ?? "",
     ];
   });
   return [header, ...rows]

@@ -16,6 +16,7 @@ import type {
   CorpusStageId,
 } from "../scripts/corpusTypes";
 import s from "./CorpusRunner.module.css";
+import { KnowledgeBadge } from "./CorpusKnowledge";
 
 const stageLabels: Record<CorpusStageId, string> = {
   preflight: "Preflight",
@@ -94,6 +95,39 @@ export default function CorpusDashboard({ dashboard }: { dashboard: DashboardDat
           {String(dashboard.unknownManufacturer)} unknown manufacturer
         </Badge>
       </Group>
+      <Title order={5}>Case catalogue</Title>
+      <Text size="sm" c="dimmed">
+        Exact identities and structural leads across distinct inputs. A known case may
+        still have an extraction or writing blocker; a new pattern is relative to this
+        catalogue.
+      </Text>
+      <ScrollArea>
+        <Table striped withColumnBorders className={s.dashboardTable}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Comparison</Table.Th>
+              <Table.Th>Cases / total</Table.Th>
+              <Table.Th>Example files</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {dashboard.knowledge
+              .filter((entry) => entry.cases > 0)
+              .map((entry) => (
+                <Table.Tr key={entry.status}>
+                  <Table.Td>
+                    <KnowledgeBadge status={entry.status} />
+                  </Table.Td>
+                  <Table.Td>{fraction(entry.cases, dashboard.uniqueCases)}</Table.Td>
+                  <Table.Td className={s.fileName}>
+                    {entry.fileNames.slice(0, 3).join(", ")}
+                    {entry.fileNames.length > 3 ? " …" : ""}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+          </Table.Tbody>
+        </Table>
+      </ScrollArea>
       <ScrollArea>
         <Table striped withColumnBorders className={s.dashboardTable}>
           <Table.Thead>
