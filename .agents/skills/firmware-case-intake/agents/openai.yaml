@@ -1,0 +1,4 @@
+interface:
+  display_name: "Firmware Case Intake"
+  short_description: "Record evidence-backed firmware cases and limitations"
+  default_prompt: "Use $firmware-case-intake to document this firmware sample and its validated structures."

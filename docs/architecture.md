@@ -72,6 +72,13 @@
 React components may orchestrate these modules, but domain modules must not
 display dialogs, mutate the DOM or reload the page.
 
+`src/knowledge/` stores reviewed, metadata-only firmware cases and conservative
+fingerprint matching separately from these format rules. `brandKnowledge.ts`
+consumes its shared case identities; structural matching remains an
+investigation lead and cannot grant editing or reconstruction capability. See
+[Firmware knowledge foundation](knowledge/README.md) for contracts, migration
+and the planned CorpusRunner integration.
+
 ## Safety invariants
 
 - A `SuppressIf` patch is rejected unless its expected `End` opcode is present.

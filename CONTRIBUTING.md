@@ -1,5 +1,9 @@
 # Contributing
 
+Read [AGENTS.md](AGENTS.md) for repository boundaries and focused firmware
+procedures. Record reviewed sample metadata in `src/knowledge/cases/` with its
+source and limitations; see [the knowledge layer](docs/knowledge/README.md).
+
 Work from a focused branch and keep behavioural changes separate from mechanical
 formatting. Before opening a pull request, run:
 
