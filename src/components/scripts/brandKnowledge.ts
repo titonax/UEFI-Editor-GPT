@@ -1,4 +1,3 @@
-import { firmwareCases } from "../../knowledge/cases";
 import type {
   AmiFirmwareGeneration,
   AmiSetupLayout,
@@ -75,28 +74,116 @@ export interface BrandClassification {
 
 // Hashes identify the exact payloads documented in the repository. These
 // observations describe the corpus; they do not grant edit or write support.
-const documentedSamples: DocumentedSample[] = firmwareCases.flatMap((entry) =>
-  entry.brand
-    ? [
-        {
-          brand: entry.brand,
-          sha256: entry.sha256,
-          source: entry.source,
-          generation:
-            entry.generation?.confidence === "confirmed" && !entry.generation.conflict
-              ? entry.generation.generation
-              : undefined,
-          container: entry.structure.container,
-          layout: entry.structure.layout,
-          navigation:
-            entry.structure.navigation === "multi-formset-root-vector" ||
-            entry.structure.navigation === "single-formset-ifr-hub"
-              ? entry.structure.navigation
-              : undefined,
-        },
-      ]
-    : [],
-);
+const documentedSamples: DocumentedSample[] = [
+  {
+    brand: "eMachines",
+    sha256: "d7ec1c70607c9186fbdd9d30e657b32e139fee2cf144c2f59b36fb48bec42c71",
+    source: "docs/award/emachines-el1200-r01a2.md",
+    container: "award-rom",
+  },
+  {
+    brand: "Intel",
+    sha256: "12770cbddbab0fd071e91142afe6b1882c7a50c0e7b438866f6b99b5c660da64",
+    source: "docs/ami/samples/intel-nuc10i5fnh-0067.md",
+    container: "firmware-volume-image",
+    layout: "unified-setup-formset",
+    navigation: "single-formset-ifr-hub",
+  },
+  {
+    brand: "ASUS",
+    sha256: "e862e5b0fdce10e44764be6072dd5b8017544264353dbfa02c8074e0ccc15190",
+    source: "docs/ami/single-formset-ifr-navigation.md",
+    container: "vendor-image",
+    layout: "unified-setup-formset",
+    navigation: "single-formset-ifr-hub",
+  },
+  {
+    brand: "ASUS",
+    sha256: "9344b904cd319b3d385ffdf74d232a5e3999a2963cc74937af95a631a87f1454",
+    source: "docs/ami/single-formset-ifr-navigation.md",
+    container: "vendor-image",
+    layout: "unified-setup-formset",
+    navigation: "single-formset-ifr-hub",
+  },
+  {
+    brand: "ASUS",
+    sha256: "ab56462aef141f05beea299aa14fc6fb6234412cf83f59903aef15807f2be1e9",
+    source: "docs/aptio-iv/samples/cross-vendor-intake.md",
+    generation: "aptio-iv",
+    container: "vendor-image",
+  },
+  {
+    brand: "ASUS",
+    sha256: "772c44e15c76315de3dc2f772360b643ddffe726ff6d1700d1a021cc0560aef5",
+    source: "docs/aptio-iv/samples/cross-vendor-intake.md",
+    generation: "aptio-iv",
+    container: "vendor-image",
+  },
+  {
+    brand: "ASUS",
+    sha256: "cb71e90c3863a3d0c097d5774bf5fdd536bf4f528f679e17d27c2d1add69c6462",
+    source: "docs/aptio-iv/samples/cross-vendor-intake.md",
+    generation: "aptio-iv",
+    container: "vendor-image",
+  },
+  {
+    brand: "ASUS",
+    sha256: "78575954ba80c09b40b0283a0dc6b918ffeb4b9623a58613225cd85dd544ca4b",
+    source: "docs/ami/asus-n10j-amibios8.md",
+    container: "ami-legacy-rom",
+  },
+  {
+    brand: "HP",
+    sha256: "c13e4495042f0bda3deadf4d110bf241cdeb6679153cde001b24e7e337b4e2c1",
+    source: "docs/aptio-iv/samples/hp-server-l01-0278.md",
+    generation: "aptio-iv",
+    container: "intel-flash",
+    layout: "split-form-packages",
+  },
+  {
+    brand: "HP",
+    sha256: "6d18c962f3ffa6b941ada4e6fa71be4cdf1e7ff8297f5f4a4b73e29969f350a9",
+    source: "docs/aptio-iv/samples/hp-ipisb-ch2-w25q32.md",
+    generation: "aptio-iv",
+    container: "intel-flash",
+    layout: "split-form-packages",
+  },
+  {
+    brand: "HP",
+    sha256: "c0a18c739897fcc0ee428802272c566ec49014b6074aadf0c55fdb5513e816ff",
+    source: "docs/aptio-iv/samples/hp-boa-8005.md",
+    generation: "aptio-iv",
+    container: "firmware-volume-image",
+    layout: "split-form-packages",
+  },
+  {
+    brand: "MSI",
+    sha256: "49593660b086ae48a3c968286e68c4b8e7e13e934483776b13802f3de4e3b330",
+    source: "docs/aptio-iv/samples/cross-vendor-intake.md",
+    generation: "aptio-iv",
+    container: "intel-flash",
+  },
+  {
+    brand: "MSI",
+    sha256: "cebd6ec82bdd73b3dd953f981cd084efb789f52bc2481a9bfd242b5693b5e6ba",
+    source: "docs/aptio-iv/samples/cross-vendor-intake.md",
+    generation: "aptio-iv",
+    container: "vendor-image",
+  },
+  {
+    brand: "ASRock",
+    sha256: "3bddf9d2f6d86e8102be4bb2cd54c49876349859c0d50a7cb7aaa7eec6870761",
+    source: "docs/aptio-iv/samples/cross-vendor-intake.md",
+    container: "intel-flash",
+  },
+  {
+    brand: "Supermicro",
+    sha256: "3b4f01b4fb3361bf0ed8fe290225303172a72bb3ce479e83ca28c0bcff5d5b9c",
+    source: "docs/aptio-iv/samples/supermicro-x9dr3-if-34.md",
+    generation: "aptio-iv",
+    container: "intel-flash",
+  },
+];
 
 const filenameBrands: { brand: FirmwareBrand; pattern: RegExp }[] = [
   { brand: "eMachines", pattern: /(?:^|[^a-z])emachines?(?:[^a-z]|$)/i },
