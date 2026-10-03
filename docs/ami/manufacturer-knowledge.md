@@ -25,7 +25,7 @@ No marker on its own establishes a firmware generation or navigation mechanism.
 
 ## Current observations
 
-The catalogue contains **14 identified image or payload hashes** drawn from
+The catalogue contains **15 identified image or payload hashes** drawn from
 the repository's existing metadata-only sample records:
 
 | Manufacturer   | Samples | Aptio generation documented  | Observed input containers                                                       | Proven top-level navigation         |
@@ -37,6 +37,7 @@ the repository's existing metadata-only sample records:
 | ASRock         |       1 | Candidate, not confirmed     | Intel flash image                                                               | Not yet catalogued                  |
 | Supermicro     |       1 | IV in 1 sample               | Intel flash image                                                               | Not yet catalogued                  |
 | Dell, Gigabyte |       0 | Not yet catalogued           | Updater containers noted in intake; no extracted payload hash in this catalogue | Not yet catalogued                  |
+| eMachines      |       1 | Not applicable               | 1 Award Legacy modular ROM                                                      | Not yet catalogued                  |
 
 The [Intel NUC case](samples/intel-nuc10i5fnh-0067.md) documents why its
 support page on ASUS does not make it an ASUS motherboard sample. Its browser
@@ -70,7 +71,7 @@ confirmed single-FormSet hubs.
 
 The initial implementation surfaces the leads in the single-image preflight
 and local corpus report; it does not reorder detectors or learn new patterns
-automatically. Corpus JSON schema `0.6.0` exports the evidence, counts and
+automatically. Corpus JSON schema `0.7.0` exports the evidence, counts and
 comparison outcome. The CSV includes manufacturer, source, prior navigation
 and outcome for grouping new observations. Firmware bytes stay in the browser.
 

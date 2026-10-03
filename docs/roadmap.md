@@ -183,8 +183,9 @@ Measure separate denominators for recognition, extraction, resolved names,
 coherent navigation, module editing and complete-image output. Expand coverage
 across AMI Aptio IV/V, Phoenix 4.0/TrustedCore, Phoenix SecureCore, Insyde,
 Award, AMIBIOS8 legacy, servers and modern laptops. Never report recognition as
-write support. AMIBIOS8 recognition is now structurally confirmed; module and
-Setup editing remain a separate future parser path.
+write support. AMIBIOS8 and Award Legacy recognition are now structurally
+confirmed; their module/Setup editing remain separate future parser paths. The
+eMachines EL1200 case additionally inventories 23 bounded LHA members.
 
 Exit gate: the dashboard can state exactly what the 90% target measures and
 list the blocker for every unsupported case.

@@ -462,9 +462,11 @@ export default function BiosImageUpload({
                 ? "Phoenix Setup screens and items are decoded below. Applied changes can be rebuilt into a complete firmware image."
                 : report.phoenixLegacy
                   ? "Phoenix modules are inventoried below. This image did not yield a readable Setup menu."
-                  : report.amiLegacy
-                    ? "A validated AMIBIOS8 legacy boot block was found. This format predates UEFI HII and requires its own module and Setup parser."
-                    : "The detected family and its evidence are shown below. AMI Aptio fields do not apply to this image."
+                  : report.awardLegacy
+                    ? "Award modular BIOS recognized. Its LHA members are inventoried below; UEFI HII analysis does not apply to this legacy format."
+                    : report.amiLegacy
+                      ? "A validated AMIBIOS8 legacy boot block was found. This format predates UEFI HII and requires its own module and Setup parser."
+                      : "The detected family and its evidence are shown below. AMI Aptio fields do not apply to this image."
               : assessment.conflict
                 ? "Outer metadata and the extracted HII layout disagree. The application will not force a generation."
                 : profile
@@ -603,6 +605,29 @@ export default function BiosImageUpload({
                       {formatHexOffset(report.amiLegacy.resetVectorOffset)}
                       {report.amiLegacy.biosDate
                         ? ` · BIOS date ${report.amiLegacy.biosDate}`
+                        : ""}
+                    </Table.Td>
+                  </Table.Tr>
+                </>
+              )}
+              {report.awardLegacy && (
+                <>
+                  <Table.Tr>
+                    <Table.Th>Award legacy core</Table.Th>
+                    <Table.Td>
+                      Boot block {formatHexOffset(report.awardLegacy.bootBlockOffset)} ·
+                      decompressor{" "}
+                      {formatHexOffset(report.awardLegacy.decompressorOffset)} · reset{" "}
+                      {formatHexOffset(report.awardLegacy.resetVectorOffset)}
+                    </Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Th>Legacy modules / HII</Table.Th>
+                    <Table.Td>
+                      {String(report.awardLegacy.modules.length)} LHA modules · 0 HII
+                      packages · 0 IFR forms
+                      {report.awardLegacy.boardId
+                        ? ` · board ID ${report.awardLegacy.boardId}`
                         : ""}
                     </Table.Td>
                   </Table.Tr>
@@ -760,6 +785,37 @@ export default function BiosImageUpload({
               boot-block marker and x86 reset vector. Menu extraction and editing will
               require a separate bounded AMIBIOS8 module pipeline; the current UEFI
               editor will not attempt an incompatible HII scan.
+            </Alert>
+          )}
+          {report.awardLegacy && (
+            <Alert color="blue" title="Award Legacy modular BIOS recognized">
+              <Text size="sm">
+                This is not UEFI and therefore has no PI firmware volumes, HII packages
+                or IFR forms. Recognition is confirmed from the final Award boot block,
+                decompression core, x86 reset vector and{" "}
+                {String(report.awardLegacy.modules.length)} checksum-valid LHA members.
+                Module editing and full-image reconstruction remain disabled until a
+                dedicated Award pipeline proves their boundaries and checksums.
+              </Text>
+              <Accordion variant="contained" mt="sm">
+                <Accordion.Item value="award-modules">
+                  <Accordion.Control>Inspect modules and offsets</Accordion.Control>
+                  <Accordion.Panel>
+                    <List size="sm">
+                      {report.awardLegacy.modules.map((module) => (
+                        <List.Item key={`${module.name}:${String(module.offset)}`}>
+                          {module.name} · {formatHexOffset(module.offset)} ·{" "}
+                          {module.method}
+                          {" · "}
+                          {String(module.compressedSize)} →{" "}
+                          {String(module.unpackedSize)}
+                          {" bytes"}
+                        </List.Item>
+                      ))}
+                    </List>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion>
             </Alert>
           )}
           {report.phoenixLegacy && (
@@ -988,6 +1044,7 @@ function coherenceLabel(
 function containerLabel(container: FirmwareContainer) {
   if (container === "intel-flash") return "Complete Intel flash";
   if (container === "ami-legacy-rom") return "AMIBIOS legacy ROM";
+  if (container === "award-rom") return "Award modular ROM";
   if (container === "phoenix-rom") return "Phoenix module ROM";
   if (container === "firmware-volume-image") return "Raw firmware volume image";
   if (container === "vendor-image") return "Vendor update image";

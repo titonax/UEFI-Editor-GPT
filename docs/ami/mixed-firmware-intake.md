@@ -25,7 +25,8 @@ entry was counted once.
 
 Of the 147 distinct payloads, 114 contained at least one bounded, checksummed
 UEFI firmware volume; the other 33 did not. No real Award payload was present
-in these archives, so Award recognition has only a synthetic signature test.
+in these archives. Award recognition is now backed separately by the documented
+eMachines EL1200 R01A2 image and its bounded modular LHA inventory.
 Neither filename nor the computer manufacturer's branding assigns a firmware
 family on its own.
 

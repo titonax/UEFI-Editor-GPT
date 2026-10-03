@@ -66,6 +66,25 @@ function setupDataProfile() {
   return bytes;
 }
 
+function awardLhaMember(name: string, payload: number[]) {
+  const encodedName = new TextEncoder().encode(name);
+  const headerSize = 22 + encodedName.length;
+  const bytes = new Uint8Array(2 + headerSize + payload.length);
+  const view = new DataView(bytes.buffer);
+  bytes[0] = headerSize;
+  bytes.set(new TextEncoder().encode("-lh5-"), 2);
+  view.setUint32(7, payload.length, true);
+  view.setUint32(11, payload.length * 2, true);
+  bytes[20] = 1;
+  bytes[21] = encodedName.length;
+  bytes.set(encodedName, 22);
+  bytes.set(payload, 2 + headerSize);
+  bytes[1] = bytes
+    .subarray(2, 2 + headerSize)
+    .reduce((sum, value) => (sum + value) & 0xff, 0);
+  return bytes;
+}
+
 describe("complete firmware preflight", () => {
   beforeEach(() => {
     extractAmiFirmwareBytes.mockReset();
@@ -117,6 +136,51 @@ describe("complete firmware preflight", () => {
       screen.getByRole("cell", { name: /AMIBIOS 8.*AMIBIOSC0800.*0x0?17FEA/ }),
     ).toBeVisible();
     expect(screen.getByRole("cell", { name: /BIOS date 11\/24\/08/ })).toBeVisible();
+    expect(extractAmiFirmwareBytes).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Start HII analysis" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("recognizes Award Legacy and shows its bounded LHA inventory", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockReturnValue({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    );
+    const image = new Uint8Array(0x40000).fill(0xff);
+    image.set(awardLhaMember("awardext.rom", [1, 2, 3]), 0x10000);
+    image.set(awardLhaMember("ACPITBL.BIN", [4, 5, 6]), 0x11000);
+    image.set(new TextEncoder().encode("= Award Decompression Bios ="), 0x2d000);
+    image.set(new TextEncoder().encode("Award BootBlock BIOS v1.0"), 0x3e000);
+    image.set(new TextEncoder().encode("6A61K00C"), image.length - 24);
+    image.set([0xea, 0x5b, 0xe0, 0x00, 0xf0], image.length - 16);
+    const { container } = render(
+      <MantineProvider>
+        <BiosImageUpload
+          onExtracted={vi
+            .fn<(files: PopulatedFiles) => Promise<void>>()
+            .mockResolvedValue(undefined)}
+        />
+      </MantineProvider>,
+    );
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Expected the firmware file input.");
+    const file = new File([image], "eMachines EL1200 R01A2.BIN");
+    Object.defineProperty(file, "arrayBuffer", {
+      value: () => Promise.resolve(image.slice().buffer),
+    });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(
+      await screen.findByText("Award Legacy modular BIOS recognized"),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/2 LHA modules · 0 HII packages · 0 IFR forms/),
+    ).toBeVisible();
     expect(extractAmiFirmwareBytes).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("button", { name: "Start HII analysis" }),
