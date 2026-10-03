@@ -5,6 +5,7 @@ import {
   type CorpusKnowledgeStatus,
 } from "../../knowledge/corpusKnowledge";
 import { firmwareCases } from "../../knowledge/cases";
+import { referenceRulesForMatch } from "../../knowledge/rules";
 import type {
   FirmwareCaseMatchResult,
   FirmwareStructure,
@@ -61,6 +62,7 @@ export function KnowledgeBadge({ status }: { status: CorpusKnowledgeStatus }) {
 }
 
 function MatchDetails({ match }: { match: FirmwareCaseMatchResult }) {
+  const rules = referenceRulesForMatch(match);
   return (
     <Stack gap="xs">
       <Group gap="xs">
@@ -105,6 +107,25 @@ function MatchDetails({ match }: { match: FirmwareCaseMatchResult }) {
           </Stack>
         );
       })}
+      {rules.length > 0 && (
+        <Stack gap={4}>
+          <Text size="xs" fw={600}>
+            Related format rules
+          </Text>
+          <List size="xs" c="dimmed">
+            {rules.map((rule) => (
+              <List.Item key={rule.id}>
+                {rule.label} · {rule.scope}{" "}
+                {rule.evidence === "single-sample" ? "(one reviewed sample)" : ""}
+              </List.Item>
+            ))}
+          </List>
+          <Text size="xs" c="dimmed">
+            References only. Each rule still requires its own parser checks and safety
+            conditions.
+          </Text>
+        </Stack>
+      )}
     </Stack>
   );
 }
