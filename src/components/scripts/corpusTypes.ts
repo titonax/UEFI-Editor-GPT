@@ -18,7 +18,12 @@ import type {
   ConditionSource,
 } from "./types";
 
-export const corpusReportSchemaVersion = "0.7.0";
+import type {
+  CorpusKnowledgeReport,
+  CorpusKnowledgeStatus,
+} from "../../knowledge/corpusKnowledge";
+
+export const corpusReportSchemaVersion = "0.8.0";
 export const MAX_CORPUS_FILE_BYTES = 512 * 1024 * 1024;
 
 export type CorpusFileStatus = "recognized" | "partial" | "unsupported" | "failed";
@@ -157,6 +162,7 @@ export interface CorpusFailure {
 }
 
 export interface CorpusFileReport {
+  knowledge?: CorpusKnowledgeReport;
   fileName: string;
   brand: BrandClassification;
   family: FirmwareFamilyAssessment;
@@ -232,6 +238,7 @@ export interface CorpusDashboardFailureCode {
 }
 
 export interface CorpusDashboard {
+  knowledge: { status: CorpusKnowledgeStatus; cases: number; fileNames: string[] }[];
   selected: number;
   completed: number;
   uniqueCases: number;

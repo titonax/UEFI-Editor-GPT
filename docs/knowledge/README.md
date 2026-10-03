@@ -91,10 +91,10 @@ imported into the frontend, and no upstream code is copied.
 
 ## Integration sequence
 
-1. **Foundation (this change):** repository instructions/skills, typed cases,
+1. **Foundation (completed):** repository instructions/skills, typed cases,
    preflight fingerprints, conservative matching and regression tests. The
    brand catalogue consumes the shared metadata immediately.
-2. **Corpus integration:** attach measured fingerprints and known/similar/novel
+2. **Corpus integration (completed):** attach measured fingerprints and known/similar/novel
    results to CorpusRunner reports, keep diagnostic blockers separate, version
    report exports and extend the dashboard.
 3. **Reviewed case intake:** add the metadata-only Add case flow, `case.json`,
@@ -103,5 +103,10 @@ imported into the frontend, and no upstream code is copied.
 4. **Rule registry:** connect explicit format rules to reviewed cases, tests and
    implementations. Keep case resemblance separate from rule preconditions.
 
-Later agent orchestration is outside these four changes. The new matcher is not
-yet called by CorpusRunner or shown in the UI; that is the next integration PR.
+Later agent orchestration is outside these four changes. CorpusRunner now shows
+the catalogue comparison independently of actual analysis stages and blockers.
+JSON schema `0.8.0` exports fingerprints, catalogue version and matched/missing/
+conflicting fields; CSV adds equivalent summary columns. Multiple Setup contexts
+are compared separately without the complete-image hash or summed Form counts.
+Unreadable inputs leave structural observations absent rather than reporting
+unmeasured zero counts. Catalogue matches never enable edits or reconstruction.

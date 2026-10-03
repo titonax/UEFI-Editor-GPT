@@ -45,6 +45,7 @@ import {
 import { parseData } from "./scripts";
 import type { AmiSingleFormSetPage, Data, RefPrompt } from "./types";
 import { childVisibility } from "./visibility";
+import { withCorpusKnowledge } from "../../knowledge/corpusKnowledge";
 
 interface CorpusAnalysisDependencies {
   inspect: typeof inspectAmiFirmwareBytes;
@@ -547,7 +548,7 @@ export async function analyzeCorpusFirmware(
       : "No checksummed UEFI PI firmware volume was found.",
   );
   if (outerReport.firmwareVolumes.length === 0) {
-    return {
+    return withCorpusKnowledge({
       fileName: input.fileName,
       brand,
       family: outerReport.family,
@@ -573,7 +574,7 @@ export async function analyzeCorpusFirmware(
         stage: "preflight",
         message: "No valid UEFI firmware volume was found.",
       },
-    };
+    });
   }
 
   let failureStage: CorpusProgressStage = "extraction";
@@ -640,7 +641,7 @@ export async function analyzeCorpusFirmware(
     const generation = contexts[0]?.generation ?? defaultGeneration(outerReport);
     const allRecognized = contexts.every((context) => context.status === "recognized");
     onProgress({ stage: "complete", detail: "Local analysis complete." });
-    return {
+    return withCorpusKnowledge({
       fileName: input.fileName,
       brand: compareBrandNavigation(
         brand,
@@ -665,11 +666,11 @@ export async function analyzeCorpusFirmware(
       generation,
       contexts,
       stages: [preflightStage, ...stagesForContexts(contexts)],
-    };
+    });
   } catch (reason) {
     const expected = reason instanceof FirmwareError;
     const message = errorMessage(reason);
-    return {
+    return withCorpusKnowledge({
       fileName: input.fileName,
       brand,
       family: extractedAmiContext
@@ -721,6 +722,6 @@ export async function analyzeCorpusFirmware(
         ),
       ],
       failure: { stage: failureStage, code: failureCode(reason), message },
-    };
+    });
   }
 }

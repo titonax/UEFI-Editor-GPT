@@ -136,7 +136,7 @@ and failure categories.
 
 ## Export privacy
 
-JSON reports use schema `0.7.0` and contain:
+JSON reports use schema `0.8.0` and contain:
 
 - filename, size, last-modified timestamp and SHA-256;
 - firmware family evidence, confidence and conflicting signatures;
@@ -153,9 +153,16 @@ JSON reports use schema `0.7.0` and contain:
 - per-page Hide, Show and Move availability with exact blockers;
 - provenance completeness and reconstruction blockers;
 - stage failures and stable firmware error codes when available;
+- versioned, read-only catalogue comparison with the exact image identity,
+  measured structural fields, matched cases and separate Setup context results;
 - a distinct-case dashboard with eligible-layer counts, first recognition
   blockers, failure taxonomy and family/manufacturer/container/generation cohorts.
 
 CSV is a flattened per-image summary intended for sorting and coverage tables.
+Its appended knowledge columns contain comparison status, catalogue version,
+case identities, match basis, conflicts and context statuses. Exact matches can
+still have blocked extraction or writing stages. For multiple Setup contexts,
+the image fingerprint contains only outer measurements; each context has its
+own structural fingerprint without the whole-image SHA-256.
 Neither format contains source firmware, extracted modules, decompressed buffers,
 IFR text or HII bytes.

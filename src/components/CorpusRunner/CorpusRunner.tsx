@@ -46,6 +46,7 @@ import {
 } from "../scripts/corpusTypes";
 import type { CorpusRunnerRequest, CorpusRunnerResponse } from "./protocol";
 import CorpusDashboard from "./CorpusDashboard";
+import CorpusKnowledge, { KnowledgeBadge } from "./CorpusKnowledge";
 import s from "./CorpusRunner.module.css";
 
 interface CorpusWorkerLike {
@@ -223,6 +224,7 @@ function FileDetails({ file }: { file: CorpusFileReport }) {
       <Text size="xs" c="dimmed" className={s.hash}>
         SHA-256: {file.sha256 || "not calculated"}
       </Text>
+      <CorpusKnowledge knowledge={file.knowledge} />
       <Group gap="xs">
         <Badge variant="light" color={file.family.conflict ? "orange" : "blue"}>
           {firmwareFamilyLabels[file.family.family]} · {file.family.confidence}
@@ -660,6 +662,9 @@ export default function CorpusRunner({
                         </Text>
                       </div>
                       <Group gap="xs" wrap="nowrap">
+                        <KnowledgeBadge
+                          status={file.knowledge?.match.status ?? "not-assessed"}
+                        />
                         {file.contexts.length > 0 && (
                           <Badge variant="light">
                             {String(totals.forms)} forms · {String(totals.refs)} refs

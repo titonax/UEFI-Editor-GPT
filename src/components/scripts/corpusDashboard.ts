@@ -9,6 +9,7 @@ import type {
   CorpusStageId,
 } from "./corpusTypes";
 import { firmwareFamilyLabels } from "./amiFirmwareImage";
+import { corpusKnowledgeStatuses } from "../../knowledge/corpusKnowledge";
 
 const stages: CorpusStageId[] = [
   "preflight",
@@ -176,6 +177,12 @@ export function buildCorpusDashboard(
     uniqueCases: unique.length,
     duplicateHashes: files.length - unique.length,
     unhashedCases: unique.filter((file) => !file.sha256).length,
+    knowledge: corpusKnowledgeStatuses.map((status) => {
+      const fileNames = unique
+        .filter((file) => (file.knowledge?.match.status ?? "not-assessed") === status)
+        .map((file) => file.fileName);
+      return { status, cases: fileNames.length, fileNames };
+    }),
     stages: stageBreakdown(unique),
     recognitionBlockers: recognitionBreakdown(unique),
     failureCodes: failureCodeBreakdown(unique),
