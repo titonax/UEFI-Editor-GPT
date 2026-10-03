@@ -138,6 +138,10 @@ describe("local corpus runner UI", () => {
     fireEvent.click(screen.getByRole("button", { name: /sample.bin.*Failed/ }));
     expect(screen.getByText("Case catalogue comparison")).toBeInTheDocument();
     expect(
+      screen.getByRole("button", { name: "Add case · download draft" }),
+    ).toBeDisabled();
+    expect(screen.getByText(/A complete SHA-256 and input size/)).toBeInTheDocument();
+    expect(
       screen.getByText(/Catalogue matches do not enable editing/),
     ).toBeInTheDocument();
     expect(fakeWorker.terminate).toHaveBeenCalled();

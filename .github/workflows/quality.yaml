@@ -33,6 +33,8 @@ jobs:
         run: npm run lint
       - name: Type-check
         run: npm run typecheck
+      - name: Validate reviewed cases
+        run: npm run case:check
       - name: Test
         run: npm run test:coverage
       - name: Build

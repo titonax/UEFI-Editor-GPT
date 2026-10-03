@@ -87,6 +87,8 @@ than a reason to force the existing rule onto that image. Keep the source
 metadata and regression sample descriptions reviewable without committing
 firmware binaries or user-specific data.
 
-An **Add case** flow would require an explicit ingestion and review process for
-new evidence before it could amend the shipped catalogue. It is not part of
-this version.
+CorpusRunner offers an **Add case** draft download for inputs with a complete
+hash that are not already exact catalogue identities. The draft requires a
+source, regression test and explicit limitations before a reviewer can add it
+through the [reviewed intake procedure](../knowledge/case-intake.md). Nothing
+is learned from a browser analysis automatically.

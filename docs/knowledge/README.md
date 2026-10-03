@@ -97,7 +97,7 @@ imported into the frontend, and no upstream code is copied.
 2. **Corpus integration (completed):** attach measured fingerprints and known/similar/novel
    results to CorpusRunner reports, keep diagnostic blockers separate, version
    report exports and extend the dashboard.
-3. **Reviewed case intake:** add the metadata-only Add case flow, `case.json`,
+3. **Reviewed case intake (completed):** add the metadata-only Add case flow, `case.json`,
    a local `npm run case:add` command and CI validation before new evidence is
    shipped. No automatic case learning.
 4. **Rule registry:** connect explicit format rules to reviewed cases, tests and
@@ -110,3 +110,7 @@ conflicting fields; CSV adds equivalent summary columns. Multiple Setup contexts
 are compared separately without the complete-image hash or summed Form counts.
 Unreadable inputs leave structural observations absent rather than reporting
 unmeasured zero counts. Catalogue matches never enable edits or reconstruction.
+
+The [reviewed intake procedure](case-intake.md) explains how a local draft
+becomes a committed case after source and regression review. The intake change
+adds no sample identities; the original 17 records remain the current baseline.
