@@ -55,22 +55,24 @@ paths or the BIOS region, and independently re-extracts the requested AMI
 artefacts before download.
 
 The builder also has a codec boundary for compressed sections. It checks the
-original section header and decoded provenance, requires an exact-size encoded
-payload, independently decodes the replacement, and then repairs the owning FFS.
+original section header and decoded provenance, independently decodes the
+replacement, and then repairs the owning FFS. An encoded body may change size
+only when its section is terminal in a declared FFS allocation with untouched,
+uniform erase padding. The builder updates the section size field, preserves the
+FFS size and fills unused bytes with the original erase byte. It rejects growth
+beyond that allocation, occupied tails and stale FFS bounds.
 An LZMA1-alone encoder is now connected to the AMI builder. It accepts only a
 known decoded length (at most 64 MiB), the usual 0x5D LZMA properties byte and
 one of its supported dictionary sizes. A fixture encoded independently with
 Python/liblzma confirms decoding, and the new encoder's output is deterministic.
-The builder still requires the encoded body to have exactly the original packed
-length; changes that grow or shrink it reject the entire image. The frontend
-still blocks compressed export until real-image acceptance and size/padding
-rules are complete. EFI/Tiano has no encoder.
+The frontend still blocks compressed export until real-image acceptance. Other
+section layouts and EFI/Tiano compression remain unsupported.
 
 The remaining path-specific blockers are:
 
 - an EFI/Tiano encoder, plus validation of LZMA against a real firmware image;
-- support for packed-size changes, section size/header repair and padding
-  preservation;
+- additional packed-size layouts, including sections without proven terminal
+  padding or changes that require relocation;
 - real-sample acceptance for every newly enabled encapsulation combination.
 
 All firmware bytes, decoded buffers and provenance metadata remain in the
