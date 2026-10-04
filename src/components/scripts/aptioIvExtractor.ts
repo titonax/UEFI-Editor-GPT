@@ -72,7 +72,7 @@ function loadDecompressor(name: string) {
 async function runFirmwareDecompress(
   input: Uint8Array,
   wasmName: string,
-  mode: "lzma" | "tiano" | "efi",
+  mode: "lzma" | "tiano" | "efi" | "compress-tiano" | "compress-efi",
 ) {
   const directory = new Map<string, WasiFile>();
   directory.set("input.bin", new WasiFile(input));
@@ -101,18 +101,26 @@ async function runFirmwareDecompress(
   } catch (reason) {
     if (!(reason instanceof WebAssembly.RuntimeError)) throw reason;
     throw new FirmwareError(
-      "INVALID_COMPRESSED_SECTION",
-      `Firmware decompressor trapped on this section (${reason.message}).`,
+      mode.startsWith("compress-") ? "PATCH_FAILED" : "INVALID_COMPRESSED_SECTION",
+      `Firmware codec trapped on this section (${reason.message}).`,
     );
   }
   const output = directory.get("output.bin");
   if (exitCode !== 0 || !output) {
     throw new FirmwareError(
-      "INVALID_COMPRESSED_SECTION",
-      messages.join("\n") || `Firmware decompressor exited with ${String(exitCode)}.`,
+      mode.startsWith("compress-") ? "PATCH_FAILED" : "INVALID_COMPRESSED_SECTION",
+      messages.join("\n") || `Firmware codec exited with ${String(exitCode)}.`,
     );
   }
   return output.data;
+}
+
+/** Runs one explicitly selected EFI or Tiano codec variant in its WASI process. */
+export function runStandardSectionCodec(
+  input: Uint8Array,
+  mode: "tiano" | "efi" | "compress-tiano" | "compress-efi",
+) {
+  return runFirmwareDecompress(input, "tiano-decompress.wasm", mode);
 }
 
 async function firmwareDecompress(input: Uint8Array, mode: "lzma" | "standard") {
@@ -123,7 +131,7 @@ async function firmwareDecompress(input: Uint8Array, mode: "lzma" | "standard") 
   const failures: string[] = [];
   for (const algorithm of ["tiano", "efi"] as const) {
     try {
-      return await runFirmwareDecompress(input, "tiano-decompress.wasm", algorithm);
+      return await runStandardSectionCodec(input, algorithm);
     } catch (error) {
       if (
         error instanceof FirmwareError &&

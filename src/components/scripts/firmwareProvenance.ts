@@ -217,10 +217,12 @@ export function assessFirmwareReconstruction(
     blockers.push("At least one artifact has an incomplete path to the source image.");
   }
   if (compressions.includes("lzma")) {
-    blockers.push("Deterministic LZMA recompression is not implemented yet.");
+    blockers.push("LZMA full-image reconstruction is awaiting real-image acceptance.");
   }
   if (compressions.includes("standard")) {
-    blockers.push("Deterministic EFI/Tiano recompression is not implemented yet.");
+    blockers.push(
+      "EFI/Tiano full-image reconstruction is awaiting real-image acceptance.",
+    );
   }
   const traceComplete = traces.length > 0 && traces.every((trace) => trace.complete);
 

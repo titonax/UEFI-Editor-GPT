@@ -65,12 +65,16 @@ An LZMA1-alone encoder is now connected to the AMI builder. It accepts only a
 known decoded length (at most 64 MiB), the usual 0x5D LZMA properties byte and
 one of its supported dictionary sizes. A fixture encoded independently with
 Python/liblzma confirms decoding, and the new encoder's output is deterministic.
+The EFI/Tiano codec uses the upstream EDK II encoders (pinned at
+`999fd0f12a27709eee04b93e46bd867e6b0163a5`) in a browser WASI process.
+It selects EFI or Tiano by matching the original decoded bytes, preserves the
+source decoded length, and checks each rebuilt stream with its selected decoder.
 The frontend still blocks compressed export until real-image acceptance. Other
-section layouts and EFI/Tiano compression remain unsupported.
+section layouts remain unsupported.
 
 The remaining path-specific blockers are:
 
-- an EFI/Tiano encoder, plus validation of LZMA against a real firmware image;
+- validation of LZMA and EFI/Tiano against complete real firmware images;
 - additional packed-size layouts, including sections without proven terminal
   padding or changes that require relocation;
 - real-sample acceptance for every newly enabled encapsulation combination.
