@@ -66,7 +66,7 @@ export async function buildAmiFirmwareImage(
     ...(patches.amitseSct ? { amitse: patches.amitseSct } : {}),
     ...(patches.setupdataBin ? { setupdata: patches.setupdataBin } : {}),
   };
-  const rebuilt = rebuildUefiImage(session.artifacts.provenance, replacements);
+  const rebuilt = await rebuildUefiImage(session.artifacts.provenance, replacements);
   const reopened = await reextract(rebuilt.image, session.artifacts);
   for (const [kind, expected, actual] of [
     ["Setup HII", patches.setupSct, reopened.hii],

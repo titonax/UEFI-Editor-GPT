@@ -1,8 +1,15 @@
 import { FirmwareError } from "./errors";
 import { inspectFirmwareImageLayout } from "./firmwareImageContainer";
+import {
+  encapsulatedFirmwareSection,
+  readFirmwareSection,
+  type FirmwareCompression,
+} from "./firmwareSections";
+import { readUint32 } from "./binaryReader";
 import type {
   FirmwareArtifactKind,
   FirmwareArtifactLocation,
+  FirmwareEncapsulationEdge,
   FirmwareFileReference,
   FirmwareProvenanceGraph,
 } from "./firmwareProvenance";
@@ -17,6 +24,82 @@ export interface UefiImageBuildResult {
   changedByteCount: number;
   changedStart: number;
   changedEnd: number;
+}
+
+/** A section-body codec. The caller must supply a format-compatible encoder. */
+export interface FirmwareSectionCodec {
+  compression: Exclude<FirmwareCompression, "none">;
+  compress(decoded: Uint8Array): Uint8Array | Promise<Uint8Array>;
+  decompress(packed: Uint8Array): Uint8Array | Promise<Uint8Array>;
+}
+
+function sameBytes(left: Uint8Array, right: Uint8Array) {
+  return left.length === right.length && left.every((byte, i) => byte === right[i]);
+}
+
+async function rebuildCompressedPayload(
+  parent: Uint8Array,
+  sourceParent: Uint8Array,
+  edge: FirmwareEncapsulationEdge,
+  originalDecoded: Uint8Array,
+  modifiedDecoded: Uint8Array,
+  codecs: Partial<Record<"lzma" | "standard", FirmwareSectionCodec>>,
+) {
+  const codec = edge.compression === "none" ? undefined : codecs[edge.compression];
+  if (codec?.compression !== edge.compression) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      `${edge.compression.toUpperCase()} recompression is not enabled for this case yet.`,
+    );
+  }
+  const section = readFirmwareSection(sourceParent, edge.sectionStart, edge.sectionEnd);
+  const encapsulated = section && encapsulatedFirmwareSection(sourceParent, section);
+  if (
+    !section ||
+    !encapsulated ||
+    section.end !== edge.sectionEnd ||
+    section.headerSize !== edge.sectionHeaderSize ||
+    section.type !== edge.sectionType ||
+    encapsulated.payloadStart !== edge.payloadStart ||
+    encapsulated.payloadEnd !== edge.payloadEnd ||
+    encapsulated.compression !== edge.compression ||
+    encapsulated.definitionGuid !== edge.definitionGuid ||
+    encapsulated.attributes !== edge.attributes ||
+    (section.type === 1 &&
+      readUint32(sourceParent, section.start + section.headerSize) !==
+        originalDecoded.length) ||
+    edge.payloadStart < edge.sectionStart ||
+    edge.payloadEnd > sourceParent.length
+  ) {
+    throw new FirmwareError(
+      "INTEGRITY_MISMATCH",
+      "Compressed section provenance changed.",
+    );
+  }
+  const original = await codec.decompress(encapsulated.bytes);
+  if (!sameBytes(original, originalDecoded)) {
+    throw new FirmwareError(
+      "INTEGRITY_MISMATCH",
+      "Compressed source does not match its decoded provenance.",
+    );
+  }
+  const packed = await codec.compress(modifiedDecoded);
+  // This first stage has no section relocation or padding policy. Exact packed
+  // size keeps the section header and following sections byte-for-byte intact.
+  if (packed.length !== encapsulated.bytes.length) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      `Compressed section needs ${String(packed.length)} bytes; its fixed payload is ${String(encapsulated.bytes.length)} bytes.`,
+    );
+  }
+  const verified = await codec.decompress(packed);
+  if (!sameBytes(verified, modifiedDecoded)) {
+    throw new FirmwareError(
+      "INTEGRITY_MISMATCH",
+      "Compressed section failed its encoding round-trip.",
+    );
+  }
+  parent.set(packed, edge.payloadStart);
 }
 
 function checksum8(bytes: Uint8Array, start: number, end: number) {
@@ -103,14 +186,14 @@ function containsOffset(ranges: { start: number; end: number }[], offset: number
 }
 
 /**
- * Rebuilds fixed-size, uncompressed PI encapsulation paths from leaves to the
- * complete source image. Compression codecs are deliberately separate: an
- * encountered LZMA or EFI/Tiano edge is rejected instead of approximated.
+ * Rebuilds fixed-size PI encapsulation paths from leaves to the source image.
+ * Compressed paths require an explicitly supplied, round-trip verified codec.
  */
-export function rebuildUefiImage(
+export async function rebuildUefiImage(
   graph: FirmwareProvenanceGraph,
   replacements: FirmwareArtifactReplacements,
-): UefiImageBuildResult {
+  codecs: Partial<Record<"lzma" | "standard", FirmwareSectionCodec>> = {},
+): Promise<UefiImageBuildResult> {
   const sourceNode = graph.buffers.find((node) => node.id === graph.rootBufferId);
   if (sourceNode?.bytes.length !== graph.sourceSize) {
     throw new FirmwareError(
@@ -176,19 +259,35 @@ export function rebuildUefiImage(
         `Decoded buffer ${String(node.id)} has no complete parent edge.`,
       );
     }
-    if (edge.compression !== "none") {
-      throw new FirmwareError(
-        "PATCH_FAILED",
-        `${edge.compression.toUpperCase()} recompression is not enabled for this case yet.`,
-      );
-    }
-    if (node.bytes.length !== edge.payloadEnd - edge.payloadStart) {
+    if (
+      edge.compression === "none" &&
+      node.bytes.length !== edge.payloadEnd - edge.payloadStart
+    ) {
       throw new FirmwareError(
         "PATCH_FAILED",
         `Decoded buffer ${String(node.id)} no longer fits its original encapsulation.`,
       );
     }
-    parent.bytes.set(node.bytes, edge.payloadStart);
+    if (edge.compression === "none") {
+      parent.bytes.set(node.bytes, edge.payloadStart);
+    } else {
+      const sourceParent = graph.buffers.find((buffer) => buffer.id === parent.id);
+      const sourceChild = graph.buffers.find((buffer) => buffer.id === node.id);
+      if (!sourceParent || !sourceChild) {
+        throw new FirmwareError(
+          "INTEGRITY_MISMATCH",
+          "Compressed source buffers are missing.",
+        );
+      }
+      await rebuildCompressedPayload(
+        parent.bytes,
+        sourceParent.bytes,
+        edge,
+        sourceChild.bytes,
+        node.bytes,
+        codecs,
+      );
+    }
     modified.add(parent.id);
     if (edge.ownerFile) requestRepair(edge.ownerFile);
   }

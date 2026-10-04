@@ -136,6 +136,10 @@ artefacts before download. Intel SPI inputs retain Descriptor, ME, GbE and every
 non-BIOS byte exactly; BIOS-only inputs remain BIOS-only. Output is always
 `.bin`, never a rebuilt capsule.
 
+An exact-size compressed-section codec boundary is covered with synthetic
+round-trip, provenance and rejection tests. No compressed writer is enabled for
+user images until a real encoder and real-sample acceptance pass.
+
 Build edited PI artefacts from leaves back to the original image.
 
 - Add deterministic EFI/Tiano and LZMA encoders.

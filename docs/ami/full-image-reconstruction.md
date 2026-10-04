@@ -54,10 +54,17 @@ repairs affected FFS header/data checksums, rejects changes outside owned FFS
 paths or the BIOS region, and independently re-extracts the requested AMI
 artefacts before download.
 
+The builder also has a codec boundary for compressed sections. It checks the
+original section header and decoded provenance, requires an exact-size encoded
+payload, independently decodes the replacement, and then repairs the owning FFS.
+This is covered by synthetic tests only. No LZMA or EFI/Tiano encoder is wired
+into the browser, so compressed paths still fail closed and cannot be downloaded.
+
 The remaining path-specific blockers are:
 
 - deterministic LZMA and EFI/Tiano encoders compatible with the source section;
-- compressed section size/header repair and padding preservation;
+- support for packed-size changes, section size/header repair and padding
+  preservation;
 - real-sample acceptance for every newly enabled encapsulation combination.
 
 All firmware bytes, decoded buffers and provenance metadata remain in the

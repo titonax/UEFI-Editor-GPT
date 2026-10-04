@@ -57,10 +57,10 @@ function sum8(bytes: Uint8Array, start: number, end: number) {
 }
 
 describe("rebuildUefiImage", () => {
-  it("patches a direct HII payload, repairs FFS checksums and preserves its surroundings", () => {
+  it("patches a direct HII payload, repairs FFS checksums and preserves its surroundings", async () => {
     const { graph, file } = directGraph();
     const source = graph.buffers[0].bytes.slice();
-    const result = rebuildUefiImage(graph, {
+    const result = await rebuildUefiImage(graph, {
       "setup-hii": Uint8Array.of(1, 2, 3, 4, 5, 6, 7, 8),
     });
 
@@ -80,7 +80,7 @@ describe("rebuildUefiImage", () => {
     expect(sum8(header, 0, header.length)).toBe(0);
   });
 
-  it("rebuilds an uncompressed child before repairing its owning outer FFS", () => {
+  it("rebuilds an uncompressed child before repairing its owning outer FFS", async () => {
     const root = new Uint8Array(0x300);
     const outerFile = fileReference(0, 0x40, 0x100);
     initializeFile(root, outerFile);
@@ -121,7 +121,7 @@ describe("rebuildUefiImage", () => {
         },
       ],
     };
-    const result = rebuildUefiImage(graph, {
+    const result = await rebuildUefiImage(graph, {
       "setup-hii": new Uint8Array(8).fill(0xa5),
     });
 
@@ -133,7 +133,7 @@ describe("rebuildUefiImage", () => {
     ).toBe(0);
   });
 
-  it("preserves descriptor, ME and all bytes outside the BIOS region of a full SPI", () => {
+  it("preserves descriptor, ME and all bytes outside the BIOS region of a full SPI", async () => {
     const source = new Uint8Array(0x5000);
     const view = new DataView(source.buffer);
     view.setUint32(0x10, 0x0ff0a55a, true);
@@ -159,7 +159,7 @@ describe("rebuildUefiImage", () => {
         },
       ],
     };
-    const result = rebuildUefiImage(graph, {
+    const result = await rebuildUefiImage(graph, {
       "setup-hii": new Uint8Array(8).fill(0x44),
     });
 
@@ -167,7 +167,7 @@ describe("rebuildUefiImage", () => {
     expect(result.image).toHaveLength(source.length);
   });
 
-  it("rejects a compressed ancestry until its codec is enabled", () => {
+  it("rejects a compressed ancestry until its codec is enabled", async () => {
     const { graph } = directGraph();
     const source = graph.buffers[0].bytes;
     const child = source.slice(0x60, 0x80);
@@ -193,8 +193,101 @@ describe("rebuildUefiImage", () => {
       payloadEnd: 8,
     };
 
-    expect(() =>
+    await expect(
       rebuildUefiImage(graph, { "setup-hii": new Uint8Array(8).fill(1) }),
-    ).toThrow(/LZMA recompression/);
+    ).rejects.toThrow(/LZMA recompression/);
+  });
+
+  it("rebuilds a synthetic compressed section only with exact size and independent round-trip", async () => {
+    const root = new Uint8Array(0x300).fill(0xff);
+    const outerFile = fileReference(0, 0x40, 0x100);
+    initializeFile(root, outerFile);
+    const decoded = new Uint8Array(0x40).fill(0x31);
+    const innerFile = fileReference(1, 0x08, 0x38);
+    innerFile.volumeEnd = decoded.length;
+    initializeFile(decoded, innerFile);
+    const payloadStart = 0x69;
+    const packed = Uint8Array.from(decoded, (byte) => byte ^ 0xa5);
+    root.set([0x49, 0, 0, 1, 0x40, 0, 0, 0, 1], 0x60);
+    root.set(packed, payloadStart);
+    const graph: FirmwareProvenanceGraph = {
+      rootBufferId: 0,
+      sourceSize: root.length,
+      buffers: [
+        { id: 0, bytes: root, depth: 0 },
+        {
+          id: 1,
+          bytes: decoded,
+          depth: 1,
+          parent: {
+            parentBufferId: 0,
+            sectionStart: 0x60,
+            sectionEnd: 0xa9,
+            sectionHeaderSize: 4,
+            sectionType: 1,
+            payloadStart,
+            payloadEnd: 0xa9,
+            compression: "standard",
+            ownerFile: outerFile,
+          },
+        },
+      ],
+      artifacts: [
+        {
+          kind: "setup-hii",
+          bufferId: 1,
+          payloadStart: 0x28,
+          payloadEnd: 0x30,
+          sourceFile: innerFile,
+        },
+      ],
+    };
+    const codec = {
+      compression: "standard" as const,
+      compress: (bytes: Uint8Array) => Uint8Array.from(bytes, (byte) => byte ^ 0xa5),
+      decompress: (bytes: Uint8Array) => Uint8Array.from(bytes, (byte) => byte ^ 0xa5),
+    };
+    const replacement = new Uint8Array(8).fill(0x70);
+    const result = await rebuildUefiImage(
+      graph,
+      { "setup-hii": replacement },
+      { standard: codec },
+    );
+    expect(
+      codec.decompress(result.image.slice(payloadStart, 0xa9)).slice(0x28, 0x30),
+    ).toEqual(replacement);
+    expect(result.image.slice(0, outerFile.fileStart)).toEqual(
+      root.slice(0, outerFile.fileStart),
+    );
+    expect(result.image.slice(outerFile.end)).toEqual(root.slice(outerFile.end));
+    expect(result.image).toHaveLength(root.length);
+    expect(
+      (sum8(result.image, outerFile.bodyStart, outerFile.end) +
+        result.image[outerFile.fileStart + 17]) &
+        0xff,
+    ).toBe(0);
+
+    await expect(
+      rebuildUefiImage(
+        graph,
+        { "setup-hii": replacement },
+        {
+          standard: { ...codec, compress: (bytes) => new Uint8Array(bytes.length + 1) },
+        },
+      ),
+    ).rejects.toThrow(/fixed payload/);
+    await expect(
+      rebuildUefiImage(
+        graph,
+        { "setup-hii": replacement },
+        {
+          standard: { ...codec, compress: (bytes) => new Uint8Array(bytes.length) },
+        },
+      ),
+    ).rejects.toThrow(/round-trip/);
+    graph.buffers[1].bytes[0] ^= 1;
+    await expect(
+      rebuildUefiImage(graph, { "setup-hii": replacement }, { standard: codec }),
+    ).rejects.toThrow(/decoded provenance/);
   });
 });
