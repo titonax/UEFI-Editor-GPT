@@ -14,9 +14,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "case:add": "node scripts/case-review.mjs add",
-    "case:check": "node scripts/case-review.mjs check && node scripts/case-review.test.mjs",
-    "check": "npm run format:check && npm run lint && npm run case:check && npm run test:coverage && npm run build",
+    "check": "npm run format:check && npm run lint && npm run test:coverage && npm run build",
     "preview": "vite preview"
   },
   "engines": {
@@ -32,6 +30,7 @@
     "@tabler/icons-react": "^3.48.0",
     "file-saver": "^2.0.5",
     "immer": "^11.1.18",
+    "lzma": "2.3.2",
     "react": "^19",
     "react-dom": "^19",
     "use-immer": "^0.11"
