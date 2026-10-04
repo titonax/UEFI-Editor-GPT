@@ -59,7 +59,10 @@ jobs:
           cp tools/lzma-wasi/target/wasm32-wasip1/release/firmware-decompress.wasm public/firmware-decompress.wasm
           $CC -O3 -DNDEBUG -Wl,--strip-all -Itools/tiano-wasi \
             tools/tiano-wasi/main.c tools/tiano-wasi/Decompress.c \
+            tools/tiano-wasi/EfiCompress.c tools/tiano-wasi/TianoCompress.c \
             -o public/tiano-decompress.wasm
+      - name: Verify EFI/Tiano compression variants
+        run: bash scripts/check-tiano-codec.sh
       - name: Build
         run: npm run build
       - name: Setup Pages

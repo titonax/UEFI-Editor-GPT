@@ -142,13 +142,14 @@ within its declared FFS when the remaining space is proven untouched, uniform
 erase padding. FFS allocation and overall image size stay fixed. No compressed
 writer is enabled for user images until real-sample acceptance passes.
 
-An LZMA1-alone encoder is connected behind that boundary with a third-party
-fixture and deterministic round trips. The UI still blocks compressed paths
-because no real-image acceptance is recorded.
+LZMA1-alone and EFI/Tiano encoders are connected behind that boundary. EFI and
+Tiano selection is verified against the original decoded stream; synthetic
+round trips cover both EDK II compression variants. The UI still blocks
+compressed paths because no real-image acceptance is recorded.
 
 Build edited PI artefacts from leaves back to the original image.
 
-- Add deterministic EFI/Tiano and LZMA encoders.
+- Validate deterministic EFI/Tiano and LZMA output against real images.
 - Merge edits that share decoded ancestors.
 - Rebuild section, FFS and FV size/checksum fields and preserve erase padding.
 - Initially require every rebuilt payload to fit its original allocation.

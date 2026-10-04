@@ -34,7 +34,8 @@ export interface FirmwareSectionCodec {
 }
 
 export type FirmwareSectionCodecOption =
-  FirmwareSectionCodec | ((originalPacked: Uint8Array) => FirmwareSectionCodec);
+  | FirmwareSectionCodec
+  | ((originalPacked: Uint8Array, originalDecoded: Uint8Array) => FirmwareSectionCodec);
 
 function sameBytes(left: Uint8Array, right: Uint8Array) {
   return left.length === right.length && left.every((byte, i) => byte === right[i]);
@@ -174,7 +175,8 @@ async function rebuildCompressedPayload(
       "Compressed section provenance changed.",
     );
   }
-  const codec = typeof option === "function" ? option(encapsulated.bytes) : option;
+  const codec =
+    typeof option === "function" ? option(encapsulated.bytes, originalDecoded) : option;
   if (codec.compression !== edge.compression) {
     throw new FirmwareError(
       "INTEGRITY_MISMATCH",

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "Decompress.h"
+#include "Compress.h"
 
 static unsigned char *read_file(const char *path, size_t *size) {
   FILE *file = fopen(path, "rb");
@@ -26,12 +27,51 @@ int main(int argc, char **argv) {
   size_t source_size, destination_size, scratch_size;
   EFI_STATUS status;
   FILE *output;
-  if (argc != 4 || (strcmp(argv[3], "tiano") != 0 && strcmp(argv[3], "efi") != 0)) {
-    fprintf(stderr, "usage: tiano-decompress input.bin output.bin tiano|efi\n");
+  if (argc != 4 || (strcmp(argv[3], "tiano") != 0 && strcmp(argv[3], "efi") != 0 &&
+                    strcmp(argv[3], "compress-tiano") != 0 && strcmp(argv[3], "compress-efi") != 0)) {
+    fprintf(stderr, "usage: tiano-codec input.bin output.bin tiano|efi|compress-tiano|compress-efi\n");
     return 2;
   }
   source = read_file(argv[1], &source_size);
-  if (!source || TianoGetInfo(source, source_size, &destination_size, &scratch_size) != EFI_SUCCESS) {
+  if (!source) {
+    fprintf(stderr, "cannot read input stream\n");
+    return 3;
+  }
+  if (strncmp(argv[3], "compress-", 9) == 0) {
+    UINT32 output_size;
+    UINT32 capacity;
+    if (source_size == 0 || source_size > 64U * 1024U * 1024U) {
+      fprintf(stderr, "source section exceeds the 64 MiB safety limit\n");
+      free(source);
+      return 4;
+    }
+    capacity = (UINT32)source_size + (UINT32)source_size / 2 + 65536;
+    destination = malloc(capacity);
+    if (!destination) {
+      free(source);
+      return 4;
+    }
+    output_size = capacity;
+    status = strcmp(argv[3], "compress-efi") == 0
+      ? EfiCompress(source, (UINT32)source_size, destination, &output_size)
+      : TianoCompress(source, (UINT32)source_size, destination, &output_size);
+    if (status != EFI_SUCCESS) {
+      fprintf(stderr, "EFI/Tiano compression failed (%d)\n", status);
+      free(source); free(destination);
+      return 5;
+    }
+    output = fopen(argv[2], "wb");
+    if (!output || fwrite(destination, 1, output_size, output) != output_size) {
+      fprintf(stderr, "cannot write compressed output\n");
+      free(source); free(destination);
+      return 6;
+    }
+    fclose(output);
+    free(source); free(destination);
+    return 0;
+  }
+  if (TianoGetInfo(source, source_size, &destination_size, &scratch_size) != EFI_SUCCESS ||
+      destination_size == 0 || source_size < 9) {
     fprintf(stderr, "invalid EFI/Tiano compressed stream\n");
     return 3;
   }
