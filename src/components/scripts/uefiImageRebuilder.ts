@@ -5,7 +5,7 @@ import {
   readFirmwareSection,
   type FirmwareCompression,
 } from "./firmwareSections";
-import { readUint32 } from "./binaryReader";
+import { align, readUint24, readUint32, readUint64AsNumber } from "./binaryReader";
 import type {
   FirmwareArtifactKind,
   FirmwareArtifactLocation,
@@ -38,6 +38,101 @@ export type FirmwareSectionCodecOption =
 
 function sameBytes(left: Uint8Array, right: Uint8Array) {
   return left.length === right.length && left.every((byte, i) => byte === right[i]);
+}
+
+function terminalSectionPadding(
+  parent: Uint8Array,
+  sourceParent: Uint8Array,
+  edge: FirmwareEncapsulationEdge,
+) {
+  const file = edge.ownerFile;
+  if (!file) {
+    throw new FirmwareError(
+      "INTEGRITY_MISMATCH",
+      "Compressed section has no proven FFS allocation.",
+    );
+  }
+  if (
+    file.bufferId !== edge.parentBufferId ||
+    file.fileStart < file.volumeStart ||
+    file.fileStart + 24 > file.volumeEnd ||
+    file.bodyStart !== file.fileStart + file.headerSize ||
+    file.end > file.volumeEnd ||
+    file.volumeEnd > sourceParent.length ||
+    edge.sectionStart < file.bodyStart ||
+    edge.sectionEnd > file.end
+  ) {
+    throw new FirmwareError(
+      "INTEGRITY_MISMATCH",
+      "Compressed section has no proven FFS allocation.",
+    );
+  }
+  const size24 = readUint24(sourceParent, file.fileStart + 20);
+  const extended = size24 === 0xffffff;
+  if (
+    file.headerSize !== (extended ? 32 : 24) ||
+    (extended && file.fileStart + 32 > file.end) ||
+    file.end - file.fileStart !==
+      (extended ? readUint64AsNumber(sourceParent, file.fileStart + 24) : size24)
+  ) {
+    throw new FirmwareError("INTEGRITY_MISMATCH", "The enclosing FFS size changed.");
+  }
+  let cursor = file.bodyStart;
+  while (cursor < edge.sectionStart) {
+    const previous = readFirmwareSection(sourceParent, cursor, file.end);
+    if (!previous || previous.end > edge.sectionStart) {
+      throw new FirmwareError(
+        "INTEGRITY_MISMATCH",
+        "The enclosing FFS section chain is incomplete.",
+      );
+    }
+    cursor = align(previous.end, 4);
+  }
+  if (cursor !== edge.sectionStart || edge.sectionEnd >= file.end) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "Compressed section has no trailing FFS padding.",
+    );
+  }
+  const fill = sourceParent[edge.sectionEnd];
+  if (
+    (fill !== 0xff && fill !== 0x00) ||
+    !sourceParent.subarray(edge.sectionEnd, file.end).every((byte) => byte === fill) ||
+    !sameBytes(
+      parent.subarray(edge.sectionEnd, file.end),
+      sourceParent.subarray(edge.sectionEnd, file.end),
+    )
+  ) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "The trailing FFS allocation is not untouched erase padding.",
+    );
+  }
+  return { end: file.end, fill };
+}
+
+function writeSectionSize(
+  parent: Uint8Array,
+  edge: FirmwareEncapsulationEdge,
+  size: number,
+) {
+  if (edge.sectionHeaderSize === 4) {
+    if (size >= 0xffffff) {
+      throw new FirmwareError(
+        "PATCH_FAILED",
+        "Compressed section would require an extended header.",
+      );
+    }
+    parent[edge.sectionStart] = size & 0xff;
+    parent[edge.sectionStart + 1] = (size >>> 8) & 0xff;
+    parent[edge.sectionStart + 2] = (size >>> 16) & 0xff;
+  } else {
+    new DataView(parent.buffer, parent.byteOffset, parent.byteLength).setUint32(
+      edge.sectionStart + 4,
+      size,
+      true,
+    );
+  }
 }
 
 async function rebuildCompressedPayload(
@@ -94,20 +189,28 @@ async function rebuildCompressedPayload(
     );
   }
   const packed = await codec.compress(modifiedDecoded);
-  // This first stage has no section relocation or padding policy. Exact packed
-  // size keeps the section header and following sections byte-for-byte intact.
-  if (packed.length !== encapsulated.bytes.length) {
-    throw new FirmwareError(
-      "PATCH_FAILED",
-      `Compressed section needs ${String(packed.length)} bytes; its fixed payload is ${String(encapsulated.bytes.length)} bytes.`,
-    );
-  }
   const verified = await codec.decompress(packed);
   if (!sameBytes(verified, modifiedDecoded)) {
     throw new FirmwareError(
       "INTEGRITY_MISMATCH",
       "Compressed section failed its encoding round-trip.",
     );
+  }
+  if (packed.length !== encapsulated.bytes.length) {
+    const padding = terminalSectionPadding(parent, sourceParent, edge);
+    const newEnd = edge.payloadStart + packed.length;
+    if (
+      packed.length === 0 ||
+      newEnd > padding.end ||
+      newEnd - edge.sectionStart > 0xffffffff
+    ) {
+      throw new FirmwareError(
+        "PATCH_FAILED",
+        `Compressed section needs ${String(packed.length)} bytes but its proven FFS allocation ends at ${String(padding.end)}.`,
+      );
+    }
+    writeSectionSize(parent, edge, newEnd - edge.sectionStart);
+    parent.fill(padding.fill, newEnd, padding.end);
   }
   parent.set(packed, edge.payloadStart);
 }

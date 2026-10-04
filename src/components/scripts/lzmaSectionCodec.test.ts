@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createLzmaSectionCodec } from "./lzmaSectionCodec";
 import type { FirmwareProvenanceGraph } from "./firmwareProvenance";
 import { rebuildUefiImage } from "./uefiImageRebuilder";
+import { readFirmwareSection } from "./firmwareSections";
 
 // Generated independently with Python's liblzma FORMAT_ALONE encoder, using a
 // 1 MiB dictionary and its documented decoded length in the 13-byte header.
@@ -97,10 +98,12 @@ describe("LZMA section codec", () => {
     await expect(codec.decompress(changedDictionary)).rejects.toThrow(/properties/);
   });
 
-  it("does not export an image when a real LZMA encoder exceeds its fixed section", async () => {
+  it("grows the terminal LZMA section inside proven FFS padding and preserves the rest", async () => {
     const root = new Uint8Array(0x200).fill(0x31);
+    root.set([0xa0, 0, 0], 0x20 + 20);
     root.set([64, 0, 0, 1, 112, 0, 0, 0, 2], 0x38);
     root.set(externalFixture, 0x41);
+    root.fill(0xff, 0x78, 0xc0);
     const outer = {
       bufferId: 0,
       guid: "899407D7-99FE-43D8-9A21-79EC328CAC21",
@@ -153,13 +156,56 @@ describe("LZMA section codec", () => {
     const replacement = decodedFixture.slice(24, 32);
     replacement[0] ^= 1;
     const untouched = root.slice();
+    const result = await rebuildUefiImage(
+      graph,
+      { "setup-hii": replacement },
+      { lzma: createLzmaSectionCodec },
+    );
+    const section = readFirmwareSection(result.image, 0x38, outer.end);
+    expect(section?.end).toBeGreaterThan(0x78);
+    if (!section) throw new Error("Rebuilt LZMA section is missing.");
+    const codec = createLzmaSectionCodec(externalFixture);
+    const decoded = await codec.decompress(result.image.slice(0x41, section.end));
+    expect(decoded.slice(24, 32)).toEqual(replacement);
+    expect(result.image.slice(section.end, outer.end)).toEqual(
+      new Uint8Array(outer.end - section.end).fill(0xff),
+    );
+    expect(result.image.slice(outer.end)).toEqual(root.slice(outer.end));
+    expect(result.image).toHaveLength(root.length);
+    expect(root).toEqual(untouched);
+
+    const tooSmall = structuredClone(graph);
+    tooSmall.buffers[0].bytes[0x20 + 20] = 0x59;
+    const tooSmallFile = tooSmall.buffers[1].parent?.ownerFile;
+    if (!tooSmallFile) throw new Error("Test FFS provenance is missing.");
+    tooSmallFile.end = 0x79;
     await expect(
       rebuildUefiImage(
-        graph,
+        tooSmall,
         { "setup-hii": replacement },
         { lzma: createLzmaSectionCodec },
       ),
-    ).rejects.toThrow(/fixed payload/);
+    ).rejects.toThrow(/allocation ends/);
+
+    const occupied = structuredClone(graph);
+    occupied.buffers[0].bytes[0x80] = 0x42;
+    await expect(
+      rebuildUefiImage(
+        occupied,
+        { "setup-hii": replacement },
+        { lzma: createLzmaSectionCodec },
+      ),
+    ).rejects.toThrow(/erase padding/);
+
+    const stale = structuredClone(graph);
+    stale.buffers[0].bytes[0x20 + 20] = 0x9f;
+    await expect(
+      rebuildUefiImage(
+        stale,
+        { "setup-hii": replacement },
+        { lzma: createLzmaSectionCodec },
+      ),
+    ).rejects.toThrow(/FFS size/);
     expect(root).toEqual(untouched);
   });
 });

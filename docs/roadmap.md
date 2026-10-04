@@ -136,13 +136,15 @@ artefacts before download. Intel SPI inputs retain Descriptor, ME, GbE and every
 non-BIOS byte exactly; BIOS-only inputs remain BIOS-only. Output is always
 `.bin`, never a rebuilt capsule.
 
-An exact-size compressed-section codec boundary is covered with synthetic
-round-trip, provenance and rejection tests. No compressed writer is enabled for
-user images until real-sample acceptance and allocation checks pass.
+The compressed-section codec boundary has synthetic round-trip, provenance,
+growth, shrink and rejection tests. A terminal section can change packed size
+within its declared FFS when the remaining space is proven untouched, uniform
+erase padding. FFS allocation and overall image size stay fixed. No compressed
+writer is enabled for user images until real-sample acceptance passes.
 
 An LZMA1-alone encoder is connected behind that boundary with a third-party
-fixture and deterministic round trips. The UI still blocks compressed paths:
-most edits change the packed length, and no real-image acceptance is recorded.
+fixture and deterministic round trips. The UI still blocks compressed paths
+because no real-image acceptance is recorded.
 
 Build edited PI artefacts from leaves back to the original image.
 

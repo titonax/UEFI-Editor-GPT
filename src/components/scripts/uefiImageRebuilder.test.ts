@@ -4,6 +4,7 @@ import type {
   FirmwareProvenanceGraph,
 } from "./firmwareProvenance";
 import { rebuildUefiImage } from "./uefiImageRebuilder";
+import { readFirmwareSection } from "./firmwareSections";
 
 function fileReference(
   bufferId: number,
@@ -272,15 +273,6 @@ describe("rebuildUefiImage", () => {
         graph,
         { "setup-hii": replacement },
         {
-          standard: { ...codec, compress: (bytes) => new Uint8Array(bytes.length + 1) },
-        },
-      ),
-    ).rejects.toThrow(/fixed payload/);
-    await expect(
-      rebuildUefiImage(
-        graph,
-        { "setup-hii": replacement },
-        {
           standard: { ...codec, compress: (bytes) => new Uint8Array(bytes.length) },
         },
       ),
@@ -289,5 +281,93 @@ describe("rebuildUefiImage", () => {
     await expect(
       rebuildUefiImage(graph, { "setup-hii": replacement }, { standard: codec }),
     ).rejects.toThrow(/decoded provenance/);
+  });
+
+  it("shrinks a terminal section and replaces its abandoned bytes with proven erase padding", async () => {
+    const root = new Uint8Array(0x300).fill(0x31);
+    const outer = fileReference(0, 0x40, 0x200);
+    initializeFile(root, outer);
+    root.set([0xc0, 0x01, 0], outer.fileStart + 20);
+    root.set([8, 0, 0, 0x19, 0, 0, 0, 0], 0x58);
+    const child = Uint8Array.from({ length: 0x100 }, (_, i) => (i % 251) + 1);
+    const inner = fileReference(1, 0, child.length);
+    inner.volumeEnd = child.length;
+    const codec = {
+      compression: "standard" as const,
+      compress(bytes: Uint8Array) {
+        const packed: number[] = [];
+        for (let i = 0; i < bytes.length; i += 1) {
+          if (bytes[i] === 0) {
+            let count = 1;
+            while (count < 255 && bytes[i + count] === 0) count += 1;
+            packed.push(0, count);
+            i += count - 1;
+          } else packed.push(bytes[i]);
+        }
+        return Uint8Array.from(packed);
+      },
+      decompress(bytes: Uint8Array) {
+        const decoded: number[] = [];
+        for (let i = 0; i < bytes.length; i += 1) {
+          if (bytes[i] === 0) decoded.push(...new Array<number>(bytes[++i]).fill(0));
+          else decoded.push(bytes[i]);
+        }
+        return Uint8Array.from(decoded);
+      },
+    };
+    root.set([0x09, 0x01, 0, 1, 0, 1, 0, 0, 1], 0x60);
+    root.set(codec.compress(child), 0x69);
+    root.fill(0xff, 0x169, outer.end);
+    const graph: FirmwareProvenanceGraph = {
+      rootBufferId: 0,
+      sourceSize: root.length,
+      buffers: [
+        { id: 0, bytes: root, depth: 0 },
+        {
+          id: 1,
+          bytes: child,
+          depth: 1,
+          parent: {
+            parentBufferId: 0,
+            sectionStart: 0x60,
+            sectionEnd: 0x169,
+            sectionHeaderSize: 4,
+            sectionType: 1,
+            payloadStart: 0x69,
+            payloadEnd: 0x169,
+            compression: "standard",
+            ownerFile: outer,
+          },
+        },
+      ],
+      artifacts: [
+        {
+          kind: "setup-hii",
+          bufferId: 1,
+          payloadStart: 0x40,
+          payloadEnd: 0xc0,
+          sourceFile: inner,
+        },
+      ],
+    };
+    const result = await rebuildUefiImage(
+      graph,
+      { "setup-hii": new Uint8Array(0x80) },
+      { standard: codec },
+    );
+    const section = readFirmwareSection(result.image, 0x60, outer.end);
+    expect(section?.end).toBeLessThan(0x169);
+    if (!section) throw new Error("Compressed section is missing.");
+    expect(
+      codec.decompress(result.image.slice(0x69, section.end)).slice(0x40, 0xc0),
+    ).toEqual(new Uint8Array(0x80));
+    expect(result.image.slice(section.end, outer.end)).toEqual(
+      new Uint8Array(outer.end - section.end).fill(0xff),
+    );
+    expect(result.image.slice(0x58, 0x60)).toEqual(root.slice(0x58, 0x60));
+    expect(result.image.slice(outer.end)).toEqual(root.slice(outer.end));
+    expect(root.slice(0x169, outer.end)).toEqual(
+      new Uint8Array(outer.end - 0x169).fill(0xff),
+    );
   });
 });
