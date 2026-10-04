@@ -4,6 +4,7 @@ import {
   type AmiFirmwareArtifacts,
 } from "./amiFirmwareExtractor";
 import { inspectFirmwareImageLayout } from "./firmwareImageContainer";
+import { createLzmaSectionCodec } from "./lzmaSectionCodec";
 import { FirmwareError } from "./errors";
 import { buildFirmwarePatches } from "./patcher";
 import type { Data } from "./types";
@@ -66,7 +67,9 @@ export async function buildAmiFirmwareImage(
     ...(patches.amitseSct ? { amitse: patches.amitseSct } : {}),
     ...(patches.setupdataBin ? { setupdata: patches.setupdataBin } : {}),
   };
-  const rebuilt = await rebuildUefiImage(session.artifacts.provenance, replacements);
+  const rebuilt = await rebuildUefiImage(session.artifacts.provenance, replacements, {
+    lzma: createLzmaSectionCodec,
+  });
   const reopened = await reextract(rebuilt.image, session.artifacts);
   for (const [kind, expected, actual] of [
     ["Setup HII", patches.setupSct, reopened.hii],

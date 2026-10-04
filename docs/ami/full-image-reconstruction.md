@@ -57,12 +57,18 @@ artefacts before download.
 The builder also has a codec boundary for compressed sections. It checks the
 original section header and decoded provenance, requires an exact-size encoded
 payload, independently decodes the replacement, and then repairs the owning FFS.
-This is covered by synthetic tests only. No LZMA or EFI/Tiano encoder is wired
-into the browser, so compressed paths still fail closed and cannot be downloaded.
+An LZMA1-alone encoder is now connected to the AMI builder. It accepts only a
+known decoded length (at most 64 MiB), the usual 0x5D LZMA properties byte and
+one of its supported dictionary sizes. A fixture encoded independently with
+Python/liblzma confirms decoding, and the new encoder's output is deterministic.
+The builder still requires the encoded body to have exactly the original packed
+length; changes that grow or shrink it reject the entire image. The frontend
+still blocks compressed export until real-image acceptance and size/padding
+rules are complete. EFI/Tiano has no encoder.
 
 The remaining path-specific blockers are:
 
-- deterministic LZMA and EFI/Tiano encoders compatible with the source section;
+- an EFI/Tiano encoder, plus validation of LZMA against a real firmware image;
 - support for packed-size changes, section size/header repair and padding
   preservation;
 - real-sample acceptance for every newly enabled encapsulation combination.

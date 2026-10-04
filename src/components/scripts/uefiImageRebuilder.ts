@@ -33,6 +33,9 @@ export interface FirmwareSectionCodec {
   decompress(packed: Uint8Array): Uint8Array | Promise<Uint8Array>;
 }
 
+export type FirmwareSectionCodecOption =
+  FirmwareSectionCodec | ((originalPacked: Uint8Array) => FirmwareSectionCodec);
+
 function sameBytes(left: Uint8Array, right: Uint8Array) {
   return left.length === right.length && left.every((byte, i) => byte === right[i]);
 }
@@ -43,10 +46,10 @@ async function rebuildCompressedPayload(
   edge: FirmwareEncapsulationEdge,
   originalDecoded: Uint8Array,
   modifiedDecoded: Uint8Array,
-  codecs: Partial<Record<"lzma" | "standard", FirmwareSectionCodec>>,
+  codecs: Partial<Record<"lzma" | "standard", FirmwareSectionCodecOption>>,
 ) {
-  const codec = edge.compression === "none" ? undefined : codecs[edge.compression];
-  if (codec?.compression !== edge.compression) {
+  const option = edge.compression === "none" ? undefined : codecs[edge.compression];
+  if (!option) {
     throw new FirmwareError(
       "PATCH_FAILED",
       `${edge.compression.toUpperCase()} recompression is not enabled for this case yet.`,
@@ -74,6 +77,13 @@ async function rebuildCompressedPayload(
     throw new FirmwareError(
       "INTEGRITY_MISMATCH",
       "Compressed section provenance changed.",
+    );
+  }
+  const codec = typeof option === "function" ? option(encapsulated.bytes) : option;
+  if (codec.compression !== edge.compression) {
+    throw new FirmwareError(
+      "INTEGRITY_MISMATCH",
+      "Compressed section codec type does not match its provenance.",
     );
   }
   const original = await codec.decompress(encapsulated.bytes);
@@ -192,7 +202,7 @@ function containsOffset(ranges: { start: number; end: number }[], offset: number
 export async function rebuildUefiImage(
   graph: FirmwareProvenanceGraph,
   replacements: FirmwareArtifactReplacements,
-  codecs: Partial<Record<"lzma" | "standard", FirmwareSectionCodec>> = {},
+  codecs: Partial<Record<"lzma" | "standard", FirmwareSectionCodecOption>> = {},
 ): Promise<UefiImageBuildResult> {
   const sourceNode = graph.buffers.find((node) => node.id === graph.rootBufferId);
   if (sourceNode?.bytes.length !== graph.sourceSize) {

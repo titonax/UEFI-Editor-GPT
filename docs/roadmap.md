@@ -138,7 +138,11 @@ non-BIOS byte exactly; BIOS-only inputs remain BIOS-only. Output is always
 
 An exact-size compressed-section codec boundary is covered with synthetic
 round-trip, provenance and rejection tests. No compressed writer is enabled for
-user images until a real encoder and real-sample acceptance pass.
+user images until real-sample acceptance and allocation checks pass.
+
+An LZMA1-alone encoder is connected behind that boundary with a third-party
+fixture and deterministic round trips. The UI still blocks compressed paths:
+most edits change the packed length, and no real-image acceptance is recorded.
 
 Build edited PI artefacts from leaves back to the original image.
 
