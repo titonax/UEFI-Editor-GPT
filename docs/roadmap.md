@@ -141,13 +141,17 @@ growth, shrink and rejection tests. A terminal section can change packed size
 within its declared FFS when the remaining space is proven untouched, uniform
 erase padding. A section that ends at its FFS boundary may also shrink when
 the FV header and alignment bytes prove the erase polarity. FFS allocation and
-overall image size stay fixed. One exact LZMA source has real-sample acceptance.
+overall image size stay fixed. Exact LZMA and Tiano sources have real-sample
+acceptance; the Tiano acceptance verifies complete SPI output with untouched
+Descriptor/ME bytes.
 
 LZMA1-alone and EFI/Tiano encoders are connected behind that boundary. EFI and
 Tiano selection is verified against the original decoded stream; synthetic
 round trips cover both EDK II compression variants. The UI still blocks
-compressed paths except the exact Setup HII source recorded in
-[`compressed-output-acceptance.md`](ami/compressed-output-acceptance.md).
+compressed paths except the exact Setup HII sources recorded in
+[`compressed-output-acceptance.md`](ami/compressed-output-acceptance.md) and
+[`tiano-spi-output-acceptance.md`](ami/tiano-spi-output-acceptance.md). The EFI
+variant and mixed compressed ancestors are still awaiting acceptance.
 
 Build edited PI artefacts from leaves back to the original image.
 

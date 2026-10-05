@@ -708,7 +708,9 @@ export default function BiosImageUpload({
                       <Table.Th>Reconstruction trace</Table.Th>
                       <Table.Td>
                         {reconstruction.traceComplete ? "Complete" : "Incomplete"}
-                        {reconstruction.compressions.includes("lzma")
+                        {reconstruction.compressions.some(
+                          (compression) => compression !== "none",
+                        )
                           ? ` · ${reconstruction.compressions
                               .map(compressionName)
                               .join(" / ")}`
@@ -950,7 +952,9 @@ export default function BiosImageUpload({
               }
               title={
                 reconstruction.writeEnabled
-                  ? reconstruction.compressions.includes("lzma")
+                  ? reconstruction.compressions.some(
+                      (compression) => compression !== "none",
+                    )
                     ? "Full-image reconstruction — reviewed Setup HII path ready"
                     : "Full-image reconstruction — fixed-size path ready"
                   : reconstruction.traceComplete
@@ -966,7 +970,9 @@ export default function BiosImageUpload({
                 ))}
                 <Text size="xs" c="dimmed">
                   {reconstruction.writeEnabled
-                    ? reconstruction.compressions.includes("lzma")
+                    ? reconstruction.compressions.some(
+                        (compression) => compression !== "none",
+                      )
                       ? "Only Setup HII edits are accepted for this exact image. The rebuilt image will be re-opened before download."
                       : "The edited image will be rebuilt and independently re-opened before download."
                     : `Writing remains disabled: ${reconstruction.blockers.join(" ")}`}

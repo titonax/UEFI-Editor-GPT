@@ -78,9 +78,14 @@ shrinking it keeps the FFS allocation unchanged and fills the newly released
 bytes using the enclosing FV's verified erase polarity. Other compressed
 images and other artifact edits remain blocked.
 
+One exact [Tiano source](tiano-spi-output-acceptance.md) also has acceptance for
+Setup HII edits. Its complete 8 MiB Intel SPI output reopens with the requested
+edit while Descriptor, ME and every byte outside the Setup FFS remain identical.
+The EFI compression variant and mixed compressed ancestors remain unaccepted.
+
 The remaining path-specific blockers are:
 
-- validation of further LZMA layouts and EFI/Tiano against complete real images;
+- validation of further LZMA/Tiano layouts and EFI against complete real images;
 - additional packed-size layouts, including sections without proven terminal
   padding or changes that require relocation;
 - real-sample acceptance for every newly enabled encapsulation combination.

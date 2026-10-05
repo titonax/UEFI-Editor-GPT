@@ -45,3 +45,8 @@ builder, then re-extracts with the WASI readers and regenerates IFR text. It che
 Setup HII, unchanged AMITSE/SetupData, image size/layout, immutable source and every
 byte outside the owned FFS, and prints metadata only. It writes no firmware and
 is separate from the synthetic CI suite because the BIOS is not in the repository.
+
+The same explicit test also accepts the separately reviewed
+[Tiano SPI source](tiano-spi-output-acceptance.md), choosing the test edit by its
+exact source identity. Neither source acceptance authorizes the other source's
+compression class or mixed ancestors.
