@@ -3,6 +3,7 @@ import {
   assessFirmwareReconstruction,
   type FirmwareProvenanceGraph,
 } from "./firmwareProvenance";
+import { acceptedLzmaSetupImage } from "./firmwareAcceptance";
 
 function traceableGraph(): FirmwareProvenanceGraph {
   return {
@@ -109,5 +110,45 @@ describe("firmware reconstruction provenance", () => {
 
     expect(assessment.traceComplete).toBe(false);
     expect(assessment.blockers[0]).toMatch(/incomplete path/);
+  });
+
+  it("enables only a complete LZMA path with exact source acceptance", () => {
+    const graph = traceableGraph();
+    graph.sourceSize = acceptedLzmaSetupImage.size;
+    graph.buffers[0].bytes = new Uint8Array(graph.sourceSize);
+    const parent = graph.buffers[2].parent;
+    if (!parent) throw new Error("Test compression provenance is missing.");
+    parent.compression = "none";
+    expect(
+      assessFirmwareReconstruction(graph, acceptedLzmaSetupImage.sha256),
+    ).toMatchObject({
+      traceComplete: true,
+      writeEnabled: true,
+      blockers: [],
+    });
+    expect(assessFirmwareReconstruction(graph).writeEnabled).toBe(false);
+    graph.artifacts[0].payloadEnd = 0x1000;
+    expect(
+      assessFirmwareReconstruction(graph, acceptedLzmaSetupImage.sha256).writeEnabled,
+    ).toBe(false);
+  });
+
+  it("only lifts the LZMA blocker for the exact accepted source and size", () => {
+    const graph = traceableGraph();
+    graph.sourceSize = acceptedLzmaSetupImage.size;
+    const accepted = assessFirmwareReconstruction(graph, acceptedLzmaSetupImage.sha256);
+    expect(accepted.blockers).not.toContain(
+      "LZMA full-image reconstruction is awaiting real-image acceptance.",
+    );
+    expect(accepted.blockers).toContain(
+      "EFI/Tiano full-image reconstruction is awaiting real-image acceptance.",
+    );
+    expect(assessFirmwareReconstruction(graph, "0".repeat(64)).blockers).toContain(
+      "LZMA full-image reconstruction is awaiting real-image acceptance.",
+    );
+    graph.sourceSize -= 1;
+    expect(
+      assessFirmwareReconstruction(graph, acceptedLzmaSetupImage.sha256).blockers,
+    ).toContain("LZMA full-image reconstruction is awaiting real-image acceptance.");
   });
 });

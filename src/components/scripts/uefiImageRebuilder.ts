@@ -41,10 +41,33 @@ function sameBytes(left: Uint8Array, right: Uint8Array) {
   return left.length === right.length && left.every((byte, i) => byte === right[i]);
 }
 
+function volumeEraseByte(source: Uint8Array, file: FirmwareFileReference) {
+  const start = file.volumeStart;
+  if (
+    start < 0 ||
+    start + 0x38 > file.volumeEnd ||
+    file.volumeEnd > source.length ||
+    String.fromCharCode(...source.subarray(start + 0x28, start + 0x2c)) !== "_FVH" ||
+    readUint64AsNumber(source, start + 0x20) !== file.volumeEnd - start
+  ) {
+    throw new FirmwareError("INTEGRITY_MISMATCH", "FFS erase polarity is not proven.");
+  }
+  const fill = (readUint32(source, start + 0x2c) & 0x800) !== 0 ? 0xff : 0x00;
+  const next = start + align(file.end - start, 8);
+  if (
+    next > file.volumeEnd ||
+    !source.subarray(file.end, next).every((byte) => byte === fill)
+  ) {
+    throw new FirmwareError("INTEGRITY_MISMATCH", "FFS alignment erase bytes changed.");
+  }
+  return fill;
+}
+
 function terminalSectionPadding(
   parent: Uint8Array,
   sourceParent: Uint8Array,
   edge: FirmwareEncapsulationEdge,
+  newEnd: number,
 ) {
   const file = edge.ownerFile;
   if (!file) {
@@ -89,11 +112,20 @@ function terminalSectionPadding(
     }
     cursor = align(previous.end, 4);
   }
-  if (cursor !== edge.sectionStart || edge.sectionEnd >= file.end) {
+  if (cursor !== edge.sectionStart || edge.sectionEnd > file.end) {
     throw new FirmwareError(
       "PATCH_FAILED",
       "Compressed section has no trailing FFS padding.",
     );
+  }
+  if (edge.sectionEnd === file.end) {
+    if (newEnd >= file.end) {
+      throw new FirmwareError(
+        "PATCH_FAILED",
+        "Compressed section cannot grow beyond its FFS allocation.",
+      );
+    }
+    return { end: file.end, fill: volumeEraseByte(sourceParent, file) };
   }
   const fill = sourceParent[edge.sectionEnd];
   if (
@@ -199,8 +231,8 @@ async function rebuildCompressedPayload(
     );
   }
   if (packed.length !== encapsulated.bytes.length) {
-    const padding = terminalSectionPadding(parent, sourceParent, edge);
     const newEnd = edge.payloadStart + packed.length;
+    const padding = terminalSectionPadding(parent, sourceParent, edge, newEnd);
     if (
       packed.length === 0 ||
       newEnd > padding.end ||

@@ -1,4 +1,5 @@
 import type { FirmwareCompression } from "./firmwareSections";
+import { hasAcceptedLzmaSetupSource } from "./firmwareAcceptance";
 
 export type FirmwareArtifactKind = "setup-hii" | "amitse" | "setupdata";
 
@@ -204,11 +205,12 @@ function traceArtifact(
 
 /**
  * Reports whether all retained artifacts can be traced back to the source image.
- * Fixed-size uncompressed paths are write-ready. Compressed paths remain
- * blocked until their deterministic codec is available.
+ * Uncompressed paths are write-ready. Compressed output is enabled only for
+ * explicitly accepted source images and remains subject to builder checks.
  */
 export function assessFirmwareReconstruction(
   graph: FirmwareProvenanceGraph,
+  sourceSha256?: string,
 ): FirmwareReconstructionAssessment {
   const traces = graph.artifacts.map((artifact) => traceArtifact(graph, artifact));
   const compressions = [...new Set(traces.flatMap((trace) => trace.compressions))];
@@ -216,7 +218,10 @@ export function assessFirmwareReconstruction(
   if (traces.length === 0 || traces.some((trace) => !trace.complete)) {
     blockers.push("At least one artifact has an incomplete path to the source image.");
   }
-  if (compressions.includes("lzma")) {
+  if (
+    compressions.includes("lzma") &&
+    !hasAcceptedLzmaSetupSource(sourceSha256, graph.sourceSize)
+  ) {
     blockers.push("LZMA full-image reconstruction is awaiting real-image acceptance.");
   }
   if (compressions.includes("standard")) {

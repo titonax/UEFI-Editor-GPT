@@ -19,6 +19,7 @@ import s from "./Footer.module.css";
 import DataChangeQueueDialog from "../ChangeQueue/DataChangeQueueDialog";
 import type { DataChangeQueueController } from "../ChangeQueue/useDataChangeQueue";
 import { buildAmiFirmwareImage } from "../scripts/amiFirmwareRebuilder";
+import { assessFirmwareReconstruction } from "../scripts/firmwareProvenance";
 
 interface FooterProps {
   files: PopulatedFiles;
@@ -46,6 +47,12 @@ export default function Footer({
   const queueApplied =
     changeQueue.analysis.canApply &&
     changeQueue.appliedFingerprint === changeQueue.analysis.fingerprint;
+  const reconstruction = files.firmwareSource
+    ? assessFirmwareReconstruction(
+        files.firmwareSource.artifacts.provenance,
+        files.firmwareSource.sourceSha256,
+      )
+    : null;
 
   return (
     <div className={s.root}>
@@ -151,6 +158,7 @@ export default function Footer({
             disabled={
               !queueApplied ||
               !files.firmwareSource ||
+              !reconstruction?.writeEnabled ||
               (appliedData.rootVisibilityEdits?.length ?? 0) > 0 ||
               building
             }
@@ -161,7 +169,9 @@ export default function Footer({
                   ? "Load a complete firmware image before exporting."
                   : (appliedData.rootVisibilityEdits?.length ?? 0) > 0
                     ? "Root visibility changes require the verified full-image reconstruction path"
-                    : undefined
+                    : !reconstruction?.writeEnabled
+                      ? reconstruction?.blockers.join(" ")
+                      : undefined
             }
             onClick={() => {
               setBuilding(true);

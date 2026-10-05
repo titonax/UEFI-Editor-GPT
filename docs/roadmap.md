@@ -139,13 +139,15 @@ non-BIOS byte exactly; BIOS-only inputs remain BIOS-only. Output is always
 The compressed-section codec boundary has synthetic round-trip, provenance,
 growth, shrink and rejection tests. A terminal section can change packed size
 within its declared FFS when the remaining space is proven untouched, uniform
-erase padding. FFS allocation and overall image size stay fixed. No compressed
-writer is enabled for user images until real-sample acceptance passes.
+erase padding. A section that ends at its FFS boundary may also shrink when
+the FV header and alignment bytes prove the erase polarity. FFS allocation and
+overall image size stay fixed. One exact LZMA source has real-sample acceptance.
 
 LZMA1-alone and EFI/Tiano encoders are connected behind that boundary. EFI and
 Tiano selection is verified against the original decoded stream; synthetic
 round trips cover both EDK II compression variants. The UI still blocks
-compressed paths because no real-image acceptance is recorded.
+compressed paths except the exact Setup HII source recorded in
+[`compressed-output-acceptance.md`](ami/compressed-output-acceptance.md).
 
 Build edited PI artefacts from leaves back to the original image.
 

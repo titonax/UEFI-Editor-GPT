@@ -17,7 +17,8 @@
     "case:add": "node scripts/case-review.mjs add",
     "case:check": "node scripts/case-review.mjs check && node scripts/case-review.test.mjs",
     "check": "npm run format:check && npm run lint && npm run case:check && npm run test:coverage && npm run build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "firmware:acceptance": "vitest run --config scripts/firmware-acceptance.config.mjs"
   },
   "engines": {
     "node": ">=20",

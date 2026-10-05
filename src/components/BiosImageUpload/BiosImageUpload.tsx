@@ -152,6 +152,7 @@ export default function BiosImageUpload({
         firmwareSource: {
           fileName: file?.name ?? "firmware.bin",
           artifacts,
+          sourceSha256: imageHash,
         },
       });
     } catch (reason: unknown) {
@@ -384,7 +385,7 @@ export default function BiosImageUpload({
       ]
     : [];
   const reconstruction = artifacts
-    ? assessFirmwareReconstruction(artifacts.provenance)
+    ? assessFirmwareReconstruction(artifacts.provenance, imageHash)
     : null;
   const ifrMode = artifacts ? ifrExtractionMode(artifacts.ifrText) : "unknown";
   const frameworkInventory =
@@ -707,7 +708,7 @@ export default function BiosImageUpload({
                       <Table.Th>Reconstruction trace</Table.Th>
                       <Table.Td>
                         {reconstruction.traceComplete ? "Complete" : "Incomplete"}
-                        {reconstruction.compressions.length > 0
+                        {reconstruction.compressions.includes("lzma")
                           ? ` · ${reconstruction.compressions
                               .map(compressionName)
                               .join(" / ")}`
@@ -949,7 +950,9 @@ export default function BiosImageUpload({
               }
               title={
                 reconstruction.writeEnabled
-                  ? "Full-image reconstruction — fixed-size path ready"
+                  ? reconstruction.compressions.includes("lzma")
+                    ? "Full-image reconstruction — reviewed Setup HII path ready"
+                    : "Full-image reconstruction — fixed-size path ready"
                   : reconstruction.traceComplete
                     ? "Full-image reconstruction — trace captured"
                     : "Full-image reconstruction — not traceable"
@@ -963,7 +966,9 @@ export default function BiosImageUpload({
                 ))}
                 <Text size="xs" c="dimmed">
                   {reconstruction.writeEnabled
-                    ? "The edited image will be rebuilt and independently re-opened before download."
+                    ? reconstruction.compressions.includes("lzma")
+                      ? "Only Setup HII edits are accepted for this exact image. The rebuilt image will be re-opened before download."
+                      : "The edited image will be rebuilt and independently re-opened before download."
                     : `Writing remains disabled: ${reconstruction.blockers.join(" ")}`}
                 </Text>
               </Stack>

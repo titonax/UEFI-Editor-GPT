@@ -369,5 +369,60 @@ describe("rebuildUefiImage", () => {
     expect(root.slice(0x169, outer.end)).toEqual(
       new Uint8Array(outer.end - 0x169).fill(0xff),
     );
+
+    const exact = structuredClone(graph);
+    const exactRoot = exact.buffers[0].bytes;
+    const exactFile = exact.buffers[1].parent?.ownerFile;
+    if (!exactFile) throw new Error("Test FFS provenance is missing.");
+    exactFile.end = 0x169;
+    exactRoot.set([0x29, 0x01, 0], outer.fileStart + 20);
+    exactRoot.set([0x5f, 0x46, 0x56, 0x48], 0x28);
+    const view = new DataView(exactRoot.buffer);
+    view.setBigUint64(0x20, BigInt(exactFile.volumeEnd), true);
+    view.setUint32(0x2c, 0x800, true);
+    exactRoot.fill(0xff, 0x169, 0x170);
+    const exactResult = await rebuildUefiImage(
+      exact,
+      { "setup-hii": new Uint8Array(0x80) },
+      { standard: codec },
+    );
+    const exactSection = readFirmwareSection(exactResult.image, 0x60, exactFile.end);
+    expect(exactSection?.end).toBeLessThan(exactFile.end);
+    if (!exactSection) throw new Error("Shrunk section is missing.");
+    const released = exactResult.image.slice(exactSection.end, exactFile.end);
+    expect({
+      length: released.length,
+      firstNonErase: released.findIndex((byte) => byte !== 0xff),
+    }).toEqual({ length: exactFile.end - exactSection.end, firstNonErase: -1 });
+
+    const noPolarity = structuredClone(exact);
+    noPolarity.buffers[0].bytes[0x28] = 0;
+    await expect(
+      rebuildUefiImage(
+        noPolarity,
+        { "setup-hii": new Uint8Array(0x80) },
+        { standard: codec },
+      ),
+    ).rejects.toThrow(/erase polarity/);
+    const occupiedAlignment = structuredClone(exact);
+    occupiedAlignment.buffers[0].bytes[0x16a] = 0x42;
+    await expect(
+      rebuildUefiImage(
+        occupiedAlignment,
+        { "setup-hii": new Uint8Array(0x80) },
+        { standard: codec },
+      ),
+    ).rejects.toThrow(/alignment erase/);
+    await expect(
+      rebuildUefiImage(
+        exact,
+        {
+          "setup-hii": Uint8Array.from({ length: 0x80 }, (_, i) =>
+            i % 2 === 0 ? 0 : 1,
+          ),
+        },
+        { standard: codec },
+      ),
+    ).rejects.toThrow(/cannot grow/);
   });
 });
