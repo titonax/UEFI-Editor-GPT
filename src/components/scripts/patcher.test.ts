@@ -79,6 +79,30 @@ describe("firmware patch builder", () => {
     expect(result.changeLog).toContain("Access Level 00 -> 05");
   });
 
+  it("does not treat different hexadecimal letter case as a firmware edit", () => {
+    const data = firmwareData({
+      forms: [
+        form({
+          children: [
+            prompt({
+              accessLevel: "7D",
+              failsafe: "FF",
+              optimal: "A0",
+              offsets: { accessLevel: "0x0", failsafe: "0x1", optimal: "0x2" },
+            }),
+          ],
+        }),
+      ],
+    });
+    const result = buildFirmwarePatches(data, {
+      setupSct: "",
+      amitseSct: "",
+      setupdataBin: "7dffa0",
+    });
+    expect(result.setupdataBin).toBeUndefined();
+    expect(result.changeLog).toBe("");
+  });
+
   it("replays structural IFR moves into the exported Setup HII", () => {
     const source = new Uint8Array([
       IFR_OPCODE.FORM,

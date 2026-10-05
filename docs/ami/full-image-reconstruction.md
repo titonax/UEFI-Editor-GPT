@@ -69,12 +69,18 @@ The EFI/Tiano codec uses the upstream EDK II encoders (pinned at
 `999fd0f12a27709eee04b93e46bd867e6b0163a5`) in a browser WASI process.
 It selects EFI or Tiano by matching the original decoded bytes, preserves the
 source decoded length, and checks each rebuilt stream with its selected decoder.
-The frontend still blocks compressed export until real-image acceptance. Other
-section layouts remain unsupported.
+The frontend allows only explicitly accepted compressed paths. Other section
+layouts remain unsupported.
+
+One exact LZMA source now has [real-image acceptance](compressed-output-acceptance.md)
+for Setup HII edits. Its terminal compressed section had no pre-existing tail;
+shrinking it keeps the FFS allocation unchanged and fills the newly released
+bytes using the enclosing FV's verified erase polarity. Other compressed
+images and other artifact edits remain blocked.
 
 The remaining path-specific blockers are:
 
-- validation of LZMA and EFI/Tiano against complete real firmware images;
+- validation of further LZMA layouts and EFI/Tiano against complete real images;
 - additional packed-size layouts, including sections without proven terminal
   padding or changes that require relocation;
 - real-sample acceptance for every newly enabled encapsulation combination.

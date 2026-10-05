@@ -83,7 +83,7 @@ function patchMenu(data: Data, source: string): { hex?: string; log: string } {
     const replacement = formId.slice(2) + formId.slice(0, 2);
     const index = offsetToHexIndex(entry.offset);
     const previous = modified.slice(index, index + 4);
-    if (previous === replacement) continue;
+    if (previous.toLowerCase() === replacement.toLowerCase()) continue;
 
     modified = replaceHex(modified, index, 4, replacement);
     const oldFormId = decimalToHex(
@@ -121,7 +121,7 @@ function patchSetupData(data: Data, source: string): { hex?: string; log: string
         const index = offsetToHexIndex(offset);
         const previous = modified.slice(index, index + 2);
         const replacement = value.padStart(2, "0");
-        if (previous === replacement) continue;
+        if (previous.toLowerCase() === replacement.toLowerCase()) continue;
         modified = replaceHex(modified, index, 2, replacement);
         log += `${child.name} | QuestionId ${child.questionId}: ${label} ${previous} -> ${replacement}\n`;
       }

@@ -4,6 +4,8 @@ import {
   type AmiFirmwareArtifacts,
 } from "./amiFirmwareExtractor";
 import { inspectFirmwareImageLayout } from "./firmwareImageContainer";
+import { sha256Hex } from "./checksum";
+import { assessFirmwareReconstruction } from "./firmwareProvenance";
 import { createLzmaSectionCodec } from "./lzmaSectionCodec";
 import { createStandardSectionCodec } from "./standardSectionCodec";
 import { FirmwareError } from "./errors";
@@ -58,6 +60,29 @@ export async function buildAmiFirmwareImage(
       "Complete-image output requires the original firmware session.",
     );
   }
+  const graph = session.artifacts.provenance;
+  const initialAssessment = assessFirmwareReconstruction(graph);
+  const hasCompression = initialAssessment.compressions.some(
+    (compression) => compression !== "none",
+  );
+  const rootBytes = graph.buffers.find((node) => node.id === graph.rootBufferId)?.bytes;
+  if (!rootBytes) {
+    throw new FirmwareError(
+      "INTEGRITY_MISMATCH",
+      "Original firmware bytes are missing.",
+    );
+  }
+  const sourceHash = hasCompression ? await sha256Hex(rootBytes) : undefined;
+  if (sourceHash && session.sourceSha256 && sourceHash !== session.sourceSha256) {
+    throw new FirmwareError("INTEGRITY_MISMATCH", "Firmware source hash changed.");
+  }
+  const assessment = assessFirmwareReconstruction(graph, sourceHash);
+  if (!assessment.writeEnabled) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      `Full-image reconstruction is blocked: ${assessment.blockers.join(" ")}`,
+    );
+  }
   const patches = buildFirmwarePatches(data, {
     setupSct: files.setupSctContainer.textContent,
     amitseSct: files.amitseSctContainer.textContent,
@@ -68,7 +93,13 @@ export async function buildAmiFirmwareImage(
     ...(patches.amitseSct ? { amitse: patches.amitseSct } : {}),
     ...(patches.setupdataBin ? { setupdata: patches.setupdataBin } : {}),
   };
-  const rebuilt = await rebuildUefiImage(session.artifacts.provenance, replacements, {
+  if (hasCompression && (patches.amitseSct || patches.setupdataBin)) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "This compressed image is accepted only for Setup HII edits.",
+    );
+  }
+  const rebuilt = await rebuildUefiImage(graph, replacements, {
     lzma: createLzmaSectionCodec,
     standard: createStandardSectionCodec,
   });

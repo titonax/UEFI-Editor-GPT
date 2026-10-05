@@ -111,4 +111,55 @@ describe("buildAmiFirmwareImage", () => {
     expect(amiModifiedBinName("board.rom")).toBe("board-modified.bin");
     expect(amiModifiedBinName("firmware")).toBe("firmware-modified.bin");
   });
+
+  it("rejects a stale source hash before compressed reconstruction", async () => {
+    const { artifacts, files } = fixture();
+    artifacts.provenance.buffers.push({
+      id: 1,
+      bytes: new Uint8Array(0x100),
+      depth: 1,
+      parent: {
+        parentBufferId: 0,
+        sectionStart: 0x58,
+        sectionEnd: 0xa0,
+        sectionHeaderSize: 4,
+        sectionType: 2,
+        payloadStart: 0x70,
+        payloadEnd: 0xa0,
+        compression: "lzma",
+      },
+    });
+    artifacts.provenance.artifacts[0].bufferId = 1;
+    if (!files.firmwareSource) throw new Error("Test firmware session is missing.");
+    files.firmwareSource.sourceSha256 = "0".repeat(64);
+    await expect(buildAmiFirmwareImage(firmwareData(), files)).rejects.toThrow(
+      /source hash changed/,
+    );
+  });
+
+  it("rejects a compressed image without exact real-image acceptance", async () => {
+    const { artifacts, files } = fixture();
+    artifacts.provenance.buffers.push({
+      id: 1,
+      bytes: new Uint8Array(0x100),
+      depth: 1,
+      parent: {
+        parentBufferId: 0,
+        sectionStart: 0x58,
+        sectionEnd: 0xa0,
+        sectionHeaderSize: 4,
+        sectionType: 2,
+        payloadStart: 0x70,
+        payloadEnd: 0xa0,
+        compression: "lzma",
+      },
+    });
+    artifacts.provenance.artifacts[0].bufferId = 1;
+    await expect(
+      buildAmiFirmwareImage(
+        firmwareData({ suppressions: [condition({ active: false })] }),
+        files,
+      ),
+    ).rejects.toThrow(/awaiting real-image acceptance/);
+  });
 });

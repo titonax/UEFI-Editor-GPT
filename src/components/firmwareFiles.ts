@@ -9,6 +9,7 @@ export interface FileContainer {
 export interface FirmwareSourceSession {
   fileName: string;
   artifacts: AmiFirmwareArtifacts;
+  sourceSha256?: string;
 }
 
 export interface Files {
