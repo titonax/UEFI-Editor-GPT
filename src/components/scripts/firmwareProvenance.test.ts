@@ -3,7 +3,7 @@ import {
   assessFirmwareReconstruction,
   type FirmwareProvenanceGraph,
 } from "./firmwareProvenance";
-import { acceptedLzmaSetupImage } from "./firmwareAcceptance";
+import { acceptedLzmaSetupImage, acceptedTianoSetupImage } from "./firmwareAcceptance";
 
 function traceableGraph(): FirmwareProvenanceGraph {
   return {
@@ -130,6 +130,38 @@ describe("firmware reconstruction provenance", () => {
     graph.artifacts[0].payloadEnd = 0x1000;
     expect(
       assessFirmwareReconstruction(graph, acceptedLzmaSetupImage.sha256).writeEnabled,
+    ).toBe(false);
+  });
+
+  it("accepts only the reviewed standard-compression source and complete path", () => {
+    const graph = traceableGraph();
+    graph.sourceSize = acceptedTianoSetupImage.size;
+    graph.buffers[0].bytes = new Uint8Array(graph.sourceSize);
+    expect(
+      assessFirmwareReconstruction(graph, acceptedTianoSetupImage.sha256).blockers,
+    ).toContain("LZMA full-image reconstruction is awaiting real-image acceptance.");
+    const outer = graph.buffers[1].parent;
+    if (!outer) throw new Error("Test source provenance is missing.");
+    outer.compression = "none";
+    expect(
+      assessFirmwareReconstruction(graph, acceptedTianoSetupImage.sha256),
+    ).toMatchObject({
+      traceComplete: true,
+      writeEnabled: true,
+      blockers: [],
+    });
+    expect(assessFirmwareReconstruction(graph).writeEnabled).toBe(false);
+    expect(
+      assessFirmwareReconstruction(graph, acceptedLzmaSetupImage.sha256).writeEnabled,
+    ).toBe(false);
+    graph.sourceSize--;
+    expect(
+      assessFirmwareReconstruction(graph, acceptedTianoSetupImage.sha256).writeEnabled,
+    ).toBe(false);
+    graph.sourceSize++;
+    graph.artifacts[0].payloadEnd = 0x1000;
+    expect(
+      assessFirmwareReconstruction(graph, acceptedTianoSetupImage.sha256).writeEnabled,
     ).toBe(false);
   });
 

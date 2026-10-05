@@ -1,5 +1,8 @@
 import type { FirmwareCompression } from "./firmwareSections";
-import { hasAcceptedLzmaSetupSource } from "./firmwareAcceptance";
+import {
+  hasAcceptedLzmaSetupSource,
+  hasAcceptedStandardSetupSource,
+} from "./firmwareAcceptance";
 
 export type FirmwareArtifactKind = "setup-hii" | "amitse" | "setupdata";
 
@@ -224,7 +227,10 @@ export function assessFirmwareReconstruction(
   ) {
     blockers.push("LZMA full-image reconstruction is awaiting real-image acceptance.");
   }
-  if (compressions.includes("standard")) {
+  if (
+    compressions.includes("standard") &&
+    !hasAcceptedStandardSetupSource(sourceSha256, graph.sourceSize)
+  ) {
     blockers.push(
       "EFI/Tiano full-image reconstruction is awaiting real-image acceptance.",
     );

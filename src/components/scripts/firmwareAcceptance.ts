@@ -10,3 +10,16 @@ export function hasAcceptedLzmaSetupSource(hash: string | undefined, size: numbe
     size === acceptedLzmaSetupImage.size
   );
 }
+
+/** Exact Tiano-compressed Setup HII acceptance for a complete Intel SPI input. */
+export const acceptedTianoSetupImage = {
+  sha256: "297390ca838c455791a5bf3a3f0001fbf36a8cb31be362ea2123b8df84dfffe8",
+  size: 8 * 1024 * 1024,
+} as const;
+
+export function hasAcceptedStandardSetupSource(hash: string | undefined, size: number) {
+  return (
+    hash?.toLowerCase() === acceptedTianoSetupImage.sha256 &&
+    size === acceptedTianoSetupImage.size
+  );
+}
