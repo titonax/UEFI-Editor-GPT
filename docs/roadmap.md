@@ -178,7 +178,9 @@ contain exactly the requested HII edit.
 One exact Tiano SPI source also has [root-vector output acceptance](ami/tiano-root-visibility-output-acceptance.md).
 The normal queue and complete-image builder can export a code-corroborated root
 visibility edit, with fresh source evidence and full-vector verification after
-reopening. Extracted-file export and root output for other sources remain blocked.
+reopening. A [real four-operation queue](ami/tiano-combined-queue-acceptance.md)
+also verifies movement, HII, SetupData and root changes in one SPI output, plus
+a coherent combination rejected for compressed allocation growth. Extracted-file export and root output for other sources remain blocked.
 
 - Apply SuppressIf edits, Ref moves and proven root-visibility vectors through
   the generic UEFI builder.
