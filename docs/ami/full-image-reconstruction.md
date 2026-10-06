@@ -86,7 +86,10 @@ That Tiano source also supports [code-verified root-vector edits](tiano-root-vis
 outside the HII payload, through bounded patches in the same retained Setup
 buffer. Root changes use separate source acceptance and require fresh source
 analysis plus independent complete-vector reread. The EFI compression variant
-and mixed compressed ancestors remain unaccepted.
+and mixed compressed ancestors remain unaccepted. The
+[combined queue acceptance](tiano-combined-queue-acceptance.md) verifies merged
+HII/root edits in one decoded ancestor alongside a SetupData branch, including
+a real oversized combination that is rejected.
 
 The remaining path-specific blockers are:
 
