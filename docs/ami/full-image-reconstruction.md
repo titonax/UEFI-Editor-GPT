@@ -54,7 +54,17 @@ The footer now offers **Check firmware output** to run the complete builder,
 including recompression, allocation checks, checksum repair and independent
 re-extraction. Failure leaves the firmware download disabled and shows the
 builder diagnostic. Success reports the verified image size and changed-byte
-count without downloading anything.
+count without downloading anything. **Output details** shows each rebuilt
+compressed section's original and replacement packed size, checked capacity and
+remaining bytes, plus the source allocation bounds and preserved non-BIOS byte
+count. Section offsets are relative to their named parent buffer, while affected
+allocation bounds are relative to the complete input image.
+
+Reported capacity comes from the checks that actually ran: an exact-size section
+reports only its original payload capacity. Extra tail bytes are counted only
+when the size-changing rebuild has validated terminal erase padding. The report
+never infers slack from the enclosing FFS size alone. Remaining bytes belong to
+that section and do not grant global free space or relocation permission.
 
 **Modified firmware image** downloads those exact verified bytes and their
 change log without rebuilding. The result stays only in browser memory and is

@@ -18,6 +18,7 @@ import type { Data } from "../scripts/types";
 import s from "./Footer.module.css";
 import DataChangeQueueDialog from "../ChangeQueue/DataChangeQueueDialog";
 import type { DataChangeQueueController } from "../ChangeQueue/useDataChangeQueue";
+import FirmwareOutputReport from "./FirmwareOutputReport";
 import { useFirmwareImagePreflight } from "./useFirmwareImagePreflight";
 import { hasAcceptedRootVisibilitySource } from "../scripts/firmwareAcceptance";
 import { assessFirmwareReconstruction } from "../scripts/firmwareProvenance";
@@ -44,6 +45,7 @@ export default function Footer({
   const resetRef = React.useRef<() => void>(null);
   const [input, setInput] = React.useState("05");
   const [queueOpened, setQueueOpened] = React.useState(false);
+  const [reportOpened, setReportOpened] = React.useState(false);
   const queueApplied =
     changeQueue.analysis.canApply &&
     changeQueue.appliedFingerprint === changeQueue.analysis.fingerprint;
@@ -73,6 +75,15 @@ export default function Footer({
 
   return (
     <div className={s.root}>
+      {preflight.result && (
+        <FirmwareOutputReport
+          result={preflight.result}
+          opened={reportOpened}
+          onClose={() => {
+            setReportOpened(false);
+          }}
+        />
+      )}
       <Group justify="space-between" gap={"xs"} className={s.maxWidth}>
         <Group gap={"xs"}>
           <FileButton
@@ -217,6 +228,16 @@ export default function Footer({
             }}
           >
             Modified firmware image
+          </Button>
+          <Button
+            size="xs"
+            variant="default"
+            disabled={!preflight.result}
+            onClick={() => {
+              setReportOpened(true);
+            }}
+          >
+            Output details
           </Button>
           <Text size="xs" role="status" aria-live="polite">
             {preflight.result

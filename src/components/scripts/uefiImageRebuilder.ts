@@ -27,8 +27,28 @@ export interface FirmwareBufferPatch {
   replacement: Uint8Array;
 }
 
+export interface FirmwareCompressedSpace {
+  parentBufferId: number;
+  sectionStart: number;
+  compression: FirmwareCompression;
+  originalPackedBytes: number;
+  rebuiltPackedBytes: number;
+  verifiedCapacityBytes: number;
+  remainingBytes: number;
+  capacityBasis: "original-payload" | "verified-terminal-padding";
+}
+
+export interface FirmwareSpaceReport {
+  biosStart: number;
+  biosEnd: number;
+  preservedOutsideBiosBytes: number;
+  affectedRanges: { start: number; end: number }[];
+  compressedSections: FirmwareCompressedSpace[];
+}
+
 export interface UefiImageBuildResult {
   image: Uint8Array;
+  spaceReport: FirmwareSpaceReport;
   replacedArtifacts: FirmwareArtifactKind[];
   changedByteCount: number;
   changedStart: number;
@@ -239,6 +259,8 @@ async function rebuildCompressedPayload(
       "Compressed section failed its encoding round-trip.",
     );
   }
+  let capacityEnd = edge.payloadEnd;
+  let capacityBasis: FirmwareCompressedSpace["capacityBasis"] = "original-payload";
   if (packed.length !== encapsulated.bytes.length) {
     const newEnd = edge.payloadStart + packed.length;
     const padding = terminalSectionPadding(parent, sourceParent, edge, newEnd);
@@ -252,10 +274,22 @@ async function rebuildCompressedPayload(
         `Compressed section needs ${String(packed.length)} bytes but its proven FFS allocation ends at ${String(padding.end)}.`,
       );
     }
+    capacityEnd = padding.end;
+    capacityBasis = "verified-terminal-padding";
     writeSectionSize(parent, edge, newEnd - edge.sectionStart);
     parent.fill(padding.fill, newEnd, padding.end);
   }
   parent.set(packed, edge.payloadStart);
+  return {
+    parentBufferId: edge.parentBufferId,
+    sectionStart: edge.sectionStart,
+    compression: edge.compression,
+    originalPackedBytes: encapsulated.bytes.length,
+    rebuiltPackedBytes: packed.length,
+    verifiedCapacityBytes: capacityEnd - edge.payloadStart,
+    remainingBytes: capacityEnd - edge.payloadStart - packed.length,
+    capacityBasis,
+  } satisfies FirmwareCompressedSpace;
 }
 
 function checksum8(bytes: Uint8Array, start: number, end: number) {
@@ -367,6 +401,7 @@ export async function rebuildUefiImage(
   if (artifacts.length === 0 && bufferPatches.length === 0) {
     throw new FirmwareError("NO_CHANGES", "No firmware artifacts need rebuilding.");
   }
+  const compressedSections: FirmwareCompressedSpace[] = [];
   const modified = new Set<number>();
   const repairs = new Map<number, Map<string, FirmwareFileReference>>();
   const requestRepair = (file: FirmwareFileReference) => {
@@ -494,13 +529,15 @@ export async function rebuildUefiImage(
           "Compressed source buffers are missing.",
         );
       }
-      await rebuildCompressedPayload(
-        parent.bytes,
-        sourceParent.bytes,
-        edge,
-        sourceChild.bytes,
-        node.bytes,
-        codecs,
+      compressedSections.push(
+        await rebuildCompressedPayload(
+          parent.bytes,
+          sourceParent.bytes,
+          edge,
+          sourceChild.bytes,
+          node.bytes,
+          codecs,
+        ),
       );
     }
     modified.add(parent.id);
@@ -542,6 +579,21 @@ export async function rebuildUefiImage(
   }
   return {
     image: root.bytes,
+    spaceReport: {
+      biosStart: layout.biosStart,
+      biosEnd: layout.biosEnd,
+      preservedOutsideBiosBytes:
+        root.bytes.length - (layout.biosEnd - layout.biosStart),
+      affectedRanges: [
+        ...new Map(
+          allowed.map((range) => [
+            `${String(range.start)}:${String(range.end)}`,
+            range,
+          ]),
+        ).values(),
+      ],
+      compressedSections,
+    },
     replacedArtifacts: [
       ...new Set([
         ...artifacts.map((artifact) => artifact.kind),

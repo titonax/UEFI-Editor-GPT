@@ -14,6 +14,13 @@ vi.mock("../scripts/amiFirmwareRebuilder", () => ({
 
 const output: AmiFirmwareBuildResult = {
   image: new Uint8Array([1, 2, 3]),
+  spaceReport: {
+    biosStart: 0,
+    biosEnd: 3,
+    preservedOutsideBiosBytes: 0,
+    affectedRanges: [{ start: 0, end: 3 }],
+    compressedSections: [],
+  },
   fileName: "modified.bin",
   changeLog: "verified edits",
   containerKind: "bios-image",

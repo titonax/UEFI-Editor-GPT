@@ -65,6 +65,9 @@ describe("rebuildUefiImage", () => {
       "setup-hii": Uint8Array.of(1, 2, 3, 4, 5, 6, 7, 8),
     });
 
+    expect(result.spaceReport.affectedRanges).toEqual([
+      { start: file.fileStart, end: file.end },
+    ]);
     expect(result.replacedArtifacts).toEqual(["setup-hii"]);
     expect(result.image.subarray(0, file.fileStart)).toEqual(
       source.subarray(0, file.fileStart),
@@ -254,6 +257,20 @@ describe("rebuildUefiImage", () => {
       { "setup-hii": replacement },
       { standard: codec },
     );
+    // The occupied tail has not been validated as free space. Exact-size
+    // output must not advertise the rest of its owning FFS as usable slack.
+    expect(result.spaceReport.compressedSections).toEqual([
+      {
+        parentBufferId: 0,
+        sectionStart: 0x60,
+        compression: "standard",
+        originalPackedBytes: 0x40,
+        rebuiltPackedBytes: 0x40,
+        verifiedCapacityBytes: 0x40,
+        remainingBytes: 0,
+        capacityBasis: "original-payload",
+      },
+    ]);
     expect(
       codec.decompress(result.image.slice(payloadStart, 0xa9)).slice(0x28, 0x30),
     ).toEqual(replacement);
@@ -389,6 +406,24 @@ describe("rebuildUefiImage", () => {
     const exactSection = readFirmwareSection(exactResult.image, 0x60, exactFile.end);
     expect(exactSection?.end).toBeLessThan(exactFile.end);
     if (!exactSection) throw new Error("Shrunk section is missing.");
+    expect(exactResult.spaceReport.compressedSections).toEqual([
+      {
+        parentBufferId: 0,
+        sectionStart: 0x60,
+        compression: "standard",
+        originalPackedBytes: 0x100,
+        rebuiltPackedBytes: exactSection.end - 0x69,
+        verifiedCapacityBytes: 0x100,
+        remainingBytes: exactFile.end - exactSection.end,
+        capacityBasis: "verified-terminal-padding",
+      },
+    ]);
+    expect(result.spaceReport.compressedSections[0].verifiedCapacityBytes).toBe(
+      outer.end - 0x69,
+    );
+    expect(result.spaceReport.compressedSections[0].remainingBytes).toBe(
+      outer.end - section.end,
+    );
     const released = exactResult.image.slice(exactSection.end, exactFile.end);
     expect({
       length: released.length,
