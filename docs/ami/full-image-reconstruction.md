@@ -79,8 +79,9 @@ bytes using the enclosing FV's verified erase polarity. Other compressed
 images and other artifact edits remain blocked.
 
 One exact [Tiano source](tiano-spi-output-acceptance.md) also has acceptance for
-Setup HII edits. Its complete 8 MiB Intel SPI output reopens with the requested
-edit while Descriptor, ME and every byte outside the Setup FFS remain identical.
+Setup HII edits and [combined SetupData edits](tiano-setupdata-output-acceptance.md).
+Its complete 8 MiB Intel SPI output reopens with the requested patches while
+Descriptor, ME and every byte outside the edited FFS allocations remain identical.
 The EFI compression variant and mixed compressed ancestors remain unaccepted.
 
 The remaining path-specific blockers are:

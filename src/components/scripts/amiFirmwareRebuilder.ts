@@ -5,7 +5,11 @@ import {
 } from "./amiFirmwareExtractor";
 import { inspectFirmwareImageLayout } from "./firmwareImageContainer";
 import { sha256Hex } from "./checksum";
-import { assessFirmwareReconstruction } from "./firmwareProvenance";
+import { assertAcceptedCompressedArtifactEdits } from "./firmwareAcceptance";
+import {
+  assessFirmwareReconstruction,
+  type FirmwareArtifactKind,
+} from "./firmwareProvenance";
 import { createLzmaSectionCodec } from "./lzmaSectionCodec";
 import { createStandardSectionCodec } from "./standardSectionCodec";
 import { FirmwareError } from "./errors";
@@ -93,10 +97,11 @@ export async function buildAmiFirmwareImage(
     ...(patches.amitseSct ? { amitse: patches.amitseSct } : {}),
     ...(patches.setupdataBin ? { setupdata: patches.setupdataBin } : {}),
   };
-  if (hasCompression && (patches.amitseSct || patches.setupdataBin)) {
-    throw new FirmwareError(
-      "PATCH_FAILED",
-      "This compressed image is accepted only for Setup HII edits.",
+  if (hasCompression) {
+    assertAcceptedCompressedArtifactEdits(
+      sourceHash,
+      graph.sourceSize,
+      Object.keys(replacements) as FirmwareArtifactKind[],
     );
   }
   const rebuilt = await rebuildUefiImage(graph, replacements, {
