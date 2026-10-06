@@ -1,4 +1,4 @@
-import { Button, FileButton, Group, Loader, TextInput } from "@mantine/core";
+import { Button, FileButton, Group, Loader, Text, TextInput } from "@mantine/core";
 import { IconDownload, IconListCheck, IconUpload } from "@tabler/icons-react";
 import { saveAs } from "file-saver";
 import React from "react";
@@ -18,7 +18,8 @@ import type { Data } from "../scripts/types";
 import s from "./Footer.module.css";
 import DataChangeQueueDialog from "../ChangeQueue/DataChangeQueueDialog";
 import type { DataChangeQueueController } from "../ChangeQueue/useDataChangeQueue";
-import { buildAmiFirmwareImage } from "../scripts/amiFirmwareRebuilder";
+import FirmwareOutputReport from "./FirmwareOutputReport";
+import { useFirmwareImagePreflight } from "./useFirmwareImagePreflight";
 import { hasAcceptedRootVisibilitySource } from "../scripts/firmwareAcceptance";
 import { assessFirmwareReconstruction } from "../scripts/firmwareProvenance";
 
@@ -44,7 +45,7 @@ export default function Footer({
   const resetRef = React.useRef<() => void>(null);
   const [input, setInput] = React.useState("05");
   const [queueOpened, setQueueOpened] = React.useState(false);
-  const [building, setBuilding] = React.useState(false);
+  const [reportOpened, setReportOpened] = React.useState(false);
   const queueApplied =
     changeQueue.analysis.canApply &&
     changeQueue.appliedFingerprint === changeQueue.analysis.fingerprint;
@@ -62,8 +63,27 @@ export default function Footer({
       files.firmwareSource?.artifacts.provenance.sourceSize ?? 0,
     );
 
+  const preflight = useFirmwareImagePreflight(
+    appliedData,
+    files,
+    queueApplied &&
+      !!files.firmwareSource &&
+      !!reconstruction?.writeEnabled &&
+      !rootEditsBlocked,
+  );
+  const building = preflight.status === "building";
+
   return (
     <div className={s.root}>
+      {preflight.result && (
+        <FirmwareOutputReport
+          result={preflight.result}
+          opened={reportOpened}
+          onClose={() => {
+            setReportOpened(false);
+          }}
+        />
+      )}
       <Group justify="space-between" gap={"xs"} className={s.maxWidth}>
         <Group gap={"xs"}>
           <FileButton
@@ -162,7 +182,7 @@ export default function Footer({
           <Button
             size="xs"
             variant="default"
-            leftSection={building ? <Loader size={16} /> : <IconDownload />}
+            leftSection={building ? <Loader size={16} /> : <IconListCheck />}
             disabled={
               !queueApplied ||
               !files.firmwareSource ||
@@ -182,29 +202,52 @@ export default function Footer({
                       : undefined
             }
             onClick={() => {
-              setBuilding(true);
-              void buildAmiFirmwareImage(appliedData, files)
-                .then((result) => {
-                  saveAs(
-                    new Blob([result.image], { type: "application/octet-stream" }),
-                    result.fileName,
-                  );
-                  saveAs(
-                    new Blob([result.changeLog], { type: "text/plain" }),
-                    "changelog.txt",
-                  );
-                  onError("");
-                })
-                .catch((reason: unknown) => {
-                  onError(errorMessage(reason));
-                })
-                .finally(() => {
-                  setBuilding(false);
-                });
+              void preflight.check();
             }}
           >
-            {building ? "Building and verifying…" : "Modified firmware image"}
+            {building ? "Building and verifying…" : "Check firmware output"}
           </Button>
+          <Button
+            size="xs"
+            variant="default"
+            leftSection={<IconDownload />}
+            disabled={!preflight.result}
+            title="Check the applied queue before downloading its verified image."
+            onClick={() => {
+              const result = preflight.result;
+              if (!result) return;
+              saveAs(
+                new Blob([result.image], { type: "application/octet-stream" }),
+                result.fileName,
+              );
+              saveAs(
+                new Blob([result.changeLog], { type: "text/plain" }),
+                "changelog.txt",
+              );
+              onError("");
+            }}
+          >
+            Modified firmware image
+          </Button>
+          <Button
+            size="xs"
+            variant="default"
+            disabled={!preflight.result}
+            onClick={() => {
+              setReportOpened(true);
+            }}
+          >
+            Output details
+          </Button>
+          <Text size="xs" role="status" aria-live="polite">
+            {preflight.result
+              ? `Verified ${String(preflight.result.image.length)}-byte image; ${String(preflight.result.changedByteCount)} changed bytes. Ready to download.`
+              : preflight.error
+                ? `Output check failed: ${preflight.error}`
+                : building
+                  ? "Checking allocation fit and reopening the rebuilt image…"
+                  : "Firmware output has not been checked for this applied queue."}
+          </Text>
         </Group>
 
         {currentFormIndex >= 0 && (

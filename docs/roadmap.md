@@ -15,7 +15,7 @@ producing a flashable image are separate capabilities.
 | Phoenix legacy reading    | FFV inventory, bounded LH5 decoding, strings, root screens, submenus and unlinked screens available |
 | Phoenix behavior analysis | Bounded static x86-16 callback tracing available                                                    |
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
-| Full-image writing        | Phoenix legacy plus fixed-size uncompressed UEFI paths; compressed UEFI paths remain blocked        |
+| Full-image writing        | Phoenix legacy, fixed-size uncompressed UEFI paths and exact accepted LZMA/Tiano sources            |
 
 PhoenixBIOS legacy FFV, Phoenix SecureCore hybrids and Phoenix UEFI/HII are
 tracked separately. A shared vendor string is not evidence that they share a
@@ -220,7 +220,10 @@ list the blocker for every unsupported case.
 
 ## 10. Product hardening
 
-- Pre-save risk, space, compression and affected-region report.
+- Pre-save risk, space, compression and affected-region report: the AMI footer
+  checks the complete applied queue before download and reports verified packed
+  sizes, section capacity, source allocation bounds and preserved non-BIOS bytes.
+  Results are invalidated when the applied state or source changes.
 - Original/modified comparison and history-based undo/redo above the
   transactional queue.
 - Portable project/session export with schema migration.

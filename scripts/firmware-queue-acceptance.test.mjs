@@ -15,6 +15,7 @@ import {
 import { analyzeIfrBinary } from "../src/components/scripts/ifrBinary";
 import { bytesToHex } from "../src/components/scripts/hex";
 import { sha256Hex } from "../src/components/scripts/checksum";
+import { readFirmwareSection } from "../src/components/scripts/firmwareSections";
 import { inspectFirmwareImageLayout } from "../src/components/scripts/firmwareImageContainer";
 
 it("real combined queue through complete Tiano SPI reconstruction", async () => {
@@ -232,6 +233,35 @@ it("real combined queue through complete Tiano SPI reconstruction", async () => 
       changedOutsideOwner++;
     changedBytes++;
   }
+  expect(result.spaceReport.biosStart).toBe(layout.biosStart);
+  expect(result.spaceReport.biosEnd).toBe(layout.biosEnd);
+  expect(result.spaceReport.preservedOutsideBiosBytes).toBe(1572864);
+  expect(result.spaceReport.affectedRanges).toEqual(
+    owners.map(({ start, end }) => ({ start, end })),
+  );
+  expect(result.spaceReport.compressedSections).toHaveLength(2);
+  for (const space of result.spaceReport.compressedSections) {
+    expect(space.parentBufferId).toBe(0);
+    const edge = artifacts.provenance.buffers.find(
+      (node) =>
+        node.parent?.sectionStart === space.sectionStart &&
+        node.parent.parentBufferId === 0,
+    ).parent;
+    const section = readFirmwareSection(
+      result.image,
+      space.sectionStart,
+      edge.ownerFile.end,
+    );
+    expect(space.originalPackedBytes).toBe(edge.payloadEnd - edge.payloadStart);
+    expect(space.rebuiltPackedBytes).toBe(section.end - edge.payloadStart);
+    const resized = section.end !== edge.sectionEnd;
+    const capacityEnd = resized ? edge.ownerFile.end : edge.payloadEnd;
+    expect(space.verifiedCapacityBytes).toBe(capacityEnd - edge.payloadStart);
+    expect(space.remainingBytes).toBe(capacityEnd - section.end);
+    expect(space.capacityBasis).toBe(
+      resized ? "verified-terminal-padding" : "original-payload",
+    );
+  }
   expect(changedOutsideOwner).toBe(0);
   expect(changedOutsideBios).toBe(0);
   expect(changedBytes).toBe(140913);
@@ -250,6 +280,7 @@ it("real combined queue through complete Tiano SPI reconstruction", async () => 
       outputHash: await sha256Hex(result.image),
       changedBytes,
       owners,
+      spaceReport: result.spaceReport,
       queueTitles: entries.map((entry) => entry.title),
       changeLog: result.changeLog,
     }) + "\n",
