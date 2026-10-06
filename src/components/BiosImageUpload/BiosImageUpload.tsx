@@ -39,6 +39,7 @@ import {
   extractAmiFirmwareBytes,
   type AmiFirmwareArtifacts,
 } from "../scripts/amiFirmwareExtractor";
+import { acceptedCompressedArtifactKinds } from "../scripts/firmwareAcceptance";
 import { assessFirmwareReconstruction } from "../scripts/firmwareProvenance";
 import {
   inspectPhoenixSetupMenu,
@@ -387,6 +388,9 @@ export default function BiosImageUpload({
   const reconstruction = artifacts
     ? assessFirmwareReconstruction(artifacts.provenance, imageHash)
     : null;
+  const acceptedCompressedKinds = artifacts
+    ? acceptedCompressedArtifactKinds(imageHash, artifacts.provenance.sourceSize)
+    : [];
   const ifrMode = artifacts ? ifrExtractionMode(artifacts.ifrText) : "unknown";
   const frameworkInventory =
     ifrMode === "framework" && artifacts
@@ -955,7 +959,7 @@ export default function BiosImageUpload({
                   ? reconstruction.compressions.some(
                       (compression) => compression !== "none",
                     )
-                    ? "Full-image reconstruction — reviewed Setup HII path ready"
+                    ? "Full-image reconstruction — reviewed compressed path ready"
                     : "Full-image reconstruction — fixed-size path ready"
                   : reconstruction.traceComplete
                     ? "Full-image reconstruction — trace captured"
@@ -973,7 +977,9 @@ export default function BiosImageUpload({
                     ? reconstruction.compressions.some(
                         (compression) => compression !== "none",
                       )
-                      ? "Only Setup HII edits are accepted for this exact image. The rebuilt image will be re-opened before download."
+                      ? acceptedCompressedKinds.includes("setupdata")
+                        ? "Setup HII and SetupData edits are accepted for this exact image. The rebuilt image will be re-opened before download."
+                        : "Only Setup HII edits are accepted for this exact image. The rebuilt image will be re-opened before download."
                       : "The edited image will be rebuilt and independently re-opened before download."
                     : `Writing remains disabled: ${reconstruction.blockers.join(" ")}`}
                 </Text>

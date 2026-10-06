@@ -148,9 +148,11 @@ Descriptor/ME bytes.
 LZMA1-alone and EFI/Tiano encoders are connected behind that boundary. EFI and
 Tiano selection is verified against the original decoded stream; synthetic
 round trips cover both EDK II compression variants. The UI still blocks
-compressed paths except the exact Setup HII sources recorded in
+compressed paths except the exact sources and artifact scopes recorded in
 [`compressed-output-acceptance.md`](ami/compressed-output-acceptance.md) and
-[`tiano-spi-output-acceptance.md`](ami/tiano-spi-output-acceptance.md). The EFI
+[`tiano-spi-output-acceptance.md`](ami/tiano-spi-output-acceptance.md). The latter
+also has [combined SetupData acceptance](ami/tiano-setupdata-output-acceptance.md),
+including preservation of AMITSE in their shared decoded ancestor. The EFI
 variant and mixed compressed ancestors are still awaiting acceptance.
 
 Build edited PI artefacts from leaves back to the original image.

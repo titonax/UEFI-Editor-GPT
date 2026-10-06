@@ -26,6 +26,9 @@ it("accepted real compressed image through normal patch and full-image builder",
         headers: { "Content-Type": "application/wasm" },
       }),
   );
+  const scenario = process.env.FIRMWARE_ACCEPTANCE_SCENARIO ?? "hii";
+  expect(["hii", "setupdata"]).toContain(scenario);
+  const withSetupData = scenario === "setupdata";
   const original = new Uint8Array(readFileSync(imagePath));
   const originalHash = await sha256Hex(original);
   const acceptance = [acceptedLzmaSetupImage, acceptedTianoSetupImage].find(
@@ -33,6 +36,7 @@ it("accepted real compressed image through normal patch and full-image builder",
   );
   expect(acceptance).toBeDefined();
   const isTiano = originalHash === acceptedTianoSetupImage.sha256;
+  if (withSetupData) expect(isTiano).toBe(true);
   const artifacts = await extractAmiFirmwareBytes(original);
   const container = (bytes, name, textContent = bytesToHex(bytes)) => ({
     file: new File([bytes], name),
@@ -80,45 +84,68 @@ it("accepted real compressed image through normal patch and full-image builder",
   );
   expect(suppression).toBeDefined();
   suppression.active = false;
+  const growthData = structuredClone(data);
+  if (withSetupData) {
+    const question = data.forms
+      .flatMap((form) => form.children)
+      .find(
+        (child) =>
+          child.questionId.toLowerCase() === "0x4" &&
+          child.offsets?.accessLevel.toLowerCase() === "0x2f7c",
+      );
+    expect(question?.name).toBe("Security");
+    expect(question?.accessLevel).toBe("01");
+    question.accessLevel = "00";
+  }
   const patches = buildFirmwarePatches(data, {
     setupSct: files.setupSctContainer.textContent,
     amitseSct: files.amitseSctContainer.textContent,
     setupdataBin: files.setupdataBinContainer.textContent,
   });
   expect(patches.amitseSct).toBeUndefined();
-  expect(patches.setupdataBin).toBeUndefined();
+  if (withSetupData) expect(patches.setupdataBin).toBeDefined();
+  else expect(patches.setupdataBin).toBeUndefined();
   const result = await buildAmiFirmwareImage(data, files);
   const reopened = await extractAmiFirmwareBytes(result.image);
   expect(await sha256Hex(reopened.hii)).toBe(await sha256Hex(patches.setupSct));
   expect(await sha256Hex(reopened.amitse)).toBe(await sha256Hex(artifacts.amitse));
   expect(await sha256Hex(reopened.setupData)).toBe(
-    await sha256Hex(artifacts.setupData),
+    await sha256Hex(patches.setupdataBin ?? artifacts.setupData),
   );
   expect(result.image.length).toBe(original.length);
   expect(await sha256Hex(original)).toBe(originalHash);
   expect(inspectFirmwareImageLayout(result.image)).toEqual(
     inspectFirmwareImageLayout(original),
   );
-  let ancestor = setupNode;
-  while (
-    ancestor.parent &&
-    ancestor.parent.parentBufferId !== artifacts.provenance.rootBufferId
-  ) {
-    const parent = artifacts.provenance.buffers.find(
-      (node) => node.id === ancestor.parent.parentBufferId,
+  const editedKinds = withSetupData ? ["setup-hii", "setupdata"] : ["setup-hii"];
+  const owners = editedKinds.map((kind) => {
+    const location = artifacts.provenance.artifacts.find(
+      (entry) => entry.kind === kind,
     );
-    if (!parent) throw new Error("Setup ancestor is missing.");
-    ancestor = parent;
-  }
-  const rootFile = ancestor.parent?.ownerFile;
-  expect(rootFile).toBeDefined();
+    let ancestor = artifacts.provenance.buffers.find(
+      (node) => node.id === location.bufferId,
+    );
+    while (
+      ancestor.parent &&
+      ancestor.parent.parentBufferId !== artifacts.provenance.rootBufferId
+    ) {
+      ancestor = artifacts.provenance.buffers.find(
+        (node) => node.id === ancestor.parent.parentBufferId,
+      );
+      if (!ancestor) throw new Error("Edited artifact ancestor is missing.");
+    }
+    const owner = ancestor.parent?.ownerFile;
+    expect(owner).toBeDefined();
+    return { kind, start: owner.fileStart, end: owner.end };
+  });
   let changedBytes = 0;
   let changedOutsideOwner = 0;
   let changedOutsideBios = 0;
   const layout = inspectFirmwareImageLayout(original);
   for (let i = 0; i < original.length; i++) {
     if (original[i] !== result.image[i]) {
-      if (i < rootFile.fileStart || i >= rootFile.end) changedOutsideOwner++;
+      if (!owners.some((owner) => i >= owner.start && i < owner.end))
+        changedOutsideOwner++;
       if (i < layout.biosStart || i >= layout.biosEnd) changedOutsideBios++;
       changedBytes++;
     }
@@ -127,12 +154,29 @@ it("accepted real compressed image through normal patch and full-image builder",
   expect(changedOutsideBios).toBe(0);
   if (isTiano) {
     expect(await sha256Hex(result.image)).toBe(
-      "cdc7a005905574a826460342389e53216e6c50979816271e2a0d0e2de1b6ae40",
+      withSetupData
+        ? "e735ad0281a9e34fb139b69bbb3a675c1daca93fbb6178e2a2537cf0e55b96f9"
+        : "cdc7a005905574a826460342389e53216e6c50979816271e2a0d0e2de1b6ae40",
     );
   }
   expect(changedBytes).toBeGreaterThan(0);
+  if (withSetupData) {
+    const growthQuestion = growthData.forms
+      .flatMap((form) => form.children)
+      .find(
+        (child) =>
+          child.questionId.toLowerCase() === "0x1" && child.offsets?.accessLevel,
+      );
+    expect(growthQuestion?.accessLevel).toBe("01");
+    growthQuestion.accessLevel = "00";
+    await expect(buildAmiFirmwareImage(growthData, files)).rejects.toThrow(
+      "Compressed section cannot grow beyond its FFS allocation.",
+    );
+    expect(await sha256Hex(original)).toBe(originalHash);
+  }
   process.stdout.write(
     JSON.stringify({
+      scenario,
       originalHash,
       compression: isTiano ? "tiano" : "lzma",
       containerKind: layout.kind,
@@ -142,8 +186,8 @@ it("accepted real compressed image through normal patch and full-image builder",
       outputHash: await sha256Hex(result.image),
       imageSize: result.image.length,
       changedBytes,
-      ownerStart: rootFile.fileStart,
-      ownerEnd: rootFile.end,
+      owners,
+      changedOutsideOwner,
       forms: data.forms.length,
       suppressions: data.suppressions.length,
       formPackageCount: reopened.formPackageCount,

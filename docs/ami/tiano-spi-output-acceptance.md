@@ -37,10 +37,11 @@ Forms Packages reopen and the extracted HII matches the complete requested patch
 The source is unchanged. This is reconstruction/re-open evidence, not a physical
 flash test.
 
-Acceptance enables Setup HII edits only for the exact source hash and size.
-Other standard-compressed images, mixed LZMA/Tiano ancestors, AMITSE/SetupData
-edits and growth outside the proven FFS allocation remain blocked. The EFI
-compression variant is still awaiting its own real-image acceptance.
+This first acceptance proves Setup HII edits for the exact source hash and size.
+The subsequent [combined SetupData acceptance](tiano-setupdata-output-acceptance.md)
+extends that source to SetupData edits. Other standard-compressed images, mixed
+LZMA/Tiano ancestors, AMITSE edits and growth outside the proven FFS allocation
+remain blocked. The EFI compression variant still awaits real-image acceptance.
 
 ## Reproduce locally
 
