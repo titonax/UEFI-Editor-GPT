@@ -39,7 +39,9 @@ flash test.
 
 This first acceptance proves Setup HII edits for the exact source hash and size.
 The subsequent [combined SetupData acceptance](tiano-setupdata-output-acceptance.md)
-extends that source to SetupData edits. Other standard-compressed images, mixed
+extends that source to SetupData edits. A separate
+[Ref move acceptance](tiano-ref-move-output-acceptance.md) proves the normal
+structural editor through complete SPI output. Other standard-compressed images, mixed
 LZMA/Tiano ancestors, AMITSE edits and growth outside the proven FFS allocation
 remain blocked. The EFI compression variant still awaits real-image acceptance.
 
