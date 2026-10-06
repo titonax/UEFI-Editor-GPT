@@ -152,7 +152,9 @@ compressed paths except the exact sources and artifact scopes recorded in
 [`compressed-output-acceptance.md`](ami/compressed-output-acceptance.md) and
 [`tiano-spi-output-acceptance.md`](ami/tiano-spi-output-acceptance.md). The latter
 also has [combined SetupData acceptance](ami/tiano-setupdata-output-acceptance.md),
-including preservation of AMITSE in their shared decoded ancestor. The EFI
+including preservation of AMITSE in their shared decoded ancestor. A real
+[same-package Ref move](ami/tiano-ref-move-output-acceptance.md) also passes the
+normal editor, full SPI rebuild and independent binary/text reread. The EFI
 variant and mixed compressed ancestors are still awaiting acceptance.
 
 Build edited PI artefacts from leaves back to the original image.
