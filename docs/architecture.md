@@ -50,6 +50,7 @@
 | `visibility.ts`               | Pure visibility and branch summaries                           |
 | `amiRootVisibility.ts`        | Code-corroborated AMI multi-FormSet root byte-vector analysis  |
 | `amiRootVisibilityEditing.ts` | Provenance-bound desired root-state edit plans                 |
+| `amiRootVisibilityPatcher.ts` | Bounded root-vector patches from fresh source evidence         |
 | `menuTree.ts`                 | GUID-aware graph construction and reachability                 |
 | `hex.ts`                      | Validated hexadecimal conversion and bounded replacement       |
 | `checksum.ts`                 | Source and offset integrity hashes                             |

@@ -82,7 +82,11 @@ One exact [Tiano source](tiano-spi-output-acceptance.md) also has acceptance for
 Setup HII edits and [combined SetupData edits](tiano-setupdata-output-acceptance.md).
 Its complete 8 MiB Intel SPI output reopens with the requested patches while
 Descriptor, ME and every byte outside the edited FFS allocations remain identical.
-The EFI compression variant and mixed compressed ancestors remain unaccepted.
+That Tiano source also supports [code-verified root-vector edits](tiano-root-visibility-output-acceptance.md)
+outside the HII payload, through bounded patches in the same retained Setup
+buffer. Root changes use separate source acceptance and require fresh source
+analysis plus independent complete-vector reread. The EFI compression variant
+and mixed compressed ancestors remain unaccepted.
 
 The remaining path-specific blockers are:
 

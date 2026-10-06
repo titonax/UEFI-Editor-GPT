@@ -18,6 +18,15 @@ export type FirmwareArtifactReplacements = Partial<
   Record<FirmwareArtifactKind, Uint8Array>
 >;
 
+/** Fixed-size patch in the decoded buffer owned by a retained artifact branch. */
+export interface FirmwareBufferPatch {
+  artifactKind: FirmwareArtifactKind;
+  bufferId: number;
+  offset: number;
+  expected: Uint8Array;
+  replacement: Uint8Array;
+}
+
 export interface UefiImageBuildResult {
   image: Uint8Array;
   replacedArtifacts: FirmwareArtifactKind[];
@@ -340,6 +349,7 @@ export async function rebuildUefiImage(
   graph: FirmwareProvenanceGraph,
   replacements: FirmwareArtifactReplacements,
   codecs: Partial<Record<"lzma" | "standard", FirmwareSectionCodecOption>> = {},
+  bufferPatches: readonly FirmwareBufferPatch[] = [],
 ): Promise<UefiImageBuildResult> {
   const sourceNode = graph.buffers.find((node) => node.id === graph.rootBufferId);
   if (sourceNode?.bytes.length !== graph.sourceSize) {
@@ -354,7 +364,7 @@ export async function rebuildUefiImage(
   const artifacts = graph.artifacts.filter(
     (artifact) => replacements[artifact.kind] !== undefined,
   );
-  if (artifacts.length === 0) {
+  if (artifacts.length === 0 && bufferPatches.length === 0) {
     throw new FirmwareError("NO_CHANGES", "No firmware artifacts need rebuilding.");
   }
   const modified = new Set<number>();
@@ -365,6 +375,64 @@ export async function rebuildUefiImage(
     files.set(fileKey(file), file);
     repairs.set(file.bufferId, files);
   };
+
+  const patchAnchors: FirmwareArtifactLocation[] = [];
+  const occupied = new Map<number, Set<number>>();
+  for (const patch of bufferPatches) {
+    const anchors = graph.artifacts.filter(
+      (artifact) =>
+        artifact.kind === patch.artifactKind && artifact.bufferId === patch.bufferId,
+    );
+    const node = nodes.get(patch.bufferId);
+    const anchor = anchors[0];
+    const end = patch.offset + patch.expected.length;
+    if (
+      anchors.length !== 1 ||
+      !node ||
+      !Number.isSafeInteger(patch.offset) ||
+      patch.offset < 0 ||
+      patch.expected.length === 0 ||
+      patch.expected.length !== patch.replacement.length ||
+      end > node.bytes.length ||
+      (anchor.sourceFile.bufferId === node.id
+        ? patch.offset < anchor.sourceFile.bodyStart || end > anchor.sourceFile.end
+        : !node.parent?.ownerFile)
+    ) {
+      throw new FirmwareError(
+        "INTEGRITY_MISMATCH",
+        "Decoded patch has no bounded artifact ownership.",
+      );
+    }
+    const touched = occupied.get(node.id) ?? new Set<number>();
+    for (let offset = patch.offset; offset < end; offset++) {
+      if (
+        touched.has(offset) ||
+        artifacts.some(
+          (artifact) =>
+            artifact.bufferId === node.id &&
+            offset >= artifact.payloadStart &&
+            offset < artifact.payloadEnd,
+        )
+      ) {
+        throw new FirmwareError(
+          "PATCH_FAILED",
+          "Decoded patches overlap another requested edit.",
+        );
+      }
+      if (node.bytes[offset] !== patch.expected[offset - patch.offset]) {
+        throw new FirmwareError(
+          "INTEGRITY_MISMATCH",
+          "Decoded patch expected bytes changed.",
+        );
+      }
+      touched.add(offset);
+    }
+    patchAnchors.push(anchor);
+    occupied.set(node.id, touched);
+    node.bytes.set(patch.replacement, patch.offset);
+    modified.add(node.id);
+    if (anchor.sourceFile.bufferId === node.id) requestRepair(anchor.sourceFile);
+  }
 
   for (const artifact of artifacts) {
     const replacement = replacements[artifact.kind];
@@ -447,7 +515,9 @@ export async function rebuildUefiImage(
   }
 
   const layout = inspectFirmwareImageLayout(sourceNode.bytes);
-  const allowed = artifacts.map((artifact) => rootAllowedRange(graph, artifact));
+  const allowed = [...artifacts, ...patchAnchors].map((artifact) =>
+    rootAllowedRange(graph, artifact),
+  );
   let changedByteCount = 0;
   let changedStart = root.bytes.length;
   let changedEnd = 0;
@@ -472,7 +542,12 @@ export async function rebuildUefiImage(
   }
   return {
     image: root.bytes,
-    replacedArtifacts: artifacts.map((artifact) => artifact.kind),
+    replacedArtifacts: [
+      ...new Set([
+        ...artifacts.map((artifact) => artifact.kind),
+        ...bufferPatches.map((patch) => patch.artifactKind),
+      ]),
+    ],
     changedByteCount,
     changedStart,
     changedEnd,

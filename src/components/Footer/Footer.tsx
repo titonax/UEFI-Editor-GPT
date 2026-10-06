@@ -19,6 +19,7 @@ import s from "./Footer.module.css";
 import DataChangeQueueDialog from "../ChangeQueue/DataChangeQueueDialog";
 import type { DataChangeQueueController } from "../ChangeQueue/useDataChangeQueue";
 import { buildAmiFirmwareImage } from "../scripts/amiFirmwareRebuilder";
+import { hasAcceptedRootVisibilitySource } from "../scripts/firmwareAcceptance";
 import { assessFirmwareReconstruction } from "../scripts/firmwareProvenance";
 
 interface FooterProps {
@@ -53,6 +54,13 @@ export default function Footer({
         files.firmwareSource.sourceSha256,
       )
     : null;
+
+  const rootEditsBlocked =
+    (appliedData.rootVisibilityEdits?.length ?? 0) > 0 &&
+    !hasAcceptedRootVisibilitySource(
+      files.firmwareSource?.sourceSha256,
+      files.firmwareSource?.artifacts.provenance.sourceSize ?? 0,
+    );
 
   return (
     <div className={s.root}>
@@ -159,7 +167,7 @@ export default function Footer({
               !queueApplied ||
               !files.firmwareSource ||
               !reconstruction?.writeEnabled ||
-              (appliedData.rootVisibilityEdits?.length ?? 0) > 0 ||
+              rootEditsBlocked ||
               building
             }
             title={
@@ -167,8 +175,8 @@ export default function Footer({
                 ? "Apply the selected change queue before exporting."
                 : !files.firmwareSource
                   ? "Load a complete firmware image before exporting."
-                  : (appliedData.rootVisibilityEdits?.length ?? 0) > 0
-                    ? "Root visibility changes require the verified full-image reconstruction path"
+                  : rootEditsBlocked
+                    ? "Root visibility output has no real-image acceptance for this source."
                     : !reconstruction?.writeEnabled
                       ? reconstruction?.blockers.join(" ")
                       : undefined

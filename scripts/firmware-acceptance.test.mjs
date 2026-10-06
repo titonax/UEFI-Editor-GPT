@@ -5,6 +5,7 @@ import {
   acceptedLzmaSetupImage,
   acceptedTianoSetupImage,
 } from "../src/components/scripts/firmwareAcceptance";
+import { toggleAmiRootVisibility } from "../src/components/scripts/amiRootVisibilityEditing";
 import { analyzeIfrBinary, IFR_OPCODE } from "../src/components/scripts/ifrBinary";
 import {
   analyzeMenuMoveDestinations,
@@ -32,9 +33,10 @@ it("accepted real compressed image through normal patch and full-image builder",
       }),
   );
   const scenario = process.env.FIRMWARE_ACCEPTANCE_SCENARIO ?? "hii";
-  expect(["hii", "setupdata", "refmove"]).toContain(scenario);
+  expect(["hii", "setupdata", "refmove", "rootvisibility"]).toContain(scenario);
   const withSetupData = scenario === "setupdata";
   const withRefMove = scenario === "refmove";
+  const withRootVisibility = scenario === "rootvisibility";
   const original = new Uint8Array(readFileSync(imagePath));
   const originalHash = await sha256Hex(original);
   const acceptance = [acceptedLzmaSetupImage, acceptedTianoSetupImage].find(
@@ -42,7 +44,7 @@ it("accepted real compressed image through normal patch and full-image builder",
   );
   expect(acceptance).toBeDefined();
   const isTiano = originalHash === acceptedTianoSetupImage.sha256;
-  if (withSetupData || withRefMove) expect(isTiano).toBe(true);
+  if (withSetupData || withRefMove || withRootVisibility) expect(isTiano).toBe(true);
   const artifacts = await extractAmiFirmwareBytes(original);
   const container = (bytes, name, textContent = bytesToHex(bytes)) => ({
     file: new File([bytes], name),
@@ -90,7 +92,7 @@ it("accepted real compressed image through normal patch and full-image builder",
     (x) => x.offset.toLowerCase() === (isTiano ? "0x8b359" : "0x5b2d9"),
   );
   expect(suppression).toBeDefined();
-  if (!withRefMove) suppression.active = false;
+  if (!withRefMove && !withRootVisibility) suppression.active = false;
   const growthData = structuredClone(data);
   if (withSetupData) {
     const question = data.forms
@@ -103,6 +105,43 @@ it("accepted real compressed image through normal patch and full-image builder",
     expect(question?.name).toBe("Security");
     expect(question?.accessLevel).toBe("01");
     question.accessLevel = "00";
+  }
+  let rootEvidence;
+  if (withRootVisibility) {
+    const report = data.rootVisibility;
+    expect(report.status).toBe("detected");
+    expect(report.vector.length).toBe(7);
+    const tool = report.entries.find((entry) => entry.name === "Tool");
+    expect(tool.rootIndex).toBe(5);
+    expect(tool.bufferOffset).toBe(92081);
+    expect(tool.value).toBe(1);
+    data.rootVisibilityEdits = toggleAmiRootVisibility(data, tool.rootIndex);
+    const stale = structuredClone(data);
+    stale.rootVisibilityEdits[0].expected = 0;
+    await expect(buildAmiFirmwareImage(stale, files)).rejects.toThrow(/does not match/);
+    const allDisabled = structuredClone(originalData);
+    for (const entry of report.entries) {
+      allDisabled.rootVisibilityEdits = toggleAmiRootVisibility(
+        allDisabled,
+        entry.rootIndex,
+      );
+    }
+    await expect(buildAmiFirmwareImage(allDisabled, files)).rejects.toThrow(
+      "At least one root FormSet must remain enabled.",
+    );
+    expect(await sha256Hex(original)).toBe(originalHash);
+    await expect(
+      buildAmiFirmwareImage(data, files, () => Promise.resolve(artifacts)),
+    ).rejects.toThrow("Root visibility did not match after re-opening");
+    data.rootVisibility.entries[5].value = 0;
+    rootEvidence = {
+      rootIndex: tool.rootIndex,
+      formId: tool.formId,
+      formSetGuid: tool.formSetGuid,
+      bufferOffset: tool.bufferOffset,
+      expected: 1,
+      replacement: 0,
+    };
   }
   let moveEvidence;
   let movedReferenceBytes;
@@ -174,21 +213,66 @@ it("accepted real compressed image through normal patch and full-image builder",
     );
     expect(await sha256Hex(original)).toBe(originalHash);
   }
-  const patches = buildFirmwarePatches(data, {
-    setupSct: files.setupSctContainer.textContent,
-    amitseSct: files.amitseSctContainer.textContent,
-    setupdataBin: files.setupdataBinContainer.textContent,
-  });
+  const patches = buildFirmwarePatches(
+    { ...data, rootVisibilityEdits: undefined },
+    {
+      setupSct: files.setupSctContainer.textContent,
+      amitseSct: files.amitseSctContainer.textContent,
+      setupdataBin: files.setupdataBinContainer.textContent,
+    },
+  );
   expect(patches.amitseSct).toBeUndefined();
   if (withSetupData) expect(patches.setupdataBin).toBeDefined();
   else expect(patches.setupdataBin).toBeUndefined();
   const result = await buildAmiFirmwareImage(data, files);
   const reopened = await extractAmiFirmwareBytes(result.image);
-  expect(await sha256Hex(reopened.hii)).toBe(await sha256Hex(patches.setupSct));
+  expect(await sha256Hex(reopened.hii)).toBe(
+    await sha256Hex(patches.setupSct ?? artifacts.hii),
+  );
   expect(await sha256Hex(reopened.amitse)).toBe(await sha256Hex(artifacts.amitse));
   expect(await sha256Hex(reopened.setupData)).toBe(
     await sha256Hex(patches.setupdataBin ?? artifacts.setupData),
   );
+  if (withRootVisibility) {
+    const originalNode = artifacts.provenance.buffers.find(
+      (node) => node.id === originalData.rootVisibility.vector.bufferId,
+    );
+    const reopenedNode = reopened.provenance.buffers.find(
+      (node) =>
+        node.id ===
+        reopened.provenance.artifacts.find((artifact) => artifact.kind === "setup-hii")
+          .bufferId,
+    );
+    expect(reopenedNode.bytes.length).toBe(originalNode.bytes.length);
+    const logicalChanges = Array.from(originalNode.bytes).flatMap((byte, offset) =>
+      byte !== reopenedNode.bytes[offset] ? [offset] : [],
+    );
+    expect(logicalChanges).toEqual([rootEvidence.bufferOffset]);
+    expect(reopenedNode.bytes[rootEvidence.bufferOffset]).toBe(0);
+    const rereadData = await parseData({
+      ...files,
+      setupSctContainer: container(reopened.hii, "setup.bin"),
+      setupTxtContainer: container(
+        new TextEncoder().encode(reopened.ifrText),
+        "setup.txt",
+        reopened.ifrText,
+      ),
+      firmwareSource: {
+        ...files.firmwareSource,
+        artifacts: reopened,
+        sourceSha256: await sha256Hex(result.image),
+      },
+    });
+    expect(rereadData.rootVisibility.status).toBe("detected");
+    expect(rereadData.rootVisibility.entries.map((entry) => entry.value)).toEqual([
+      1, 1, 1, 1, 1, 0, 1,
+    ]);
+    expect(rereadData.rootVisibility.entries[5].formSetGuid).toBe(
+      rootEvidence.formSetGuid,
+    );
+    expect(reopened.formPackageCount).toBe(7);
+    expect(rereadData.forms.length).toBe(70);
+  }
   if (withRefMove) {
     const model = analyzeIfrBinary(reopened.hii);
     expect(model.packages).toHaveLength(7);
@@ -292,11 +376,13 @@ it("accepted real compressed image through normal patch and full-image builder",
   expect(changedOutsideBios).toBe(0);
   if (isTiano) {
     expect(await sha256Hex(result.image)).toBe(
-      withRefMove
-        ? "b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f"
-        : withSetupData
-          ? "e735ad0281a9e34fb139b69bbb3a675c1daca93fbb6178e2a2537cf0e55b96f9"
-          : "cdc7a005905574a826460342389e53216e6c50979816271e2a0d0e2de1b6ae40",
+      withRootVisibility
+        ? "88f522a7878449df6710bb09a8496fa376629f2a93a730bd6ec5e10ae796fe66"
+        : withRefMove
+          ? "b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f"
+          : withSetupData
+            ? "e735ad0281a9e34fb139b69bbb3a675c1daca93fbb6178e2a2537cf0e55b96f9"
+            : "cdc7a005905574a826460342389e53216e6c50979816271e2a0d0e2de1b6ae40",
     );
   }
   expect(changedBytes).toBeGreaterThan(0);
@@ -318,6 +404,7 @@ it("accepted real compressed image through normal patch and full-image builder",
     JSON.stringify({
       scenario,
       moveEvidence,
+      rootEvidence,
       originalHash,
       compression: isTiano ? "tiano" : "lzma",
       containerKind: layout.kind,
