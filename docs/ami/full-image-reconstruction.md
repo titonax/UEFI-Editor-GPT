@@ -47,6 +47,23 @@ complete same-size SPI output, but only bytes inside the descriptor-declared
 BIOS region may change; Descriptor, ME, GbE, EC and all other regions remain
 bit-for-bit identical.
 
+## Checking output before download
+
+Applying a change queue checks its logical preconditions, not its packed size.
+The footer now offers **Check firmware output** to run the complete builder,
+including recompression, allocation checks, checksum repair and independent
+re-extraction. Failure leaves the firmware download disabled and shows the
+builder diagnostic. Success reports the verified image size and changed-byte
+count without downloading anything.
+
+**Modified firmware image** downloads those exact verified bytes and their
+change log without rebuilding. The result stays only in browser memory and is
+bound to the applied data and opened files. Changing either, or invalidating
+the applied queue, requires a new check; a late completion from an earlier
+check cannot enable download for the new state. Source acceptance and all
+builder restrictions remain in force. This does not establish physical flash
+validation.
+
 ## Current support and blockers
 
 Fixed-size uncompressed section paths are rebuilt bottom-up today. The builder
