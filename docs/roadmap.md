@@ -175,6 +175,11 @@ contain exactly the requested HII edit.
 
 ## 7. Complete AMI Aptio IV/V output
 
+One exact Tiano SPI source also has [root-vector output acceptance](ami/tiano-root-visibility-output-acceptance.md).
+The normal queue and complete-image builder can export a code-corroborated root
+visibility edit, with fresh source evidence and full-vector verification after
+reopening. Extracted-file export and root output for other sources remain blocked.
+
 - Apply SuppressIf edits, Ref moves and proven root-visibility vectors through
   the generic UEFI builder.
 - Support nested volumes and multiple coherent Setup contexts without silently

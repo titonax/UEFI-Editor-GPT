@@ -106,6 +106,46 @@ describe("buildAmiFirmwareImage", () => {
     expect(result.changeLog).toContain("Unsuppressed 0x0");
   });
 
+  it("rejects root edits on a source without separate root acceptance", async () => {
+    const { files } = fixture();
+    await expect(
+      buildAmiFirmwareImage(
+        firmwareData({
+          rootVisibilityEdits: [
+            {
+              kind: "set-root-visibility",
+              rootIndex: 0,
+              formId: "0x1",
+              bufferId: 0,
+              bufferOffset: 0x70,
+              expected: 1,
+              replacement: 0,
+              description: "Hide root",
+            },
+          ],
+        }),
+        files,
+      ),
+    ).rejects.toThrow(/Root visibility reconstruction awaits real-image acceptance/);
+  });
+
+  it("rejects a changed unedited companion after independent reread", async () => {
+    const { artifacts, files } = fixture();
+    artifacts.amitse = Uint8Array.of(1);
+    await expect(
+      buildAmiFirmwareImage(
+        firmwareData({ suppressions: [condition({ active: false })] }),
+        files,
+        (image) =>
+          Promise.resolve({
+            ...artifacts,
+            hii: image.slice(0x60, 0x66),
+            amitse: Uint8Array.of(2),
+          }),
+      ),
+    ).rejects.toThrow("AMITSE did not match after re-opening");
+  });
+
   it("always emits a bin name", () => {
     expect(amiModifiedBinName("dump.bin")).toBe("dump-modified.bin");
     expect(amiModifiedBinName("board.rom")).toBe("board-modified.bin");

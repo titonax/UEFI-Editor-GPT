@@ -978,7 +978,7 @@ export default function BiosImageUpload({
                         (compression) => compression !== "none",
                       )
                       ? acceptedCompressedKinds.includes("setupdata")
-                        ? "Setup HII and SetupData edits are accepted for this exact image. The rebuilt image will be re-opened before download."
+                        ? "Setup HII, SetupData and code-verified root visibility edits are accepted for this exact image. The rebuilt image will be re-opened before download."
                         : "Only Setup HII edits are accepted for this exact image. The rebuilt image will be re-opened before download."
                       : "The edited image will be rebuilt and independently re-opened before download."
                     : `Writing remains disabled: ${reconstruction.blockers.join(" ")}`}

@@ -426,3 +426,62 @@ describe("rebuildUefiImage", () => {
     ).rejects.toThrow(/cannot grow/);
   });
 });
+
+describe("bounded decoded-buffer patches", () => {
+  it("rebuilds a non-HII byte within its proven owning FFS", async () => {
+    const { graph, file } = directGraph();
+    const original = graph.buffers[0].bytes.slice();
+    const result = await rebuildUefiImage(graph, {}, {}, [
+      {
+        artifactKind: "setup-hii",
+        bufferId: 0,
+        offset: 0x70,
+        expected: Uint8Array.of(0x31),
+        replacement: Uint8Array.of(1),
+      },
+    ]);
+    expect(result.image[0x70]).toBe(1);
+    expect(result.replacedArtifacts).toEqual(["setup-hii"]);
+    expect(result.image.slice(0x60, 0x68)).toEqual(original.slice(0x60, 0x68));
+    expect(result.image.slice(file.end)).toEqual(original.slice(file.end));
+    expect(
+      (sum8(result.image, file.bodyStart, file.end) +
+        result.image[file.fileStart + 17]) &
+        0xff,
+    ).toBe(0);
+    expect(graph.buffers[0].bytes).toEqual(original);
+  });
+
+  it("rejects stale, unowned, overlapping and resizing patches without source mutation", async () => {
+    const { graph } = directGraph();
+    const original = graph.buffers[0].bytes.slice();
+    const patch = {
+      artifactKind: "setup-hii" as const,
+      bufferId: 0,
+      offset: 0x70,
+      expected: Uint8Array.of(0x31),
+      replacement: Uint8Array.of(1),
+    };
+    for (const invalid of [
+      { ...patch, bufferId: 99 },
+      { ...patch, offset: 0x40 },
+      { ...patch, offset: -1 },
+      { ...patch, offset: 0x301 },
+      { ...patch, expected: Uint8Array.of(0) },
+      { ...patch, expected: new Uint8Array() },
+      { ...patch, replacement: Uint8Array.of(1, 2) },
+    ]) {
+      await expect(rebuildUefiImage(graph, {}, {}, [invalid])).rejects.toThrow();
+      expect(graph.buffers[0].bytes).toEqual(original);
+    }
+    await expect(rebuildUefiImage(graph, {}, {}, [patch, patch])).rejects.toThrow(
+      /overlap/,
+    );
+    await expect(
+      rebuildUefiImage(graph, { "setup-hii": new Uint8Array(8) }, {}, [
+        { ...patch, offset: 0x60 },
+      ]),
+    ).rejects.toThrow(/overlap/);
+    expect(graph.buffers[0].bytes).toEqual(original);
+  });
+});

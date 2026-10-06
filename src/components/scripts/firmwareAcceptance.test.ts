@@ -3,9 +3,34 @@ import {
   acceptedLzmaSetupImage,
   acceptedTianoSetupImage,
   assertAcceptedCompressedArtifactEdits,
+  hasAcceptedRootVisibilitySource,
 } from "./firmwareAcceptance";
 
 describe("compressed artifact acceptance scope", () => {
+  it("keeps root output separate from LZMA HII acceptance", () => {
+    expect(
+      hasAcceptedRootVisibilitySource(
+        acceptedTianoSetupImage.sha256.toUpperCase(),
+        acceptedTianoSetupImage.size,
+      ),
+    ).toBe(true);
+    expect(
+      hasAcceptedRootVisibilitySource(
+        acceptedLzmaSetupImage.sha256,
+        acceptedLzmaSetupImage.size,
+      ),
+    ).toBe(false);
+    expect(
+      hasAcceptedRootVisibilitySource(
+        acceptedTianoSetupImage.sha256,
+        acceptedTianoSetupImage.size - 1,
+      ),
+    ).toBe(false);
+    expect(
+      hasAcceptedRootVisibilitySource(undefined, acceptedTianoSetupImage.size),
+    ).toBe(false);
+  });
+
   it("accepts combined HII and SetupData only on the proven Tiano source", () => {
     expect(() => {
       assertAcceptedCompressedArtifactEdits(

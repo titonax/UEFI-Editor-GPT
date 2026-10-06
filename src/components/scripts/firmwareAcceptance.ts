@@ -51,3 +51,14 @@ export function assertAcceptedCompressedArtifactEdits(
     );
   }
 }
+
+/** Real root-vector reconstruction acceptance is separate from HII acceptance. */
+export function hasAcceptedRootVisibilitySource(
+  hash: string | undefined,
+  size: number,
+) {
+  return (
+    hash?.toLowerCase() === acceptedTianoSetupImage.sha256 &&
+    size === acceptedTianoSetupImage.size
+  );
+}

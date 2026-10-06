@@ -84,7 +84,7 @@ state detected in the source BIOS. Each plan stores the expected byte, desired
 byte, FormSet identity, decoded buffer and offset. Returning a root to its
 original state removes the pending plan.
 
-A future full-image write operation must:
+The full-image write operation must:
 
 1. record the expected old byte;
 2. change only one selected vector byte;
@@ -94,6 +94,10 @@ A future full-image write operation must:
 6. re-extract the complete result and verify the intended one-byte logical
    change and all unaffected regions.
 
-Until that reconstruction path is implemented and independently verified, the
-buttons change only the pending plan. Extracted-file export rejects these plans
-instead of silently omitting them.
+One exact [Tiano SPI source](tiano-root-visibility-output-acceptance.md) now has
+independent full-image acceptance. Its queued root plans can be applied and
+exported through the complete-image builder. The builder recomputes the vector
+from the immutable source, checks every expected byte and FormSet identity,
+requires at least one enabled root, rebuilds the owning Setup FFS and rechecks
+the complete vector after reopening. Other sources remain blocked for root
+output. Extracted-file export still rejects root plans instead of omitting them.
