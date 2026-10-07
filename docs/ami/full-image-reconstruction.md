@@ -49,6 +49,9 @@ bit-for-bit identical.
 
 ## Checking output before download
 
+See the [complete-image user workflow](firmware-output-user-flow.md) for the
+button sequence and its synthetic UI integration coverage.
+
 Applying a change queue checks its logical preconditions, not its packed size.
 The footer now offers **Check firmware output** to run the complete builder,
 including recompression, allocation checks, checksum repair and independent
