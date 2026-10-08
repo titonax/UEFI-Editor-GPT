@@ -1,8 +1,12 @@
 # Vendor-neutral HII image builder foundation
 
-The internal `buildUefiHiiFirmwareImage` builder reinserts fixed-size HII module
-edits into independently discovered FFS owners. It is not connected to the editor
-footer yet. The existing module-download action remains the user-facing output.
+The `buildUefiHiiFirmwareImage` builder reinserts fixed-size HII module
+edits into independently discovered FFS owners. The editor footer now exposes
+Apply → Check firmware output → Output details → explicit complete-image download.
+The verified bytes are cached for the current source, workspace and applied queue;
+any change invalidates that result, including pending asynchronous completion.
+The existing module-download action remains available separately.
+See the [user flow and Firefox checks](uefi-hii-output-user-flow.md).
 The uncompressed routes have synthetic engine evidence. A separate
 [P53 mirrored LZMA acceptance record](p53-mirrored-lzma-output-acceptance.md) covers
 the exact real source and Setup module; neither establishes physical flash validation.
@@ -63,6 +67,14 @@ allocation growth and runtime root registration remain unsupported. AMI acceptan
 never enables the generic route, and generic acceptance never enables AMI output.
 
 The exact P53 source now reproduces one queued Ref move through complete-image
-reconstruction and independent re-extraction. Check/report/explicit download in
-the generic footer remains pending. Root FormSet presence continues to be distinct
+reconstruction and independent re-extraction. The generic footer retains the full
+source image, reports each modified module's independently verified physical
+FFS copies (offsets are relative to their decoded buffers), and shows the existing
+compression capacity and preserved non-BIOS bytes. Downloads use the checked bytes
+without rebuilding and always return a complete `.bin` for a complete SPI input.
+Synthetic frontend tests cover Apply, explicit download, failure/retry, exact cached
+bytes, report contents, queue mutations, source/workspace replacement and stale
+asynchronous completion. This is separate from the real source engine acceptance;
+Firefox/hardware behavior is not established by the synthetic UI tests.
+Root FormSet presence continues to be distinct
 from runtime registration or visibility.

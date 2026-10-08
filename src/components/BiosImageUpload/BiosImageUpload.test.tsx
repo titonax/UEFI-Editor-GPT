@@ -412,6 +412,7 @@ describe("complete firmware preflight", () => {
     });
     expect(onUefiHiiExtracted.mock.calls[0][0]).toMatchObject({
       fileName: "p53.bin",
+      sourceBytes: image,
       workspace,
     });
   });

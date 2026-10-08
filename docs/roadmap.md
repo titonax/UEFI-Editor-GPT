@@ -213,8 +213,8 @@ boundary verification for each supported compression/layout class.
   direct FFS ownership or proven uncompressed encapsulation into a raw PI image
   or complete Intel SPI, with fresh ownership, inner/enclosing checksum repair
   and independent full-image HII comparison.
-  [Synthetic builder evidence](phoenix/uefi-hii-image-builder.md) does not enable
-  the footer download yet.
+  [Builder and frontend lifecycle evidence](phoenix/uefi-hii-image-builder.md)
+  covers explicit check, allocation/copy report and cached full-image download.
 - [P53 real-source acceptance](phoenix/p53-mirrored-lzma-output-acceptance.md)
   now verifies one queued Setup Ref move in both physical LZMA copies of the
   complete SPI, with 22,320 packed bytes remaining in each original allocation
@@ -228,7 +228,8 @@ boundary verification for each supported compression/layout class.
   controlled behavior layer.
 
 Exit gate: the exact Lenovo P53 sample now produces and re-reads a complete image
-with one validated Ref move. The editor download lifecycle still needs integration;
+with one validated Ref move. The editor download lifecycle is integrated and covered
+by synthetic frontend tests; real Firefox user-flow verification remains pending;
 unresolved runtime root registration remains explicitly blocked.
 
 ## 9. Compatibility corpus and the 90% target
