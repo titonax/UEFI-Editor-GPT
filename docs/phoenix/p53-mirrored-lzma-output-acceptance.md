@@ -71,6 +71,22 @@ changed outside BIOS are
 rejected without changing the source. Ordinary synthetic tests continue to reject
 unknown mirrored sources and incomplete/compressed unaccepted paths.
 
+## Real-source frontend acceptance
+
+The opt-in `uefi-hii-ui` scenario renders the actual menu actions, move dialog,
+queue and footer using this real source and production WASI/LZMA codecs. It
+selects PCI Subsystem Settings, stages the Debug Settings move, applies the queue,
+checks the complete image, reads the two-copy/space report and explicitly captures
+the download. The captured bytes match the output hash above. An additional
+independent decode verifies the new Ref owner in both physical copies; removing
+the operation invalidates download/details.
+
+Only download capture and jsdom layout/scroll adapters are substituted. Automatic
+dropdown placement is disabled in the test; production controls are unchanged.
+This establishes React-to-builder-to-download integration, not Firefox layout,
+file-picker/deployed-asset loading or physical flash behavior. See the
+[local reproduction procedure](uefi-hii-output-user-flow.md).
+
 ## Scope and remaining work
 
 Acceptance is limited by the exact source hash and size, and by the tested Setup
@@ -80,7 +96,7 @@ EFI/Tiano or AMI root-vector acceptance. Every build still requires complete
 provenance, original-byte agreement, allocation fit and independent full-image
 verification. A different P53 dump requires its own source acceptance.
 
-Next: integrate check/report/explicit download into the generic footer, including
-clear reporting of both physical copies and result invalidation on source/queue
-changes. Mixed direct/nested HII ownership, other compressed drivers, wrappers,
+The generic footer now integrates check/report/explicit download, including
+reporting of both physical copies and result invalidation on source/queue changes.
+Mixed direct/nested HII ownership, other compressed drivers, wrappers,
 capsules, allocation growth and unproven runtime root controls remain blocked.

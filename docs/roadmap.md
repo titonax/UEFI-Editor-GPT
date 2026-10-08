@@ -220,8 +220,7 @@ boundary verification for each supported compression/layout class.
   complete SPI, with 22,320 packed bytes remaining in each original allocation
   and byte-identical non-BIOS regions. Acceptance is hash/size/Setup-FFS specific;
   other Lenovo drivers and generic compressed sources remain blocked.
-- Check/report/explicit download integration and mixed direct/nested ownership
-  handling remain pending.
+- Mixed direct/nested ownership handling remains pending.
 - Investigate Phoenix/Lenovo registration for FormSet roots without parent Refs.
 - Distinguish runtime-visible roots from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
@@ -229,7 +228,9 @@ boundary verification for each supported compression/layout class.
 
 Exit gate: the exact Lenovo P53 sample now produces and re-reads a complete image
 with one validated Ref move. The editor download lifecycle is integrated and covered
-by synthetic frontend tests; real Firefox user-flow verification remains pending;
+by synthetic frontend tests plus opt-in real-source React/jsdom acceptance using
+the actual editor, queue, codecs, builder and captured download. Real Firefox
+user-flow verification remains pending;
 unresolved runtime root registration remains explicitly blocked.
 
 ## 9. Compatibility corpus and the 90% target
