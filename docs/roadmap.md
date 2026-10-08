@@ -159,7 +159,9 @@ variant and mixed compressed ancestors are still awaiting acceptance. An exact
 [nested-volume LZMA SPI source](ami/nested-lzma-spi-output-acceptance.md) now also
 passes Setup HII output through an outer compressed FV and inner uncompressed
 encapsulation, including inner/outer FFS checksums and untouched Descriptor/ME.
-This acceptance does not enable its SetupData, AMITSE or root-vector edits.
+Its separate [SetupData and combined-queue acceptance](ami/nested-lzma-setupdata-output-acceptance.md)
+now verifies both inner FFS repairs before one shared LZMA recompression. AMITSE
+and root-vector edits on this source remain blocked.
 
 Build edited PI artefacts from leaves back to the original image.
 
