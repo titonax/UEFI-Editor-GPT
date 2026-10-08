@@ -1,5 +1,6 @@
 import { Modal, Stack, Table, Text } from "@mantine/core";
-import type { AmiFirmwareBuildResult } from "../scripts/amiFirmwareRebuilder";
+import type { UefiImageBuildResult } from "../scripts/uefiImageRebuilder";
+import type { UefiHiiFirmwareBuildResult } from "../scripts/uefiHiiFirmwareRebuilder";
 
 const hex = (offset: number) => `0x${offset.toString(16).toUpperCase()}`;
 
@@ -8,7 +9,10 @@ export default function FirmwareOutputReport({
   opened,
   onClose,
 }: {
-  result: AmiFirmwareBuildResult;
+  result: UefiImageBuildResult & {
+    fileName: string;
+    verifiedModules?: UefiHiiFirmwareBuildResult["verifiedModules"];
+  };
   opened: boolean;
   onClose: () => void;
 }) {
@@ -31,6 +35,24 @@ export default function FirmwareOutputReport({
             .join(", ")}
           .
         </Text>
+        {result.verifiedModules && (
+          <Stack gap="xs">
+            <Text size="sm">Modified HII modules and verified physical copies:</Text>
+            {result.verifiedModules.map((module) => (
+              <Text size="sm" key={module.moduleId}>
+                {module.name} ({module.fileGuid}): {module.physicalCopies.length}{" "}
+                physical copy/copies verified. FFS offsets in decoded buffers:{" "}
+                {module.physicalCopies
+                  .map(
+                    (copy) =>
+                      `${hex(copy.fileStart)} / buffer ${String(copy.bufferId)}`,
+                  )
+                  .join(", ")}
+                .
+              </Text>
+            ))}
+          </Stack>
+        )}
         {report.compressedSections.length > 0 ? (
           <Table.ScrollContainer minWidth={650}>
             <Table>

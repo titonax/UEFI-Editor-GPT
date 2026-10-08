@@ -132,6 +132,17 @@ it("rebuilds the accepted P53 SPI through one queued Ref move in both LZMA copie
   expect(result.image.length).toBe(image.length);
   expect(result.containerKind).toBe("intel-spi");
   expect(result.modifiedModuleIds).toEqual([workspace.modules[0].id]);
+  expect(result.verifiedModules).toEqual([
+    {
+      moduleId: workspace.modules[0].id,
+      name: workspace.modules[0].name,
+      fileGuid: acceptedUefiHiiLzmaImage.fileGuid,
+      physicalCopies: [
+        { bufferId: 2, fileStart: 4127440 },
+        { bufferId: 4, fileStart: 4127440 },
+      ],
+    },
+  ]);
   expect(result.spaceReport.preservedOutsideBiosBytes).toBe(10485760);
   expect(result.spaceReport.affectedRanges).toEqual([
     { start: 13238344, end: 17752012 },

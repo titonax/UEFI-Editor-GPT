@@ -109,6 +109,8 @@ export default function App({
           </AppShell.Header>
           <AppShell.Footer>
             <UefiHiiFooter
+              fileName={uefiHiiSession.fileName}
+              sourceImage={uefiHiiSession.sourceBytes}
               moduleCount={uefiHiiSession.workspace.modules.length}
               warningCount={uefiHiiSession.workspace.warnings.length}
               data={data}

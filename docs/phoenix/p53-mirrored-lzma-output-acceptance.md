@@ -1,9 +1,10 @@
 # P53 mirrored LZMA Setup full-image acceptance
 
 This record covers one existing 32 MiB Intel SPI source, not model-wide write
-support. The internal vendor-neutral HII builder returns a complete image after
+support. The vendor-neutral HII builder returns a complete image after
 one queued, same-package Ref move and independently re-opens both physical Setup
-copies. The footer download is still pending integration. Runtime root
+copies. The footer now offers verification, copy/allocation details and explicit
+download of the cached full image; its lifecycle has synthetic UI coverage. Runtime root
 registration and physical flash validation are not established by this result.
 
 ## Source and ownership

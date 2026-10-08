@@ -190,6 +190,23 @@ describe("generic HII complete-image foundation", () => {
       expect(result.modifiedModuleIds).toEqual(
         workspace.modules.map((module) => module.id),
       );
+      expect(result.verifiedModules).toEqual(
+        workspace.modules.map((module) => ({
+          moduleId: module.id,
+          name: module.name,
+          fileGuid: module.fileGuid,
+          physicalCopies: [
+            {
+              bufferId: inventory.modules.find(
+                (candidate) => candidate.id === module.id,
+              )?.file.bufferId,
+              fileStart: inventory.modules.find(
+                (candidate) => candidate.id === module.id,
+              )?.file.fileStart,
+            },
+          ],
+        })),
+      );
       expect(result.spaceReport.compressedSections).toEqual([]);
       expect(result.spaceReport.affectedRanges).toHaveLength(
         kind.includes("nested") ? 1 : 2,

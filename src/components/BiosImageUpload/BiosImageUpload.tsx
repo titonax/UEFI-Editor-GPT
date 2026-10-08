@@ -81,6 +81,7 @@ export interface PhoenixEditorSession {
 
 export interface UefiHiiEditorSession {
   fileName: string;
+  sourceBytes: Uint8Array;
   workspace: UefiHiiWorkspace;
 }
 
@@ -169,7 +170,8 @@ export default function BiosImageUpload({
   };
 
   const startUefiHiiAnalysis = async () => {
-    if (!uefiHiiInventory) return;
+    const sourceBytes = firmwareBytes.current;
+    if (!uefiHiiInventory || !sourceBytes) return;
     const currentOperation = operation.current;
     setLoading(true);
     setError("");
@@ -182,6 +184,7 @@ export default function BiosImageUpload({
       }
       onUefiHiiExtracted?.({
         fileName: file?.name ?? "firmware.bin",
+        sourceBytes: sourceBytes.slice(),
         workspace,
       });
     } catch (reason: unknown) {

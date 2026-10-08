@@ -20,6 +20,12 @@ import type { Data } from "./types";
 
 export interface UefiHiiFirmwareBuildResult extends UefiImageBuildResult {
   modifiedModuleIds: string[];
+  verifiedModules: {
+    moduleId: string;
+    name: string;
+    fileGuid: string;
+    physicalCopies: { bufferId: number; fileStart: number }[];
+  }[];
   containerKind: "bios-image" | "intel-spi";
 }
 
@@ -28,7 +34,7 @@ function sameBytes(left: Uint8Array, right: Uint8Array) {
 }
 
 /**
- * Internal foundation for vendor-neutral output; not yet connected to download.
+ * Complete-image builder for vendor-neutral output.
  * Re-discovers source ownership instead of trusting serialized workspace metadata.
  * Uncompressed paths and the exact accepted mirrored LZMA Setup source only.
  */
@@ -281,5 +287,14 @@ export async function buildUefiHiiFirmwareImage(
     ...rebuilt,
     containerKind: before.kind,
     modifiedModuleIds: patches.map((patch) => patch.module.id),
+    verifiedModules: patches.map((patch) => ({
+      moduleId: patch.module.id,
+      name: patch.module.name,
+      fileGuid: patch.module.fileGuid,
+      physicalCopies: (copyGroups.get(patch.module.id) ?? []).map((copy) => ({
+        bufferId: copy.file.bufferId,
+        fileStart: copy.file.fileStart,
+      })),
+    })),
   };
 }
