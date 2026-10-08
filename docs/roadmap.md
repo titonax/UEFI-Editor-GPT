@@ -165,6 +165,12 @@ also verifies a same-package Ref move and a fitting four-operation queue with a
 freshly derived eight-entry root vector. Root-only output can still exceed its
 compressed allocation and is rejected; AMITSE editing remains blocked.
 
+The Pages build also checks [nested browser codec integration](ami/mixed-browser-codec-integration.md)
+with actual WASI assets for LZMA/EFI and LZMA/Tiano in both nesting directions.
+These four synthetic full-SPI tests verify fresh decoding, both checksum layers,
+untouched regions and allocation-overflow rejection. They do not grant EFI or
+mixed-chain real-source acceptance.
+
 Build edited PI artefacts from leaves back to the original image.
 
 - Validate deterministic EFI/Tiano and LZMA output against real images.

@@ -18,7 +18,8 @@
     "case:check": "node scripts/case-review.mjs check && node scripts/case-review.test.mjs",
     "check": "npm run format:check && npm run lint && npm run case:check && npm run test:coverage && npm run build",
     "preview": "vite preview",
-    "firmware:acceptance": "vitest run --config scripts/firmware-acceptance.config.mjs"
+    "firmware:acceptance": "vitest run --config scripts/firmware-acceptance.config.mjs",
+    "firmware:codec-integration": "vitest run --config scripts/firmware-codec-integration.config.mjs"
   },
   "engines": {
     "node": ">=20",
