@@ -50,3 +50,9 @@ The same explicit test also accepts the separately reviewed
 [Tiano SPI source](tiano-spi-output-acceptance.md), choosing the test edit by its
 exact source identity. Neither source acceptance authorizes the other source's
 compression class or mixed ancestors.
+
+A separate [nested-volume LZMA SPI acceptance](nested-lzma-spi-output-acceptance.md)
+now enables Setup HII on one exact 4 MiB source. That path verifies an outer
+compressed FV, an inner uncompressed section, both FFS checksum layers and
+complete SPI preservation. Its source identity and artifact scope remain
+separate from the original 16 MiB acceptance.

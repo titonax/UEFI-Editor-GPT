@@ -3,7 +3,11 @@ import {
   assessFirmwareReconstruction,
   type FirmwareProvenanceGraph,
 } from "./firmwareProvenance";
-import { acceptedLzmaSetupImage, acceptedTianoSetupImage } from "./firmwareAcceptance";
+import {
+  acceptedLzmaSetupImage,
+  acceptedNestedLzmaSetupImage,
+  acceptedTianoSetupImage,
+} from "./firmwareAcceptance";
 
 function traceableGraph(): FirmwareProvenanceGraph {
   return {
@@ -64,6 +68,26 @@ function traceableGraph(): FirmwareProvenanceGraph {
 }
 
 describe("firmware reconstruction provenance", () => {
+  it("accepts the reviewed nested LZMA path while blocking standard or broken ancestors", () => {
+    const graph = traceableGraph();
+    const source = acceptedNestedLzmaSetupImage;
+    graph.sourceSize = source.size;
+    graph.buffers[0].bytes = new Uint8Array(source.size);
+    const inner = graph.buffers[2].parent;
+    if (!inner) throw new Error("Test compression provenance is missing.");
+    inner.compression = "none";
+    expect(assessFirmwareReconstruction(graph, source.sha256)).toMatchObject({
+      traceComplete: true,
+      writeEnabled: true,
+    });
+    inner.compression = "standard";
+    expect(assessFirmwareReconstruction(graph, source.sha256).blockers).toContain(
+      "EFI/Tiano full-image reconstruction is awaiting real-image acceptance.",
+    );
+    inner.compression = "none";
+    inner.parentBufferId = 99;
+    expect(assessFirmwareReconstruction(graph, source.sha256).writeEnabled).toBe(false);
+  });
   it("walks sparse buffer identifiers back to the original image", () => {
     const assessment = assessFirmwareReconstruction(traceableGraph());
 

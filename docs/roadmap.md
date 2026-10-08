@@ -155,7 +155,11 @@ also has [combined SetupData acceptance](ami/tiano-setupdata-output-acceptance.m
 including preservation of AMITSE in their shared decoded ancestor. A real
 [same-package Ref move](ami/tiano-ref-move-output-acceptance.md) also passes the
 normal editor, full SPI rebuild and independent binary/text reread. The EFI
-variant and mixed compressed ancestors are still awaiting acceptance.
+variant and mixed compressed ancestors are still awaiting acceptance. An exact
+[nested-volume LZMA SPI source](ami/nested-lzma-spi-output-acceptance.md) now also
+passes Setup HII output through an outer compressed FV and inner uncompressed
+encapsulation, including inner/outer FFS checksums and untouched Descriptor/ME.
+This acceptance does not enable its SetupData, AMITSE or root-vector edits.
 
 Build edited PI artefacts from leaves back to the original image.
 
