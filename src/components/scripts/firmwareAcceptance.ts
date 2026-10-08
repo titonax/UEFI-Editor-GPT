@@ -7,10 +7,15 @@ export const acceptedLzmaSetupImage = {
   size: 16 * 1024 * 1024,
 } as const;
 
+/** Exact nested-FV LZMA acceptance for Setup HII in a complete Intel SPI. */
+export const acceptedNestedLzmaSetupImage = {
+  sha256: "cd22f87daee0d50bf82520aaa6669a6731bdaaf3692690649533790c8e027f9a",
+  size: 4 * 1024 * 1024,
+} as const;
+
 export function hasAcceptedLzmaSetupSource(hash: string | undefined, size: number) {
-  return (
-    hash?.toLowerCase() === acceptedLzmaSetupImage.sha256 &&
-    size === acceptedLzmaSetupImage.size
+  return [acceptedLzmaSetupImage, acceptedNestedLzmaSetupImage].some(
+    (source) => hash?.toLowerCase() === source.sha256 && size === source.size,
   );
 }
 
