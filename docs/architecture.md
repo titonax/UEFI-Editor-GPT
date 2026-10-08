@@ -60,6 +60,7 @@
 | `amiLegacyFirmware.ts`        | Bounded AMIBIOS8 boot-block and reset-vector recognition       |
 | `uefiImageRebuilder.ts`       | Bottom-up fixed-size PI rebuild and FFS checksum repair        |
 | `amiFirmwareRebuilder.ts`     | AMI patch orchestration and independent artefact re-extraction |
+| `uefiHiiFirmwareRebuilder.ts` | Internal direct-FFS HII reconstruction and full-image re-read  |
 | `errors.ts`                   | Stable domain error codes and user-facing messages             |
 | `corpusAnalysis.ts`           | Layered local extraction, navigation and editing assessment    |
 | `corpusTypes.ts`              | Versioned corpus result and Worker message contracts           |
