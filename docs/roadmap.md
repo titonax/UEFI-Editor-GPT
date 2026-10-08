@@ -214,16 +214,22 @@ boundary verification for each supported compression/layout class.
   or complete Intel SPI, with fresh ownership, inner/enclosing checksum repair
   and independent full-image HII comparison.
   [Synthetic builder evidence](phoenix/uefi-hii-image-builder.md) does not enable
-  the footer download yet. Mixed direct/nested ownership, compressed generic
-  output, real Phoenix/Lenovo acceptance and the check/report/download integration
-  remain pending.
+  the footer download yet.
+- [P53 real-source acceptance](phoenix/p53-mirrored-lzma-output-acceptance.md)
+  now verifies one queued Setup Ref move in both physical LZMA copies of the
+  complete SPI, with 22,320 packed bytes remaining in each original allocation
+  and byte-identical non-BIOS regions. Acceptance is hash/size/Setup-FFS specific;
+  other Lenovo drivers and generic compressed sources remain blocked.
+- Check/report/explicit download integration and mixed direct/nested ownership
+  handling remain pending.
 - Investigate Phoenix/Lenovo registration for FormSet roots without parent Refs.
 - Distinguish runtime-visible roots from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
   controlled behavior layer.
 
-Exit gate: the Lenovo P53 sample can produce and re-read a complete image with a
-validated menu edit; unresolved root registration remains explicitly blocked.
+Exit gate: the exact Lenovo P53 sample now produces and re-reads a complete image
+with one validated Ref move. The editor download lifecycle still needs integration;
+unresolved runtime root registration remains explicitly blocked.
 
 ## 9. Compatibility corpus and the 90% target
 

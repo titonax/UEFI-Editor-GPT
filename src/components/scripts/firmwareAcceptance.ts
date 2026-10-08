@@ -7,6 +7,20 @@ export const acceptedLzmaSetupImage = {
   size: 16 * 1024 * 1024,
 } as const;
 
+/** Exact generic HII acceptance: mirrored LZMA Setup FFS in the P53 SPI. */
+export const acceptedUefiHiiLzmaImage = {
+  sha256: "68eba5b369baf36c879551c0482a6feea31d68082bc4dd0631bf9e4427a88a64",
+  size: 32 * 1024 * 1024,
+  fileGuid: "E6A7A1CE-5881-4B49-80BE-69C91811685C",
+} as const;
+
+export function hasAcceptedUefiHiiLzmaSource(hash: string | undefined, size: number) {
+  return (
+    hash?.toLowerCase() === acceptedUefiHiiLzmaImage.sha256 &&
+    size === acceptedUefiHiiLzmaImage.size
+  );
+}
+
 /** Exact nested-FV LZMA acceptance for Setup HII in a complete Intel SPI. */
 export const acceptedNestedLzmaSetupImage = {
   sha256: "cd22f87daee0d50bf82520aaa6669a6731bdaaf3692690649533790c8e027f9a",

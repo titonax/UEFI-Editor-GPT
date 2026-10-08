@@ -3,7 +3,9 @@
 The internal `buildUefiHiiFirmwareImage` builder reinserts fixed-size HII module
 edits into independently discovered FFS owners. It is not connected to the editor
 footer yet. The existing module-download action remains the user-facing output.
-This is synthetic engine evidence, not Lenovo P53 acceptance or flash validation.
+The uncompressed routes have synthetic engine evidence. A separate
+[P53 mirrored LZMA acceptance record](p53-mirrored-lzma-output-acceptance.md) covers
+the exact real source and Setup module; neither establishes physical flash validation.
 
 ## Boundaries
 
@@ -13,7 +15,8 @@ rooted at zero, or a complete descriptor-rooted Intel SPI.
 It snapshots the image, workspace bytes and edit state before asynchronous work.
 Fresh discovery must match each selected module's identity, FFS GUID, exact body
 bytes and workspace span. Overlapping spans, duplicate identities and mirrored
-copies are rejected. A separate FFS inventory detects identical copies even when
+copies are rejected unless complete physical copy ownership belongs to the exact
+accepted mirrored source. A separate FFS inventory detects identical copies even when
 HII discovery deduplicates copies in the same buffer.
 
 Discovery excludes an enclosing carrier only after matching its actual PI section,
@@ -53,12 +56,13 @@ failures and contradictory full-image re-extraction.
 
 ## Remaining gates
 
-Mixed direct/nested HII ownership remains deferred. LZMA and EFI/Tiano routes
-require their own generic HII real-image acceptance; AMI source acceptance never
-enables this route. Mirrored modules, wrappers,
-capsules, allocation growth and runtime root registration remain unsupported.
+Mixed direct/nested HII ownership remains deferred. Generic LZMA output has exact
+real-source acceptance only for the P53 Setup FFS and its two physical copies.
+Other LZMA sources/drivers, EFI/Tiano, unknown mirrored modules, wrappers, capsules,
+allocation growth and runtime root registration remain unsupported. AMI acceptance
+never enables the generic route, and generic acceptance never enables AMI output.
 
-Before exposing check/report/download in the generic footer, reproduce a bounded
-menu edit on the existing Phoenix/Lenovo sample and record its full-image
-re-extraction. The roadmap's P53 exit gate remains open. Root FormSet presence
-continues to be distinct from runtime registration or visibility.
+The exact P53 source now reproduces one queued Ref move through complete-image
+reconstruction and independent re-extraction. Check/report/explicit download in
+the generic footer remains pending. Root FormSet presence continues to be distinct
+from runtime registration or visibility.

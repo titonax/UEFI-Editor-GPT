@@ -1,3 +1,9 @@
+import { sha256Hex } from "./checksum";
+import {
+  acceptedUefiHiiLzmaImage,
+  hasAcceptedUefiHiiLzmaSource,
+} from "./firmwareAcceptance";
+import { createLzmaSectionCodec } from "./lzmaSectionCodec";
 import { decodeFirmwareBuffers, inventoryFirmwareFiles } from "./aptioIvExtractor";
 import { inspectAmiFirmwareBytes } from "./amiFirmwareImage";
 import { FirmwareError } from "./errors";
@@ -24,8 +30,7 @@ function sameBytes(left: Uint8Array, right: Uint8Array) {
 /**
  * Internal foundation for vendor-neutral output; not yet connected to download.
  * Re-discovers source ownership instead of trusting serialized workspace metadata.
- * Direct and identity-encapsulated FFS modules only. Compressed and mirrored
- * modules await separate ownership tests and real-image acceptance.
+ * Uncompressed paths and the exact accepted mirrored LZMA Setup source only.
  */
 export async function buildUefiHiiFirmwareImage(
   data: Data,
@@ -54,6 +59,10 @@ export async function buildUefiHiiFirmwareImage(
       "HII reconstruction requires a raw PI image or complete Intel SPI.",
     );
   }
+  const acceptedMirroredSource = hasAcceptedUefiHiiLzmaSource(
+    await sha256Hex(sourceImage),
+    sourceImage.length,
+  );
   const decoded = await decodeFirmwareBuffers(sourceImage);
   if (decoded.decodeFailures.length) {
     throw new FirmwareError(
@@ -74,6 +83,7 @@ export async function buildUefiHiiFirmwareImage(
       bytes: node.bytes.subarray(file.bodyStart, file.end),
     })),
   );
+  const copyGroups = new Map<string, typeof sourceFiles>();
   const occupied: { start: number; end: number }[] = [];
   const seen = new Set<string>();
   const modules = workspace.modules.map((summary) => {
@@ -97,20 +107,33 @@ export async function buildUefiHiiFirmwareImage(
         "HII module identity or original workspace bytes changed.",
       );
     }
+    const copies = sourceFiles.filter(
+      (candidate) =>
+        candidate.file.guid === module.file.guid &&
+        sameBytes(candidate.bytes, module.bytes),
+    );
+    const declaredBuffers = [module.bufferId, ...module.duplicateBufferIds].sort(
+      (a, b) => a - b,
+    );
+    const actualBuffers = copies
+      .map((copy) => copy.file.bufferId)
+      .sort((a, b) => a - b);
+    const summaryBuffers = [module.bufferId, ...summary.mirroredBufferIds].sort(
+      (a, b) => a - b,
+    );
     if (
-      module.duplicateBufferIds.length ||
-      summary.mirroredBufferIds.length ||
-      sourceFiles.filter(
-        (candidate) =>
-          candidate.file.guid === module.file.guid &&
-          sameBytes(candidate.bytes, module.bytes),
-      ).length !== 1
+      copies.length === 0 ||
+      new Set(actualBuffers).size !== copies.length ||
+      actualBuffers.join(",") !== declaredBuffers.join(",") ||
+      summaryBuffers.join(",") !== declaredBuffers.join(",") ||
+      (copies.length > 1 && !acceptedMirroredSource)
     ) {
       throw new FirmwareError(
         "PATCH_FAILED",
-        "Mirrored HII modules require explicit copy ownership before reconstruction.",
+        "Mirrored HII modules require accepted, complete copy ownership before reconstruction.",
       );
     }
+    copyGroups.set(module.id, copies);
     if (
       occupied.some(
         (range) => summary.sourceStart < range.end && summary.sourceEnd > range.start,
@@ -129,19 +152,23 @@ export async function buildUefiHiiFirmwareImage(
     rootBufferId: 0,
     sourceSize: sourceImage.length,
     buffers: decoded.buffers,
-    artifacts: modules.map((module) => ({
-      // Engine ownership label only: discovery does not assume an AMI GUID.
-      kind: "setup-hii",
-      bufferId: module.bufferId,
-      payloadStart: module.file.bodyStart,
-      payloadEnd: module.file.end,
-      sourceFile: module.file,
-    })),
+    artifacts: modules.flatMap((module) =>
+      (copyGroups.get(module.id) ?? []).map((copy) => ({
+        // Engine ownership label only: discovery does not assume an AMI GUID.
+        kind: "setup-hii",
+        bufferId: copy.file.bufferId,
+        payloadStart: copy.file.bodyStart,
+        payloadEnd: copy.file.end,
+        sourceFile: copy.file,
+      })),
+    ),
   };
   const assessment = assessFirmwareReconstruction(graph);
   if (
     !assessment.traceComplete ||
-    assessment.compressions.some((kind) => kind !== "none")
+    assessment.compressions.some(
+      (kind) => kind !== "none" && (kind !== "lzma" || !acceptedMirroredSource),
+    )
   ) {
     throw new FirmwareError(
       "PATCH_FAILED",
@@ -153,11 +180,20 @@ export async function buildUefiHiiFirmwareImage(
     workspace.sourceBytes,
     workspace.modules,
   );
+  if (
+    assessment.compressions.includes("lzma") &&
+    patches.some((patch) => patch.module.fileGuid !== acceptedUefiHiiLzmaImage.fileGuid)
+  ) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "Only the accepted Setup FFS has generic compressed HII edit acceptance for this source.",
+    );
+  }
   const rebuilt = await rebuildUefiImage(
     graph,
     {},
-    {},
-    patches.map((patch) => {
+    { lzma: createLzmaSectionCodec },
+    patches.flatMap((patch) => {
       const module = modules.find((candidate) => candidate.id === patch.module.id);
       if (!module) {
         throw new FirmwareError(
@@ -165,17 +201,24 @@ export async function buildUefiHiiFirmwareImage(
           "A modified HII module has no source owner.",
         );
       }
-      return {
+      return (copyGroups.get(module.id) ?? []).map((copy) => ({
         artifactKind: "setup-hii" as const,
-        bufferId: module.bufferId,
-        sourceFileStart: module.file.fileStart,
-        offset: module.file.bodyStart,
-        expected: module.bytes,
+        bufferId: copy.file.bufferId,
+        sourceFileStart: copy.file.fileStart,
+        offset: copy.file.bodyStart,
+        expected: copy.bytes,
         replacement: patch.bytes,
-      };
+      }));
     }),
   );
-  const reopened = inventoryUefiHiiModules(await decodeFirmwareBuffers(rebuilt.image));
+  const reopenedDecoded = await decodeFirmwareBuffers(rebuilt.image);
+  const reopened = inventoryUefiHiiModules(reopenedDecoded);
+  const reopenedFiles = reopenedDecoded.buffers.flatMap((node) =>
+    inventoryFirmwareFiles(node).map((file) => ({
+      file,
+      bytes: node.bytes.subarray(file.bodyStart, file.end),
+    })),
+  );
   // Re-open every discovered HII module, including alternates not selected in
   // the editor. An unchanged sibling must remain byte-identical too.
   if (
@@ -196,6 +239,29 @@ export async function buildUefiHiiFirmwareImage(
         "INTEGRITY_MISMATCH",
         "HII module did not match after re-opening the image.",
       );
+    }
+  }
+  for (const original of inventory.modules) {
+    const expected =
+      patches.find((patch) => patch.module.id === original.id)?.bytes ?? original.bytes;
+    const copies = sourceFiles.filter(
+      (copy) =>
+        copy.file.guid === original.file.guid && sameBytes(copy.bytes, original.bytes),
+    );
+    for (const copy of copies) {
+      const actual = reopenedFiles.find(
+        (candidate) =>
+          candidate.file.guid === copy.file.guid &&
+          candidate.file.bufferId === copy.file.bufferId &&
+          candidate.file.fileStart === copy.file.fileStart &&
+          candidate.file.end === copy.file.end,
+      );
+      if (!actual || !sameBytes(actual.bytes, expected)) {
+        throw new FirmwareError(
+          "INTEGRITY_MISMATCH",
+          "A physical HII copy did not match after re-opening the image.",
+        );
+      }
     }
   }
   const before = inspectFirmwareImageLayout(sourceImage);
