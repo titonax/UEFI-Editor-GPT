@@ -63,6 +63,8 @@ jobs:
             -o public/tiano-decompress.wasm
       - name: Verify EFI/Tiano compression variants
         run: bash scripts/check-tiano-codec.sh
+      - name: Verify nested browser codec reconstruction
+        run: FIRMWARE_CODEC_WASM_DIR=public npm run firmware:codec-integration
       - name: Build
         run: npm run build
       - name: Setup Pages
