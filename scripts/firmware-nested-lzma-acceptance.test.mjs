@@ -6,7 +6,12 @@ import { extractAmiFirmwareBytes } from "../src/components/scripts/amiFirmwareEx
 import { buildAmiFirmwareImage } from "../src/components/scripts/amiFirmwareRebuilder";
 import { inspectFirmwareImageLayout } from "../src/components/scripts/firmwareImageContainer";
 import { assessFirmwareReconstruction } from "../src/components/scripts/firmwareProvenance";
-import { analyzeIfrBinary } from "../src/components/scripts/ifrBinary";
+import { toggleAmiRootVisibility } from "../src/components/scripts/amiRootVisibilityEditing";
+import {
+  analyzeMenuMoveDestinations,
+  moveMenuReference,
+} from "../src/components/scripts/menuEditing";
+import { analyzeIfrBinary, IFR_OPCODE } from "../src/components/scripts/ifrBinary";
 import { parseData } from "../src/components/scripts/scripts";
 import { bytesToHex } from "../src/components/scripts/hex";
 import { buildFirmwarePatches } from "../src/components/scripts/patcher";
@@ -43,35 +48,55 @@ function expectFileChecksums(bytes, file) {
 }
 
 const scenarios =
-  process.env.FIRMWARE_ACCEPTANCE_SCENARIO === "nested-lzma-setupdata"
+  process.env.FIRMWARE_ACCEPTANCE_SCENARIO === "nested-lzma-queue"
     ? [
         {
-          kind: "setupdata",
-          changedBytes: 850465,
-          packedBytes: 1493534,
-          outputSha: "608b856032c975aac208c5912464ca3f83243a3425308225d796ee85115f2194",
+          kind: "move",
+          changedBytes: 140925,
+          packedBytes: 1494099,
+          outputSha: "354ca2cef157221679ce55783ff4370e4a9cdd6968415c6b0abf639c0b4514e0",
         },
         {
-          kind: "combined",
-          changedBytes: 850450,
-          packedBytes: 1493479,
-          outputSha: "8d1ce0151c08d4937e2c5f4fd0309f95219d98f1190eee94a3e96a293cd71d28",
+          kind: "four-operation",
+          changedBytes: 850394,
+          packedBytes: 1493440,
+          outputSha: "014af11ec7d614471d873974b83b90c1ae5583adb51beeeda68d3c6940bd64e6",
         },
       ]
-    : [
-        {
-          kind: "hii",
-          changedBytes: 140878,
-          packedBytes: 1494085,
-          outputSha: "6920f3fed99e90f52c264c0a8b466293f934f652f1fe13d02485d889072d0c0b",
-        },
-      ];
+    : process.env.FIRMWARE_ACCEPTANCE_SCENARIO === "nested-lzma-setupdata"
+      ? [
+          {
+            kind: "setupdata",
+            changedBytes: 850465,
+            packedBytes: 1493534,
+            outputSha:
+              "608b856032c975aac208c5912464ca3f83243a3425308225d796ee85115f2194",
+          },
+          {
+            kind: "combined",
+            changedBytes: 850450,
+            packedBytes: 1493479,
+            outputSha:
+              "8d1ce0151c08d4937e2c5f4fd0309f95219d98f1190eee94a3e96a293cd71d28",
+          },
+        ]
+      : [
+          {
+            kind: "hii",
+            changedBytes: 140878,
+            packedBytes: 1494085,
+            outputSha:
+              "6920f3fed99e90f52c264c0a8b466293f934f652f1fe13d02485d889072d0c0b",
+          },
+        ];
 
 it.each(scenarios)(
   "rebuilds nested-FV LZMA SPI with $kind through queue and AMI output",
   async ({ kind, changedBytes, packedBytes, outputSha }) => {
-    const withHii = kind !== "setupdata";
-    const withSetupData = kind !== "hii";
+    const withHii = ["hii", "combined", "four-operation"].includes(kind);
+    const withSetupData = ["setupdata", "combined", "four-operation"].includes(kind);
+    const withMove = ["move", "four-operation"].includes(kind);
+    const withRoot = kind === "four-operation";
     const imagePath = process.env.FIRMWARE_ACCEPTANCE_IMAGE;
     const wasmDirectory = process.env.FIRMWARE_ACCEPTANCE_WASM_DIR;
     if (!imagePath || !wasmDirectory)
@@ -136,6 +161,61 @@ it.each(scenarios)(
       entries.push(entry);
       staged = next;
     };
+    let move;
+    if (withMove) {
+      const guid = "E14F04FA-8706-4353-92F2-9C2424746F9F";
+      const sourceFormIndex = base.forms.findIndex(
+        (form) => form.formId.toLowerCase() === "0x403" && form.formSetGuid === guid,
+      );
+      const destinationFormIndex = base.forms.findIndex(
+        (form) => form.formId.toLowerCase() === "0x40a" && form.formSetGuid === guid,
+      );
+      const referenceChildIndex = base.forms[sourceFormIndex].children.findIndex(
+        (child) => child.type === "Ref" && child.ifrOffset.toLowerCase() === "0x2b0bd",
+      );
+      expect(base.forms[sourceFormIndex].name).toBe("Advanced");
+      expect(base.forms[destinationFormIndex].name).toBe("PCI Subsystem Settings");
+      expect(base.forms[sourceFormIndex].children[referenceChildIndex].name).toBe(
+        "CPU Configuration",
+      );
+      const request = { sourceFormIndex, referenceChildIndex, destinationFormIndex };
+      const destinations = analyzeMenuMoveDestinations(
+        base,
+        files.setupSctContainer.textContent,
+        sourceFormIndex,
+        referenceChildIndex,
+      );
+      expect(destinations[destinationFormIndex].compatibility).toBe(
+        "safe-same-package",
+      );
+      const targetIndex = base.forms.findIndex(
+        (form) => form.formId.toLowerCase() === "0x413" && form.formSetGuid === guid,
+      );
+      await expect(
+        moveMenuReference(base, files.setupSctContainer.textContent, {
+          ...request,
+          destinationFormIndex: targetIndex,
+        }),
+      ).rejects.toThrow(/cycle/i);
+      const crossIndex = base.forms.findIndex((form) => form.formSetGuid !== guid);
+      expect(destinations[crossIndex].compatibility).toBe("requires-ref3");
+      await expect(
+        moveMenuReference(base, files.setupSctContainer.textContent, {
+          ...request,
+          destinationFormIndex: crossIndex,
+        }),
+      ).rejects.toThrow(/without an explicit FormSetGuid/);
+      add(
+        await moveMenuReference(staged, files.setupSctContainer.textContent, request),
+        "move",
+      );
+      move = staged.ifrEdits[0];
+      expect({
+        source: move.sourceOffset,
+        end: move.sourceEnd,
+        destination: move.destinationOffset,
+      }).toEqual({ source: 0x2b0bd, end: 0x2b0cc, destination: 0x2b4aa });
+    }
     const condition = base.suppressions.find(
       (entry) => entry.offset.toLowerCase() === "0x2b15a",
     );
@@ -146,9 +226,7 @@ it.each(scenarios)(
     });
     if (withHii) {
       const next = structuredClone(staged);
-      next.suppressions.find(
-        (entry) => entry.offset.toLowerCase() === "0x2b15a",
-      ).active = false;
+      next.suppressions[base.suppressions.indexOf(condition)].active = false;
       add(next, "hii");
     }
     const findQuestion = (data) =>
@@ -176,18 +254,55 @@ it.each(scenarios)(
         ),
       ).toBe(true);
     }
+    if (withRoot) {
+      const root = base.rootVisibility.entries.find(
+        (entry) => entry.name === "Chipset",
+      );
+      expect(base.rootVisibility.status).toBe("detected");
+      expect(base.rootVisibility.vector.length).toBe(8);
+      expect(root).toMatchObject({ rootIndex: 4, bufferOffset: 44136, value: 0 });
+      const next = structuredClone(staged);
+      next.rootVisibilityEdits = toggleAmiRootVisibility(next, root.rootIndex);
+      add(next, "show-root");
+      const stale = structuredClone(staged);
+      stale.rootVisibilityEdits[0].expected = 1;
+      await expect(buildAmiFirmwareImage(stale, files)).rejects.toThrow(
+        /does not match/,
+      );
+      const allDisabled = structuredClone(base);
+      for (const entry of base.rootVisibility.entries.filter(
+        (entry) => entry.value === 1,
+      )) {
+        allDisabled.rootVisibilityEdits = toggleAmiRootVisibility(
+          allDisabled,
+          entry.rootIndex,
+        );
+      }
+      await expect(buildAmiFirmwareImage(allDisabled, files)).rejects.toThrow(
+        "At least one root FormSet must remain enabled.",
+      );
+      const rootOnly = structuredClone(base);
+      rootOnly.rootVisibilityEdits = toggleAmiRootVisibility(rootOnly, root.rootIndex);
+      await expect(buildAmiFirmwareImage(rootOnly, files)).rejects.toThrow(
+        "Compressed section cannot grow beyond its FFS allocation.",
+      );
+      expect(entries).toHaveLength(4);
+    }
     const projected = projectDataChangeQueue(base, entries);
     expect(projected.analysis.canApply).toBe(true);
     expect(projected.data).toEqual(staged);
     const data = projected.data;
     expect(JSON.stringify(base)).toBe(baseSnapshot);
-    const patches = buildFirmwarePatches(data, {
-      setupSct: files.setupSctContainer.textContent,
-      amitseSct: files.amitseSctContainer.textContent,
-      setupdataBin: files.setupdataBinContainer.textContent,
-    });
+    const patches = buildFirmwarePatches(
+      { ...data, rootVisibilityEdits: undefined },
+      {
+        setupSct: files.setupSctContainer.textContent,
+        amitseSct: files.amitseSctContainer.textContent,
+        setupdataBin: files.setupdataBinContainer.textContent,
+      },
+    );
     expect(patches.amitseSct).toBeUndefined();
-    if (withHii) expect(patches.setupSct).toBeDefined();
+    if (withHii || withMove) expect(patches.setupSct).toBeDefined();
     else expect(patches.setupSct).toBeUndefined();
     if (withSetupData) {
       expect(patches.setupdataBin).toBeDefined();
@@ -202,6 +317,16 @@ it.each(scenarios)(
         firmwareSource: { ...files.firmwareSource, sourceSha256: "0".repeat(64) },
       }),
     ).rejects.toThrow("Firmware source hash changed.");
+    if (withMove) {
+      const stale = structuredClone(data);
+      stale.ifrEdits[0].expected[0] ^= 1;
+      await expect(buildAmiFirmwareImage(stale, files)).rejects.toThrow(
+        /IFR move precondition failed/,
+      );
+    }
+    // Corrupt cached vector metadata: the builder must derive its evidence
+    // again from the immutable opened source, rather than trusting this cache.
+    if (withRoot) data.rootVisibility.entries[4].value = 1;
     const result = await buildAmiFirmwareImage(data, files);
     expect(result.containerKind).toBe("intel-spi");
     expect(result.image.length).toBe(original.length);
@@ -228,24 +353,87 @@ it.each(scenarios)(
     expect(rereadData.forms).toHaveLength(68);
     const model = analyzeIfrBinary(reopened.hii);
     expect(model.packages.every((pkg) => pkg.valid)).toBe(true);
+    if (withMove) {
+      expect(model.packages).toHaveLength(8);
+      const movedRefs = model.packages
+        .flatMap((pkg) => pkg.opcodes)
+        .filter(
+          (span) =>
+            span.opcode === IFR_OPCODE.REF &&
+            span.length === move.expected.length &&
+            span.formId === 0x413 &&
+            span.ownerFormSetGuid === "E14F04FA-8706-4353-92F2-9C2424746F9F" &&
+            reopened.hii
+              .slice(span.offset, span.end)
+              .every((byte, index) => byte === move.expected[index]),
+        );
+      expect(movedRefs).toHaveLength(1);
+      expect(movedRefs[0].ownerFormId).toBe(0x40a);
+      expect(movedRefs[0].offset).toBe(0x2b49b);
+      const source = rereadData.forms.find(
+        (form) =>
+          form.formId.toLowerCase() === "0x403" &&
+          form.formSetGuid === "E14F04FA-8706-4353-92F2-9C2424746F9F",
+      );
+      const target = rereadData.forms.find(
+        (form) =>
+          form.formId.toLowerCase() === "0x40a" &&
+          form.formSetGuid === "E14F04FA-8706-4353-92F2-9C2424746F9F",
+      );
+      const originalSource = base.forms.find(
+        (form) =>
+          form.formId.toLowerCase() === "0x403" &&
+          form.formSetGuid === "E14F04FA-8706-4353-92F2-9C2424746F9F",
+      );
+      const originalTarget = base.forms.find(
+        (form) =>
+          form.formId.toLowerCase() === "0x40a" &&
+          form.formSetGuid === "E14F04FA-8706-4353-92F2-9C2424746F9F",
+      );
+      const cpuRefs = (form) =>
+        form.children.filter(
+          (child) => child.type === "Ref" && child.formId.toLowerCase() === "0x413",
+        );
+      process.stdout.write(
+        JSON.stringify({
+          scenario: kind,
+          originalCpuRefs: cpuRefs(originalSource).map((child) => ({
+            offset: child.ifrOffset,
+            name: child.name,
+          })),
+          reopenedCpuRefs: cpuRefs(source).map((child) => ({
+            offset: child.ifrOffset,
+            name: child.name,
+          })),
+        }) + "\n",
+      );
+      expect(cpuRefs(source)).toHaveLength(cpuRefs(originalSource).length - 1);
+      expect(cpuRefs(target)).toHaveLength(cpuRefs(originalTarget).length + 1);
+    }
+    if (withRoot) {
+      expect(rereadData.rootVisibility.status).toBe("detected");
+      expect(rereadData.rootVisibility.entries.map((entry) => entry.value)).toEqual(
+        new Array(8).fill(1),
+      );
+    }
     const rereadCondition = model.packages
       .flatMap((pkg) => pkg.opcodes)
-      .find((span) => span.offset === 0x2b15a);
+      .find((span) => span.offset === (withMove ? 0x2b14b : 0x2b15a));
     if (withHii) {
       // The editor retains SuppressIf and its expression, moving End directly
       // after the expression so no menu/question remains inside the hidden scope.
       expect(rereadCondition.matchingEndOffset).toBe(
-        Number.parseInt(condition.start, 16),
+        Number.parseInt(condition.start, 16) - (withMove ? 15 : 0),
       );
       expect(
         reopened.hii.slice(
-          Number.parseInt(condition.start, 16),
-          Number.parseInt(condition.start, 16) + 2,
+          Number.parseInt(condition.start, 16) - (withMove ? 15 : 0),
+          Number.parseInt(condition.start, 16) - (withMove ? 15 : 0) + 2,
         ),
       ).toEqual(Uint8Array.of(0x29, 0x02));
     } else
       expect(rereadCondition.matchingEndOffset).toBe(
-        Number.parseInt(condition.end, 16),
+        Number.parseInt(condition.end, 16) - (withMove ? 15 : 0),
       );
     expect(findQuestion(rereadData).accessLevel).toBe(withSetupData ? "00" : "01");
     const rereadLocation = reopened.provenance.artifacts.find(
@@ -258,7 +446,7 @@ it.each(scenarios)(
       (node) => node.id === rereadInner.parent.parentBufferId,
     );
     const editedKinds = [
-      ...(withHii ? ["setup-hii"] : []),
+      ...(withHii || withMove ? ["setup-hii"] : []),
       ...(withSetupData ? ["setupdata"] : []),
     ];
     const filesInVolume = editedKinds.map(
@@ -291,6 +479,7 @@ it.each(scenarios)(
         artifactKind === "setup-hii" ? patches.setupSct : patches.setupdataBin,
         beforeLocation.payloadStart,
       );
+      if (withRoot && artifactKind === "setup-hii") expectedNode[44136] = 1;
       expect(afterNode.bytes).toEqual(expectedNode);
       expectFileChecksums(rereadVolume.bytes, afterLocation.sourceFile);
     }

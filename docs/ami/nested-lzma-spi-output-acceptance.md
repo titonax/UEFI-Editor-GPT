@@ -48,14 +48,16 @@ The output SHA-256 is
 
 This initial acceptance covered compressed Setup HII output for the exact source
 hash and size. A separate [SetupData and combined-queue acceptance](nested-lzma-setupdata-output-acceptance.md)
-now admits SetupData on the same source. AMITSE and root-vector edits remain
-unaccepted. EFI/Tiano ancestors,
+now admits SetupData on the same source. Separate
+[root and structural queue acceptance](nested-lzma-root-queue-output-acceptance.md)
+validates a four-operation queue with a freshly derived vector. AMITSE editing
+remains unaccepted; root-only output can still exceed allocation. EFI/Tiano ancestors,
 mixed compressed chains, other source hashes, FFS relocation and allocation
 growth remain blocked. This is binary reconstruction and independent re-open
 acceptance, not a physical flash test.
 
-Synthetic CI verifies exact source/size gating, HII-only artifact scope, root
-rejection, and blocked standard or incomplete ancestors. The real firmware test
+Synthetic CI verifies exact source/size gating, reviewed artifact/root scope
+and blocked standard or incomplete ancestors. The real firmware test
 is an explicit local opt-in and commits no firmware bytes:
 
 ```bash

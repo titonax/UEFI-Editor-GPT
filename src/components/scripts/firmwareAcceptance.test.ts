@@ -28,7 +28,7 @@ describe("compressed artifact acceptance scope", () => {
         ]);
       }).toThrow(`compressed ${kind} edits`);
     }
-    expect(hasAcceptedRootVisibilitySource(source.sha256, source.size)).toBe(false);
+    expect(hasAcceptedRootVisibilitySource(source.sha256, source.size)).toBe(true);
   });
   it("allows nested HII/SetupData together without extending other LZMA sources", () => {
     const source = acceptedNestedLzmaSetupImage;
@@ -53,6 +53,27 @@ describe("compressed artifact acceptance scope", () => {
         }).toThrow(/No real-image acceptance.*setupdata edits/);
       }
     }
+  });
+  it("keeps nested root acceptance source-specific and leaves AMITSE blocked", () => {
+    const source = acceptedNestedLzmaSetupImage;
+    expect(
+      hasAcceptedRootVisibilitySource(source.sha256.toUpperCase(), source.size),
+    ).toBe(true);
+    for (const [hash, size] of [
+      [undefined, source.size],
+      ["0".repeat(64), source.size],
+      [source.sha256, source.size - 1],
+      [acceptedLzmaSetupImage.sha256, acceptedLzmaSetupImage.size],
+    ] as const) {
+      expect(hasAcceptedRootVisibilitySource(hash, size)).toBe(false);
+    }
+    expect(() => {
+      assertAcceptedCompressedArtifactEdits(source.sha256, source.size, [
+        "setup-hii",
+        "setupdata",
+        "amitse",
+      ]);
+    }).toThrow("compressed amitse edits");
   });
   it("keeps root output separate from LZMA HII acceptance", () => {
     expect(

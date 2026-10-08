@@ -77,7 +77,8 @@ export function hasAcceptedRootVisibilitySource(
   size: number,
 ) {
   return (
-    hash?.toLowerCase() === acceptedTianoSetupImage.sha256 &&
-    size === acceptedTianoSetupImage.size
+    (hash?.toLowerCase() === acceptedTianoSetupImage.sha256 &&
+      size === acceptedTianoSetupImage.size) ||
+    hasAcceptedNestedLzmaSetupSource(hash, size)
   );
 }
