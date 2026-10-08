@@ -13,6 +13,16 @@ export const acceptedNestedLzmaSetupImage = {
   size: 4 * 1024 * 1024,
 } as const;
 
+export function hasAcceptedNestedLzmaSetupSource(
+  hash: string | undefined,
+  size: number,
+) {
+  return (
+    hash?.toLowerCase() === acceptedNestedLzmaSetupImage.sha256 &&
+    size === acceptedNestedLzmaSetupImage.size
+  );
+}
+
 export function hasAcceptedLzmaSetupSource(hash: string | undefined, size: number) {
   return [acceptedLzmaSetupImage, acceptedNestedLzmaSetupImage].some(
     (source) => hash?.toLowerCase() === source.sha256 && size === source.size,
@@ -37,7 +47,11 @@ export function acceptedCompressedArtifactKinds(
   hash: string | undefined,
   size: number,
 ): readonly FirmwareArtifactKind[] {
-  if (hasAcceptedStandardSetupSource(hash, size)) return ["setup-hii", "setupdata"];
+  if (
+    hasAcceptedStandardSetupSource(hash, size) ||
+    hasAcceptedNestedLzmaSetupSource(hash, size)
+  )
+    return ["setup-hii", "setupdata"];
   if (hasAcceptedLzmaSetupSource(hash, size)) return ["setup-hii"];
   return [];
 }

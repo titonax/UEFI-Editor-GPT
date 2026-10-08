@@ -3,13 +3,14 @@ import {
   acceptedLzmaSetupImage,
   acceptedNestedLzmaSetupImage,
   hasAcceptedLzmaSetupSource,
+  hasAcceptedNestedLzmaSetupSource,
   acceptedTianoSetupImage,
   assertAcceptedCompressedArtifactEdits,
   hasAcceptedRootVisibilitySource,
 } from "./firmwareAcceptance";
 
 describe("compressed artifact acceptance scope", () => {
-  it("limits nested LZMA SPI acceptance to exact source size and HII edits", () => {
+  it("limits nested LZMA SPI acceptance to exact source size and reviewed artifacts", () => {
     const source = acceptedNestedLzmaSetupImage;
     expect(hasAcceptedLzmaSetupSource(source.sha256.toUpperCase(), source.size)).toBe(
       true,
@@ -19,7 +20,7 @@ describe("compressed artifact acceptance scope", () => {
     expect(() => {
       assertAcceptedCompressedArtifactEdits(source.sha256, source.size, ["setup-hii"]);
     }).not.toThrow();
-    for (const kind of ["setupdata", "amitse"] as const) {
+    for (const kind of ["amitse"] as const) {
       expect(() => {
         assertAcceptedCompressedArtifactEdits(source.sha256, source.size, [
           "setup-hii",
@@ -28,6 +29,30 @@ describe("compressed artifact acceptance scope", () => {
       }).toThrow(`compressed ${kind} edits`);
     }
     expect(hasAcceptedRootVisibilitySource(source.sha256, source.size)).toBe(false);
+  });
+  it("allows nested HII/SetupData together without extending other LZMA sources", () => {
+    const source = acceptedNestedLzmaSetupImage;
+    expect(
+      hasAcceptedNestedLzmaSetupSource(source.sha256.toUpperCase(), source.size),
+    ).toBe(true);
+    expect(hasAcceptedNestedLzmaSetupSource(undefined, source.size)).toBe(false);
+    expect(hasAcceptedNestedLzmaSetupSource(source.sha256, source.size - 1)).toBe(
+      false,
+    );
+    for (const kinds of [["setupdata"], ["setup-hii", "setupdata"]] as const) {
+      expect(() => {
+        assertAcceptedCompressedArtifactEdits(source.sha256, source.size, kinds);
+      }).not.toThrow();
+      for (const [hash, size] of [
+        [source.sha256, source.size - 1],
+        ["0".repeat(64), source.size],
+        [acceptedLzmaSetupImage.sha256, acceptedLzmaSetupImage.size],
+      ] as const) {
+        expect(() => {
+          assertAcceptedCompressedArtifactEdits(hash, size, kinds);
+        }).toThrow(/No real-image acceptance.*setupdata edits/);
+      }
+    }
   });
   it("keeps root output separate from LZMA HII acceptance", () => {
     expect(

@@ -46,8 +46,10 @@ The output SHA-256 is
 
 ## Scope and reproduction
 
-Only compressed Setup HII output is enabled for this exact source hash and size.
-SetupData, AMITSE and root-vector edits remain unaccepted. EFI/Tiano ancestors,
+This initial acceptance covered compressed Setup HII output for the exact source
+hash and size. A separate [SetupData and combined-queue acceptance](nested-lzma-setupdata-output-acceptance.md)
+now admits SetupData on the same source. AMITSE and root-vector edits remain
+unaccepted. EFI/Tiano ancestors,
 mixed compressed chains, other source hashes, FFS relocation and allocation
 growth remain blocked. This is binary reconstruction and independent re-open
 acceptance, not a physical flash test.
