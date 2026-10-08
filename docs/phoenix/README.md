@@ -68,6 +68,21 @@ AMI Setup evidence.
 
 ## Z03 reconstruction acceptance
 
+The footer now requires **Check firmware output** after applying the selected
+queue. It builds and independently reopens the complete image without starting
+a download. **Output details** shows the verified LH5 payload size, existing
+allocation, remaining bytes, requested-item count and unchanged outer bytes.
+**Modified firmware image** downloads the exact cached verified image without
+rebuilding. Changing the source, filename, inventory or applied queue invalidates
+the result; late completion of an earlier check cannot enable download for the
+current state. Menu navigation alone preserves the result.
+
+AMI and Phoenix share the asynchronous verification lifecycle, while their
+builders and format guards remain separate. Synthetic Footer integration tests
+cover explicit download, allocation failure/retry, unrelated navigation and
+stale source/queue completion. They mock the Phoenix builder and download
+adapter and do not constitute a new real-sample or physical flash acceptance.
+
 The frontend's optimized encoder compresses the modified 32,356-byte
 `TEMPLAT0.ROM` body to 13,074 bytes, fitting its original 13,112-byte packed
 allocation with 38 bytes of padding. The rebuilt 1 MiB image was then parsed

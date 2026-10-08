@@ -241,9 +241,10 @@ describe("Phoenix full editor workspace", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Boot mode" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
     expect(screen.getByText("Plan applied")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check firmware output" })).toBeEnabled();
     expect(
       screen.getByRole("button", { name: "Modified firmware image" }),
-    ).toBeEnabled();
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.getByText("Shown · applied plan")).toBeInTheDocument();
     const sataNavigation = screen

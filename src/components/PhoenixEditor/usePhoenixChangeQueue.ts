@@ -37,12 +37,16 @@ export function usePhoenixChangeQueue(inventory: PhoenixSetupInventory | null) {
       ),
     [inventory],
   );
-  const appliedItems = planApplied
-    ? analysis.selectedEntries.flatMap((entry) => {
-        const item = itemsByOffset.get(entry.payload.itemOffset);
-        return item ? [item] : [];
-      })
-    : [];
+  const appliedItems = React.useMemo(
+    () =>
+      planApplied
+        ? analysis.selectedEntries.flatMap((entry) => {
+            const item = itemsByOffset.get(entry.payload.itemOffset);
+            return item ? [item] : [];
+          })
+        : [],
+    [planApplied, analysis.selectedEntries, itemsByOffset],
+  );
 
   const invalidate = React.useCallback(() => {
     setAppliedFingerprint(null);
