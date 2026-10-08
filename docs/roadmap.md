@@ -209,8 +209,12 @@ boundary verification for each supported compression/layout class.
 
 ## 8. Complete Phoenix UEFI/HII output
 
-- Reinsert the currently exportable modified HII modules into their owning FFS
-  files using the generic UEFI builder.
+- Internal direct-FFS reconstruction now reinserts several modified HII modules
+  into a raw PI image or complete Intel SPI, with fresh source ownership,
+  checksum repair and independent full-image HII comparison.
+  [Synthetic builder evidence](phoenix/uefi-hii-image-builder.md) does not enable
+  the footer download yet. Encapsulated module ownership, real Phoenix/Lenovo
+  acceptance and the check/report/download integration remain pending.
 - Investigate Phoenix/Lenovo registration for FormSet roots without parent Refs.
 - Distinguish runtime-visible roots from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the

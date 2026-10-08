@@ -58,6 +58,46 @@ function sum8(bytes: Uint8Array, start: number, end: number) {
 }
 
 describe("rebuildUefiImage", () => {
+  it("requires an exact FFS selector when several HII owners share a buffer", async () => {
+    const { graph, file } = directGraph();
+    const second = { ...file, fileStart: 0x100, bodyStart: 0x118, end: 0x150 };
+    initializeFile(graph.buffers[0].bytes, second);
+    graph.artifacts.push({
+      kind: "setup-hii",
+      bufferId: 0,
+      payloadStart: 0x118,
+      payloadEnd: 0x120,
+      sourceFile: second,
+    });
+    const patch = {
+      artifactKind: "setup-hii" as const,
+      bufferId: 0,
+      offset: 0x60,
+      expected: graph.buffers[0].bytes.slice(0x60, 0x68),
+      replacement: new Uint8Array(8).fill(0xab),
+    };
+    await expect(rebuildUefiImage(graph, {}, {}, [patch])).rejects.toThrow(
+      /bounded artifact ownership/,
+    );
+    await expect(
+      rebuildUefiImage(graph, {}, {}, [{ ...patch, sourceFileStart: 0x80 }]),
+    ).rejects.toThrow(/bounded artifact ownership/);
+    await expect(
+      rebuildUefiImage(graph, {}, {}, [
+        { ...patch, sourceFileStart: second.fileStart },
+      ]),
+    ).rejects.toThrow(/bounded artifact ownership/);
+    const original = graph.buffers[0].bytes.slice();
+    const result = await rebuildUefiImage(graph, {}, {}, [
+      { ...patch, sourceFileStart: file.fileStart },
+    ]);
+    expect(result.image.slice(0x60, 0x68)).toEqual(patch.replacement);
+    expect(result.image.slice(second.fileStart, second.end)).toEqual(
+      original.slice(second.fileStart, second.end),
+    );
+    expect(graph.buffers[0].bytes).toEqual(original);
+  });
+
   it("patches a direct HII payload, repairs FFS checksums and preserves its surroundings", async () => {
     const { graph, file } = directGraph();
     const source = graph.buffers[0].bytes.slice();

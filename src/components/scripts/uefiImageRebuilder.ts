@@ -22,6 +22,8 @@ export type FirmwareArtifactReplacements = Partial<
 export interface FirmwareBufferPatch {
   artifactKind: FirmwareArtifactKind;
   bufferId: number;
+  /** Select one FFS when several HII modules share the same decoded buffer. */
+  sourceFileStart?: number;
   offset: number;
   expected: Uint8Array;
   replacement: Uint8Array;
@@ -416,7 +418,10 @@ export async function rebuildUefiImage(
   for (const patch of bufferPatches) {
     const anchors = graph.artifacts.filter(
       (artifact) =>
-        artifact.kind === patch.artifactKind && artifact.bufferId === patch.bufferId,
+        artifact.kind === patch.artifactKind &&
+        artifact.bufferId === patch.bufferId &&
+        (patch.sourceFileStart === undefined ||
+          artifact.sourceFile.fileStart === patch.sourceFileStart),
     );
     const node = nodes.get(patch.bufferId);
     const anchor = anchors[0];
