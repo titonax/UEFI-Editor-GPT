@@ -279,3 +279,81 @@ describe("firmware data change queue", () => {
     expect(result.current.previewData.suppressions[0].active).toBe(true);
   });
 });
+
+describe("data queue reordering", () => {
+  it("requires reapplication after moving independent operations and retains their final values", () => {
+    const base = firmwareData();
+    const { result } = renderHook(() => useDataChangeQueue(base));
+    act(() => {
+      result.current.enqueueData((draft) => {
+        draft.forms[0].name = "Advanced";
+      });
+    });
+    act(() => {
+      result.current.enqueueData((draft) => {
+        draft.suppressions = [condition({ active: false })];
+      });
+    });
+    act(() => {
+      result.current.apply();
+    });
+    const original = result.current.entries.map((entry) => entry.id);
+    act(() => {
+      result.current.move(original[1], -1);
+    });
+    expect(result.current.entries.map((entry) => entry.id)).toEqual(
+      [...original].reverse(),
+    );
+    expect(result.current.analysis.canApply).toBe(true);
+    expect(result.current.appliedFingerprint).toBeNull();
+    expect(result.current.appliedData.forms[0].name).toBe(base.forms[0].name);
+    act(() => {
+      result.current.apply();
+    });
+    expect(result.current.appliedData.forms[0].name).toBe("Advanced");
+    expect(result.current.appliedData.suppressions[0].active).toBe(false);
+  });
+  it("blocks dependent operations moved ahead of their expected state and recovers when restored", () => {
+    const base = firmwareData({
+      forms: [form({ children: [prompt({ accessLevel: "00" })] })],
+    });
+    const { result } = renderHook(() => useDataChangeQueue(base));
+    act(() => {
+      result.current.enqueueData((draft) => {
+        draft.forms[0].children[0].accessLevel = "01";
+      });
+    });
+    act(() => {
+      result.current.enqueueData((draft) => {
+        draft.forms[0].children[0].accessLevel = "02";
+      });
+    });
+    act(() => {
+      result.current.apply();
+    });
+    const second = result.current.entries[1].id;
+    act(() => {
+      result.current.move(second, -1);
+    });
+    expect(result.current.analysis.canApply).toBe(false);
+    expect(
+      result.current.analysis.issues.some(
+        (issue) => issue.code === "stale-logical-state",
+      ),
+    ).toBe(true);
+    act(() => {
+      result.current.apply();
+    });
+    expect(result.current.appliedFingerprint).toBeNull();
+    expect(result.current.appliedData.forms[0].children[0].accessLevel).toBe("00");
+    act(() => {
+      result.current.move(second, 1);
+    });
+    expect(result.current.analysis.canApply).toBe(true);
+    act(() => {
+      result.current.apply();
+    });
+    expect(result.current.appliedData.forms[0].children[0].accessLevel).toBe("02");
+    expect(base.forms[0].children[0].accessLevel).toBe("00");
+  });
+});

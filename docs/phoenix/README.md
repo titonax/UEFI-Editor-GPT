@@ -77,6 +77,10 @@ rebuilding. Changing the source, filename, inventory or applied queue invalidate
 the result; late completion of an earlier check cannot enable download for the
 current state. Menu navigation alone preserves the result.
 
+The queue's **Order** arrows move operations earlier or later without changing
+their payloads or selection. Reordering invalidates the applied fingerprint and
+verified output, requiring another application and output check before download.
+
 AMI and Phoenix share the asynchronous verification lifecycle, while their
 builders and format guards remain separate. Synthetic Footer integration tests
 cover explicit download, allocation failure/retry, unrelated navigation and

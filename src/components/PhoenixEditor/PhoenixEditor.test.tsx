@@ -5,6 +5,7 @@ import React from "react";
 import type { PhoenixSetupMenu } from "../scripts/phoenixSetupTable";
 import {
   analyzeChangeQueue,
+  moveChangeQueueEntry,
   setChangeQueueEntryEnabled,
   toggleChangeQueueEntry,
   type ChangeQueueEntry,
@@ -168,6 +169,12 @@ function Workspace() {
           }}
           onRemove={(id) => {
             setQueue((currentQueue) => currentQueue.filter((entry) => entry.id !== id));
+            setAppliedFingerprint(null);
+          }}
+          onMove={(id, direction) => {
+            setQueue((currentQueue) =>
+              moveChangeQueueEntry(currentQueue, id, direction),
+            );
             setAppliedFingerprint(null);
           }}
           onClear={() => {

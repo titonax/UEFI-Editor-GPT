@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeChangeQueue,
+  moveChangeQueueEntry,
   applyAnalyzedChangeQueue,
   setChangeQueueEntryEnabled,
   toggleChangeQueueEntry,
@@ -92,5 +93,28 @@ describe("transactional change queue", () => {
     expect(analysis.issues.map((issue) => issue.code)).toEqual(
       expect.arrayContaining(["missing-dependency", "declared-conflict"]),
     );
+  });
+});
+
+describe("change queue ordering", () => {
+  it("moves an operation both ways without changing payloads, selection or source order", () => {
+    const first = entry("first", 0, 0, 1);
+    const second = {
+      ...entry("second", 1, 0, 2),
+      enabled: false,
+      dependsOn: ["first"],
+    };
+    const original = [first, second];
+    const reordered = moveChangeQueueEntry(original, "second", -1);
+    expect(reordered).toEqual([second, first]);
+    expect(reordered[0]).toBe(second);
+    expect(original).toEqual([first, second]);
+    expect(moveChangeQueueEntry(reordered, "second", 1)).toEqual(original);
+  });
+  it("leaves unknown operations and boundary moves unchanged", () => {
+    const original = [entry("first", 0, 0, 1), entry("last", 1, 0, 2)];
+    expect(moveChangeQueueEntry(original, "missing", 1)).toBe(original);
+    expect(moveChangeQueueEntry(original, "first", -1)).toBe(original);
+    expect(moveChangeQueueEntry(original, "last", 1)).toBe(original);
   });
 });

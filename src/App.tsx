@@ -168,6 +168,7 @@ export default function App({
               appliedItems={phoenixQueue.appliedItems}
               onToggleEnabled={phoenixQueue.toggleEnabled}
               onRemove={phoenixQueue.remove}
+              onMove={phoenixQueue.move}
               onClear={phoenixQueue.clear}
               onApply={phoenixQueue.apply}
               onClose={() => {

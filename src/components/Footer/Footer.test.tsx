@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveAs } from "file-saver";
@@ -103,7 +104,7 @@ function Workspace() {
   const [base] = React.useState(() =>
     firmwareData({
       suppressions: [condition()],
-      forms: [form({ children: [prompt({ suppressIf: ["0x0"] })] })],
+      forms: [form({ children: [prompt({ suppressIf: ["0x0"], accessLevel: "00" })] })],
     }),
   );
   const queue = useDataChangeQueue(base);
@@ -301,5 +302,59 @@ describe("AMI complete-image user flow (synthetic integration)", () => {
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Output details" })).toBeDisabled();
     expect(saveAs).not.toHaveBeenCalled();
+  });
+  it("invalidates verified output when independent operations are reordered", async () => {
+    vi.mocked(buildAmiFirmwareImage).mockResolvedValue(output);
+    render(<Workspace />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Unsuppress all Items in this Form" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change all Access Levels in this Form to" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (2)" }));
+    expect(
+      await screen.findByRole("button", {
+        name: /Move Show .* earlier in change queue/,
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Move Set access level for Option later in change queue",
+      }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (2)" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Move Set access level for Option earlier in change queue",
+      }),
+    );
+    expect(
+      within(screen.getAllByRole("row")[1]).getByText("Set access level for Option"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply selected" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(
+      screen.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Output details" })).toBeDisabled();
+    expect(buildAmiFirmwareImage).toHaveBeenCalledTimes(1);
+    expect(saveAs).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled();
+    });
+    expect(buildAmiFirmwareImage).toHaveBeenCalledTimes(2);
   });
 });

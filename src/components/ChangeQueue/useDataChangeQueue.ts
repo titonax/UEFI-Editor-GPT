@@ -1,7 +1,7 @@
 import React from "react";
 import { produce, type Draft } from "immer";
 import type { Updater } from "use-immer";
-import type { ChangeQueueEntry } from "../scripts/changeQueue";
+import { moveChangeQueueEntry, type ChangeQueueEntry } from "../scripts/changeQueue";
 import type { Data } from "../scripts/types";
 import {
   appendDataChangeEntry,
@@ -20,6 +20,7 @@ export interface DataChangeQueueController {
   replaceBase: (data: Data) => void;
   toggleEnabled: (id: string, enabled: boolean) => void;
   remove: (id: string) => void;
+  move: (id: string, direction: -1 | 1) => void;
   clear: () => void;
   apply: () => void;
 }
@@ -74,6 +75,10 @@ export function useDataChangeQueue(initialData: Data): DataChangeQueueController
     setEntries((current) => current.filter((entry) => entry.id !== id));
     setAppliedFingerprint(null);
   }, []);
+  const move = React.useCallback((id: string, direction: -1 | 1) => {
+    setEntries((current) => moveChangeQueueEntry(current, id, direction));
+    setAppliedFingerprint(null);
+  }, []);
   const clear = React.useCallback(() => {
     setEntries([]);
     setAppliedFingerprint(null);
@@ -97,6 +102,7 @@ export function useDataChangeQueue(initialData: Data): DataChangeQueueController
     replaceBase,
     toggleEnabled,
     remove,
+    move,
     clear,
     apply,
   };

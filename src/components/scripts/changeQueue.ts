@@ -260,3 +260,17 @@ export function applyAnalyzedChangeQueue(
   }
   return output;
 }
+
+/** Moves one operation without changing its payload or mutating the source queue. */
+export function moveChangeQueueEntry<T>(
+  entries: ChangeQueueEntry<T>[],
+  id: string,
+  direction: -1 | 1,
+) {
+  const index = entries.findIndex((entry) => entry.id === id);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= entries.length) return entries;
+  const reordered = entries.slice();
+  [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+  return reordered;
+}

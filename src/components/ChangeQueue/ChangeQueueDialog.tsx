@@ -10,7 +10,13 @@ import {
   Table,
   Text,
 } from "@mantine/core";
-import { IconAlertTriangle, IconCheck, IconTrash } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconArrowUp,
+  IconArrowDown,
+  IconCheck,
+  IconTrash,
+} from "@tabler/icons-react";
 import type { ChangeQueueAnalysis, ChangeQueueEntry } from "../scripts/changeQueue";
 
 const defaultMetricLabels = {
@@ -26,6 +32,7 @@ export default function ChangeQueueDialog<TPayload>({
   onClose,
   onToggleEnabled,
   onRemove,
+  onMove,
   onClear,
   onApply,
   metricLabels = defaultMetricLabels,
@@ -37,6 +44,7 @@ export default function ChangeQueueDialog<TPayload>({
   onClose: () => void;
   onToggleEnabled: (id: string, enabled: boolean) => void;
   onRemove: (id: string) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
   onClear: () => void;
   onApply: () => void;
   metricLabels?: { units: string; spans: string };
@@ -103,11 +111,12 @@ export default function ChangeQueueDialog<TPayload>({
                   <Table.Th>Operation</Table.Th>
                   <Table.Th>Target</Table.Th>
                   <Table.Th>Effect</Table.Th>
+                  <Table.Th w={90}>Order</Table.Th>
                   <Table.Th w={72}>Remove</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {entries.map((entry) => (
+                {entries.map((entry, index) => (
                   <Table.Tr key={entry.id} opacity={entry.enabled ? 1 : 0.55}>
                     <Table.Td>
                       <Checkbox
@@ -124,6 +133,32 @@ export default function ChangeQueueDialog<TPayload>({
                     <Table.Td>{entry.title}</Table.Td>
                     <Table.Td>
                       <Text size="sm">{entry.description}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap={2} wrap="nowrap">
+                        <Button
+                          size="compact-xs"
+                          variant="subtle"
+                          disabled={index === 0}
+                          aria-label={`Move ${entry.title} earlier in change queue`}
+                          onClick={() => {
+                            onMove(entry.id, -1);
+                          }}
+                        >
+                          <IconArrowUp size={15} />
+                        </Button>
+                        <Button
+                          size="compact-xs"
+                          variant="subtle"
+                          disabled={index === entries.length - 1}
+                          aria-label={`Move ${entry.title} later in change queue`}
+                          onClick={() => {
+                            onMove(entry.id, 1);
+                          }}
+                        >
+                          <IconArrowDown size={15} />
+                        </Button>
+                      </Group>
                     </Table.Td>
                     <Table.Td>
                       <Button
