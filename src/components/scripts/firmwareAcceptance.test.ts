@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   acceptedLzmaSetupImage,
+  acceptedUefiHiiLzmaImage,
+  hasAcceptedUefiHiiLzmaSource,
+  hasAcceptedStandardSetupSource,
   acceptedNestedLzmaSetupImage,
   hasAcceptedLzmaSetupSource,
   hasAcceptedNestedLzmaSetupSource,
@@ -10,6 +13,25 @@ import {
 } from "./firmwareAcceptance";
 
 describe("compressed artifact acceptance scope", () => {
+  it("keeps mirrored generic HII acceptance exact and separate from AMI", () => {
+    const source = acceptedUefiHiiLzmaImage;
+    expect(hasAcceptedUefiHiiLzmaSource(source.sha256.toUpperCase(), source.size)).toBe(
+      true,
+    );
+    for (const [hash, size] of [
+      [undefined, source.size],
+      ["0".repeat(64), source.size],
+      [source.sha256, source.size - 1],
+      [acceptedLzmaSetupImage.sha256, acceptedLzmaSetupImage.size],
+    ] as const)
+      expect(hasAcceptedUefiHiiLzmaSource(hash, size)).toBe(false);
+    expect(hasAcceptedLzmaSetupSource(source.sha256, source.size)).toBe(false);
+    expect(hasAcceptedStandardSetupSource(source.sha256, source.size)).toBe(false);
+    expect(hasAcceptedRootVisibilitySource(source.sha256, source.size)).toBe(false);
+    expect(() => {
+      assertAcceptedCompressedArtifactEdits(source.sha256, source.size, ["setup-hii"]);
+    }).toThrow(/No real-image acceptance/);
+  });
   it("limits nested LZMA SPI acceptance to exact source size and reviewed artifacts", () => {
     const source = acceptedNestedLzmaSetupImage;
     expect(hasAcceptedLzmaSetupSource(source.sha256.toUpperCase(), source.size)).toBe(
