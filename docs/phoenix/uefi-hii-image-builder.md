@@ -7,13 +7,22 @@ This is synthetic engine evidence, not Lenovo P53 acceptance or flash validation
 
 ## Boundaries
 
-The initial route accepts direct FFS modules in buffer zero of a raw PI image
-with a firmware volume rooted at zero, or a complete descriptor-rooted Intel SPI.
+The internal route accepts direct FFS modules and modules reached through
+uncompressed identity encapsulation in a raw PI image with a firmware volume
+rooted at zero, or a complete descriptor-rooted Intel SPI.
 It snapshots the image, workspace bytes and edit state before asynchronous work.
 Fresh discovery must match each selected module's identity, FFS GUID, exact body
 bytes and workspace span. Overlapping spans, duplicate identities and mirrored
 copies are rejected. A separate FFS inventory detects identical copies even when
 HII discovery deduplicates copies in the same buffer.
+
+Discovery excludes an enclosing carrier only after matching its actual PI section,
+FFS owner, payload bounds and byte-identical decoded child. Valid Forms packages
+within the child's independently inventoried FFS bodies belong to those inner
+drivers. Identity sections containing direct HII without a nested FFS owner keep
+their existing ownership. Mixed direct/nested packages or packages crossing a
+nested FFS boundary produce an explicit ownership diagnostic and block the build.
+Contradictory child provenance cannot silently remove an outer HII owner.
 
 The shared PI builder receives one expected-byte patch per exact owning FFS. Its
 optional `sourceFileStart` selector distinguishes multiple HII owners in one
@@ -29,22 +38,24 @@ must remain identical too.
 
 ## Validation
 
-`uefiHiiFirmwareRebuilder.test.ts` uses synthetic PI/IFR firmware only. Two tests
+`uefiHiiFirmwareRebuilder.test.ts` uses synthetic PI/IFR firmware only. Five tests
 edit separate FFS modules in one buffer, independently re-open their complete raw
-BIOS/SPI outputs, check both FFS checksums and preserve an unselected third module,
-FV header, padding and all other bytes. Negative tests cover stale bytes/GUIDs/IDs,
+BIOS/SPI outputs, check inner and enclosing FFS checksums and preserve an unselected
+third module, FV headers, padding and all other bytes. They cover direct modules,
+one identity ancestor in raw BIOS/SPI, and two identity ancestors in complete SPI.
+
+Negative tests cover stale bytes/GUIDs/IDs,
 wrong bounds, duplicate and overlapping spans, same-buffer mirrored FFS copies,
-wrapper containers, missing edits, stale End opcodes, incomplete/encapsulated
-provenance, decode failures and contradictory full-image re-extraction.
+wrapper containers, missing edits, stale End opcodes, incomplete/compressed
+provenance, mixed/crossing HII ownership, contradictory child metadata, decode
+failures and contradictory full-image re-extraction.
 `uefiImageRebuilder.test.ts` covers the selector's ambiguous/missing-owner rejection.
 
 ## Remaining gates
 
-Encapsulated modules, including uncompressed ancestors, are deferred: discovery
-can currently inventory a Forms package in both an enclosing FFS body and its
-nested driver, so these overlapping views need explicit ownership handling first.
-LZMA and EFI/Tiano routes require their own generic HII real-image acceptance;
-AMI source acceptance never enables this route. Mirrored modules, wrappers,
+Mixed direct/nested HII ownership remains deferred. LZMA and EFI/Tiano routes
+require their own generic HII real-image acceptance; AMI source acceptance never
+enables this route. Mirrored modules, wrappers,
 capsules, allocation growth and runtime root registration remain unsupported.
 
 Before exposing check/report/download in the generic footer, reproduce a bounded

@@ -209,12 +209,14 @@ boundary verification for each supported compression/layout class.
 
 ## 8. Complete Phoenix UEFI/HII output
 
-- Internal direct-FFS reconstruction now reinserts several modified HII modules
-  into a raw PI image or complete Intel SPI, with fresh source ownership,
-  checksum repair and independent full-image HII comparison.
+- Internal reconstruction now reinserts several modified HII modules through
+  direct FFS ownership or proven uncompressed encapsulation into a raw PI image
+  or complete Intel SPI, with fresh ownership, inner/enclosing checksum repair
+  and independent full-image HII comparison.
   [Synthetic builder evidence](phoenix/uefi-hii-image-builder.md) does not enable
-  the footer download yet. Encapsulated module ownership, real Phoenix/Lenovo
-  acceptance and the check/report/download integration remain pending.
+  the footer download yet. Mixed direct/nested ownership, compressed generic
+  output, real Phoenix/Lenovo acceptance and the check/report/download integration
+  remain pending.
 - Investigate Phoenix/Lenovo registration for FormSet roots without parent Refs.
 - Distinguish runtime-visible roots from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
