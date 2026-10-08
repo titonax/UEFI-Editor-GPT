@@ -19,6 +19,7 @@ export default function DataChangeQueueDialog({
       onClose={onClose}
       onToggleEnabled={queue.toggleEnabled}
       onRemove={queue.remove}
+      onMove={queue.move}
       onClear={queue.clear}
       onApply={queue.apply}
       metricLabels={{

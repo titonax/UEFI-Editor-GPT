@@ -26,6 +26,14 @@ Changing the queue or opened source invalidates the previous result. Apply and
 check the current selection again. A late completion from an older check cannot
 unlock download for the current state.
 
+The queue's **Order** arrows move an operation earlier or later, including paused
+operations. Reordering preserves each operation's payload and selection. It
+invalidates the applied plan and verified image, then rechecks coherence in the
+new order. An operation that needs an earlier logical change remains blocked if
+moved ahead of it; restore a coherent order before applying and checking again.
+These controls also serve the vendor-neutral UEFI HII and Phoenix queues and do
+not reorder physical firmware menus by themselves.
+
 ## Integration evidence
 
 `src/components/Footer/Footer.test.tsx` exercises the real Footer, selectable

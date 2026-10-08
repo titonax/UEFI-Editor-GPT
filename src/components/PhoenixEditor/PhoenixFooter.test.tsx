@@ -35,6 +35,12 @@ const item: PhoenixSetupItem = {
   rawBytes: new Uint8Array(20),
   visibilityPatch: { callbackOffset: 32, hidePatchOffset: 48, hiddenImmediate: 0x13 },
 };
+const secondItem: PhoenixSetupItem = {
+  ...item,
+  offset: 16,
+  prompt: "Second option",
+  visibilityPatch: { callbackOffset: 40, hidePatchOffset: 52, hiddenImmediate: 0x14 },
+};
 const output: PhoenixFirmwareBuildResult = {
   image: new Uint8Array([0x10, 0x20, 0x30]),
   compressedSize: 1,
@@ -46,6 +52,7 @@ const output: PhoenixFirmwareBuildResult = {
 function inventory(): PhoenixSetupInventory {
   const templat = new Uint8Array(64);
   templat[49] = 0x13;
+  templat[53] = 0x14;
   return {
     templat,
     menu: {
@@ -57,7 +64,7 @@ function inventory(): PhoenixSetupInventory {
           parentOffset: null,
           depth: 0,
           placement: "root",
-          items: [item],
+          items: [item, secondItem],
         },
       ],
     },
@@ -76,6 +83,13 @@ function Workspace() {
         }}
       >
         Stage Show
+      </button>
+      <button
+        onClick={() => {
+          queue.toggleItem(secondItem);
+        }}
+      >
+        Stage second Show
       </button>
       <button
         onClick={() => {
@@ -101,6 +115,7 @@ function Workspace() {
         appliedItems={queue.appliedItems}
         onToggleEnabled={queue.toggleEnabled}
         onRemove={queue.remove}
+        onMove={queue.move}
         onClear={queue.clear}
         onApply={queue.apply}
         onClose={vi.fn()}
@@ -248,5 +263,47 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
       screen.queryByText("LH5 payload exceeds allocation."),
     ).not.toBeInTheDocument();
     expect(saveAs).not.toHaveBeenCalled();
+  });
+  it("requires a fresh check after reordering an already verified Phoenix plan", async () => {
+    vi.mocked(rebuildPhoenixFirmware).mockResolvedValue({
+      ...output,
+      verifiedItemCount: 2,
+    });
+    render(<Workspace />);
+    fireEvent.click(screen.getByRole("button", { name: "Stage Show" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stage second Show" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (2)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Apply selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (2)" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Move Second option earlier in change queue",
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Apply selected" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(
+      screen.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Output details" })).toBeDisabled();
+    expect(saveAs).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled();
+    });
+    expect(rebuildPhoenixFirmware).toHaveBeenCalledTimes(2);
+    expect(
+      vi.mocked(rebuildPhoenixFirmware).mock.calls[1][2].map((item) => item.offset),
+    ).toEqual([secondItem.offset, item.offset]);
   });
 });

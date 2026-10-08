@@ -35,6 +35,7 @@ export default function PhoenixFooter({
   appliedItems,
   onToggleEnabled,
   onRemove,
+  onMove,
   onClear,
   onApply,
   onClose,
@@ -48,6 +49,7 @@ export default function PhoenixFooter({
   appliedItems: PhoenixSetupItem[];
   onToggleEnabled: (id: string, enabled: boolean) => void;
   onRemove: (id: string) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
   onClear: () => void;
   onApply: () => void;
   onClose: () => void;
@@ -190,6 +192,7 @@ export default function PhoenixFooter({
         }}
         onToggleEnabled={onToggleEnabled}
         onRemove={onRemove}
+        onMove={onMove}
         onClear={onClear}
         onApply={onApply}
       />

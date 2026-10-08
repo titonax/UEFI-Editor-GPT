@@ -1,6 +1,7 @@
 import React from "react";
 import {
   analyzeChangeQueue,
+  moveChangeQueueEntry,
   setChangeQueueEntryEnabled,
   toggleChangeQueueEntry,
   type ChangeQueueEntry,
@@ -72,6 +73,10 @@ export function usePhoenixChangeQueue(inventory: PhoenixSetupInventory | null) {
     },
     [invalidate],
   );
+  const move = React.useCallback((id: string, direction: -1 | 1) => {
+    setEntries((current) => moveChangeQueueEntry(current, id, direction));
+    setAppliedFingerprint(null);
+  }, []);
   const clear = React.useCallback(() => {
     setEntries([]);
     setAppliedFingerprint(null);
@@ -88,6 +93,7 @@ export function usePhoenixChangeQueue(inventory: PhoenixSetupInventory | null) {
     toggleItem,
     toggleEnabled,
     remove,
+    move,
     clear,
     apply,
   };

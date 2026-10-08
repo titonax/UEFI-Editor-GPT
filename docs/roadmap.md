@@ -30,7 +30,7 @@ writers. The source buffers remain immutable until export.
 
 - Represent each semantic operation together with its target, expected source
   bytes, fixed-size replacement spans, dependencies and declared conflicts.
-- Let the user select or pause individual operations, remove any operation,
+- Let the user select or pause individual operations, reorder or remove any operation,
   clear the queue and explicitly apply the selected plan.
 - Analyze the complete selection for stale source bytes, missing dependencies,
   conflicts and overlapping patches before it can be applied.
@@ -43,7 +43,7 @@ writers. The source buffers remain immutable until export.
 
 Exit gate: Phoenix, AMI Aptio and vendor-neutral UEFI HII edits use the shared
 queue end to end. Automated coverage includes selection, removal, clearing,
-application invalidation, dependency, conflict, overlap, stale-state,
+application invalidation, reordering, dependency, conflict, overlap, stale-state,
 deduplication and cancellation behavior.
 
 ## 1. Phoenix legacy module editor
