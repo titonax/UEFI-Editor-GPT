@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { firmwareData, condition } from "../../test/fixtures";
 import {
   decodeFirmwareBuffers,
+  inventoryFirmwareFiles,
   type DecodedFirmwareInventory,
 } from "./aptioIvExtractor";
 import { inventoryUefiHiiModules } from "./uefiHiiDiscovery";
@@ -72,7 +73,41 @@ function volume() {
   return bytes;
 }
 
-function spi() {
+function wrappedVolume(inner = volume(), ownPackage = false) {
+  const direct = ownPackage ? formsPackage(4) : new Uint8Array();
+  const prefix = ownPackage ? (4 + direct.length + 3) & ~3 : 0;
+  const end = 0x64 + prefix + inner.length;
+  const bytes = new Uint8Array((end + 0xfff) & ~0xfff).fill(0xff);
+  bytes.set(volume().slice(0, 0x48));
+  const view = new DataView(bytes.buffer);
+  view.setBigUint64(0x20, BigInt(bytes.length), true);
+  view.setUint16(0x32, 0, true);
+  let total = 0;
+  for (let i = 0; i < 0x48; i += 2) total = (total + view.getUint16(i, true)) & 0xffff;
+  view.setUint16(0x32, -total & 0xffff, true);
+  bytes.fill(0, 0x48, 0x60);
+  bytes.fill(4, 0x48, 0x58);
+  bytes[0x5a] = 0x0b;
+  bytes[0x5b] = 0x40;
+  uint24(bytes, 0x5c, end - 0x48);
+  bytes[0x5f] = 7;
+  if (ownPackage) {
+    uint24(bytes, 0x60, direct.length + 4);
+    bytes[0x63] = 0x10;
+    bytes.set(direct, 0x64);
+  }
+  uint24(bytes, 0x60 + prefix, inner.length + 4);
+  bytes[0x63 + prefix] = 3;
+  bytes.set(inner, 0x64 + prefix);
+  bytes[0x59] = -sum(bytes.slice(0x60, end)) & 255;
+  const header = bytes.slice(0x48, 0x60);
+  header[17] = 0;
+  header[23] = 0;
+  bytes[0x58] = -sum(header) & 255;
+  return bytes;
+}
+
+function spi(bios = volume()) {
   const bytes = new Uint8Array(0x5000).fill(0xa5);
   const view = new DataView(bytes.buffer);
   view.setUint32(0x10, 0x0ff0a55a, true);
@@ -81,7 +116,7 @@ function spi() {
   view.setUint32(0x40, 0, true);
   view.setUint32(0x44, 2 | (4 << 16), true);
   view.setUint32(0x48, 1 | (1 << 16), true);
-  bytes.set(volume(), 0x2000);
+  bytes.set(bios, 0x2000);
   return bytes;
 }
 
@@ -131,10 +166,20 @@ beforeEach(() => {
 });
 
 describe("generic HII complete-image foundation", () => {
-  it.each(["raw", "spi"])(
+  it.each(["raw", "spi", "nested-raw", "nested-spi", "double-nested-spi"])(
     "reintegrates two exact FFS owners and independently re-opens a %s image",
     async (kind) => {
-      const image = kind === "raw" ? volume() : spi();
+      const image =
+        kind === "raw"
+          ? volume()
+          : kind === "spi"
+            ? spi()
+            : kind === "nested-raw"
+              ? wrappedVolume()
+              : kind === "nested-spi"
+                ? spi(wrappedVolume())
+                : spi(wrappedVolume(wrappedVolume()));
+      const originalDecoded = await decodeFirmwareBuffers(image);
       const { data, workspace, inventory } = await workspaceFor(image);
       const original = image.slice();
       const sourceBytes = workspace.sourceBytes.slice();
@@ -146,22 +191,42 @@ describe("generic HII complete-image foundation", () => {
         workspace.modules.map((module) => module.id),
       );
       expect(result.spaceReport.compressedSections).toEqual([]);
-      expect(result.spaceReport.affectedRanges).toHaveLength(2);
-      const reopened = inventoryUefiHiiModules(
-        await decodeFirmwareBuffers(result.image),
+      expect(result.spaceReport.affectedRanges).toHaveLength(
+        kind.includes("nested") ? 1 : 2,
       );
+      const reopenedDecoded = await decodeFirmwareBuffers(result.image);
+      const reopened = inventoryUefiHiiModules(reopenedDecoded);
+      expect(reopened.modules).toHaveLength(3);
+      expect(reopened.decodeFailures).toEqual([]);
+      expect(
+        reopened.modules.every(
+          (module) =>
+            module.depth ===
+            (kind.startsWith("double") ? 2 : kind.includes("nested") ? 1 : 0),
+        ),
+      ).toBe(true);
       for (const module of reopened.modules.slice(0, 2)) {
         expect(module.bytes.slice(41, 43)).toEqual(Uint8Array.of(0x29, 2));
-        const { file } = module;
-        expect(
-          (sum(result.image.slice(file.bodyStart, file.end)) +
-            result.image[file.fileStart + 17]) &
-            255,
-        ).toBe(0);
-        const header = result.image.slice(file.fileStart, file.bodyStart);
-        header[17] = 0;
-        header[23] = 0;
-        expect(sum(header)).toBe(0);
+      }
+      for (const node of reopenedDecoded.buffers) {
+        const originalNode = originalDecoded.buffers.find(
+          (candidate) => candidate.id === node.id,
+        );
+        expect(originalNode).toBeDefined();
+        for (const file of inventoryFirmwareFiles(node)) {
+          expect(
+            (sum(node.bytes.slice(file.bodyStart, file.end)) +
+              node.bytes[file.fileStart + 17]) &
+              255,
+          ).toBe(0);
+          const header = node.bytes.slice(file.fileStart, file.bodyStart);
+          header[17] = 0;
+          header[23] = 0;
+          expect(sum(header)).toBe(0);
+          expect(node.bytes.slice(file.volumeStart, file.volumeStart + 0x48)).toEqual(
+            originalNode?.bytes.slice(file.volumeStart, file.volumeStart + 0x48),
+          );
+        }
       }
       expect(reopened.modules[2].bytes).toEqual(inventory.modules[2].bytes);
       for (let offset = 0; offset < image.length; offset++) {
@@ -175,11 +240,57 @@ describe("generic HII complete-image foundation", () => {
       }
       expect(image).toEqual(original);
       expect(workspace.sourceBytes).toEqual(sourceBytes);
-      expect(result.containerKind).toBe(kind === "raw" ? "bios-image" : "intel-spi");
-      if (kind === "spi")
+      expect(result.containerKind).toBe(
+        kind.includes("spi") ? "intel-spi" : "bios-image",
+      );
+      if (kind.includes("spi"))
         expect(result.spaceReport.preservedOutsideBiosBytes).toBe(0x2000);
     },
   );
+
+  it("retains direct HII inside an identity section when there is no nested FFS owner", async () => {
+    const image = volume();
+    image[0x63] = 3;
+    const inventory = inventoryUefiHiiModules(await decodeFirmwareBuffers(image));
+    expect(inventory.modules).toHaveLength(3);
+    expect(inventory.modules.every((module) => module.bufferId === 0)).toBe(true);
+    expect(inventory.decodeFailures).toEqual([]);
+  });
+
+  it("blocks mixed direct/nested HII ownership rather than joining overlapping carrier views", async () => {
+    const image = wrappedVolume(volume(), true);
+    const { data, workspace, inventory } = await workspaceFor(image);
+    expect(inventory.modules).toHaveLength(3);
+    expect(inventory.modules.every((module) => module.bufferId === 1)).toBe(true);
+    expect(inventory.decodeFailures).toEqual([
+      expect.stringContaining("mixed or crossing HII ownership"),
+    ]);
+    await expect(buildUefiHiiFirmwareImage(data, workspace, image)).rejects.toThrow(
+      /unresolved ownership/,
+    );
+  });
+
+  it("blocks a valid HII package crossing a truncated nested FFS allocation", async () => {
+    const image = wrappedVolume();
+    uint24(image, 0x64 + 0x48 + 20, 44);
+    const { data, workspace, inventory } = await workspaceFor(image);
+    expect(inventory.decodeFailures).toEqual([
+      expect.stringContaining("mixed or crossing HII ownership"),
+    ]);
+    await expect(buildUefiHiiFirmwareImage(data, workspace, image)).rejects.toThrow(
+      /unresolved ownership/,
+    );
+  });
+
+  it("does not discard HII owners on contradictory nested provenance", async () => {
+    const decoded = await decodeFirmwareBuffers(wrappedVolume());
+    const child = decoded.buffers.find((node) => node.parent);
+    expect(child?.parent).toBeDefined();
+    if (!child?.parent) throw new Error("missing fixture edge");
+    child.parent.sectionEnd--;
+    const inventory = inventoryUefiHiiModules(decoded);
+    expect(inventory.modules.some((module) => module.bufferId === 0)).toBe(true);
+  });
 
   it.each(["bytes", "guid", "id", "bounds", "duplicate", "mirror"])(
     "rejects stale/ambiguous workspace %s without changing the image",

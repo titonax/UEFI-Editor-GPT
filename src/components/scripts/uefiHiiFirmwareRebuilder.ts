@@ -24,8 +24,8 @@ function sameBytes(left: Uint8Array, right: Uint8Array) {
 /**
  * Internal foundation for vendor-neutral output; not yet connected to download.
  * Re-discovers source ownership instead of trusting serialized workspace metadata.
- * Direct root-image FFS modules only; encapsulated and mirrored modules await
- * separate ownership tests and real-image acceptance.
+ * Direct and identity-encapsulated FFS modules only. Compressed and mirrored
+ * modules await separate ownership tests and real-image acceptance.
  */
 export async function buildUefiHiiFirmwareImage(
   data: Data,
@@ -62,6 +62,12 @@ export async function buildUefiHiiFirmwareImage(
     );
   }
   const inventory = inventoryUefiHiiModules(decoded);
+  if (inventory.decodeFailures.length) {
+    throw new FirmwareError(
+      "PATCH_FAILED",
+      "The original HII inventory has unresolved ownership.",
+    );
+  }
   const sourceFiles = decoded.buffers.flatMap((node) =>
     inventoryFirmwareFiles(node).map((file) => ({
       file,
@@ -134,13 +140,12 @@ export async function buildUefiHiiFirmwareImage(
   };
   const assessment = assessFirmwareReconstruction(graph);
   if (
-    modules.some((module) => module.bufferId !== graph.rootBufferId) ||
     !assessment.traceComplete ||
     assessment.compressions.some((kind) => kind !== "none")
   ) {
     throw new FirmwareError(
       "PATCH_FAILED",
-      "Generic HII output requires complete uncompressed provenance in the root image; encapsulated output awaits separate acceptance.",
+      "Generic HII output requires complete uncompressed provenance; compressed output awaits separate acceptance.",
     );
   }
   const patches = buildUefiHiiModulePatches(

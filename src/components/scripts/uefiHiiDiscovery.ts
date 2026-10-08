@@ -6,6 +6,7 @@ import {
 } from "./aptioIvExtractor";
 import { analyzeIfrBinary, IFR_OPCODE, type IfrFormPackage } from "./ifrBinary";
 import type { FirmwareBufferNode } from "./firmwareProvenance";
+import { encapsulatedFirmwareSection, readFirmwareSection } from "./firmwareSections";
 
 export interface UefiHiiModule {
   id: string;
@@ -63,6 +64,46 @@ function moduleRank(module: UefiHiiModule) {
   return nameRank + module.formCount * 100 + module.referenceCount;
 }
 
+/** Physical nested FFS bodies reached through a proven identity encapsulation. */
+function nestedFileBodies(
+  node: FirmwareBufferNode,
+  file: FirmwareFileInventoryEntry,
+  buffers: FirmwareBufferNode[],
+  files: Map<number, FirmwareFileInventoryEntry[]>,
+) {
+  return buffers.flatMap((child) => {
+    const edge = child.parent;
+    const owner = edge?.ownerFile;
+    if (
+      edge?.compression !== "none" ||
+      edge.parentBufferId !== node.id ||
+      owner?.bufferId !== file.bufferId ||
+      owner.guid !== file.guid ||
+      owner.fileStart !== file.fileStart ||
+      owner.end !== file.end ||
+      edge.sectionStart < file.bodyStart ||
+      edge.sectionEnd > file.end
+    )
+      return [];
+    const section = readFirmwareSection(node.bytes, edge.sectionStart, file.end);
+    const payload = section ? encapsulatedFirmwareSection(node.bytes, section) : null;
+    if (
+      section?.end !== edge.sectionEnd ||
+      section.headerSize !== edge.sectionHeaderSize ||
+      section.type !== edge.sectionType ||
+      payload?.compression !== "none" ||
+      payload.payloadStart !== edge.payloadStart ||
+      payload.payloadEnd !== edge.payloadEnd ||
+      !equalBytes(payload.bytes, child.bytes)
+    )
+      return [];
+    return (files.get(child.id) ?? []).map((inner) => ({
+      start: edge.payloadStart + inner.bodyStart - file.bodyStart,
+      end: edge.payloadStart + inner.end - file.bodyStart,
+    }));
+  });
+}
+
 /**
  * Builds a vendor-neutral HII inventory from already decoded PI buffers.
  * Raw Forms packages embedded in PE32 sections are accepted only after the
@@ -73,12 +114,38 @@ export function inventoryUefiHiiModules(
 ): UefiHiiInventory {
   const unique = uniqueBuffers(decoded.buffers);
   const modules: UefiHiiModule[] = [];
+  const files = new Map(
+    decoded.buffers.map((node) => [node.id, inventoryFirmwareFiles(node)]),
+  );
+  const decodeFailures = [...decoded.decodeFailures];
 
   for (const { node, duplicateIds } of unique) {
-    for (const file of inventoryFirmwareFiles(node)) {
+    for (const file of files.get(node.id) ?? []) {
       const bytes = node.bytes.slice(file.bodyStart, file.end);
       const packages = analyzeIfrBinary(bytes).packages.filter((pkg) => pkg.valid);
       if (packages.length === 0) continue;
+      const nestedBodies = nestedFileBodies(node, file, decoded.buffers, files);
+      const nestedPackages = packages.filter((pkg) =>
+        nestedBodies.some((range) => pkg.offset < range.end && pkg.end > range.start),
+      );
+      if (nestedPackages.length) {
+        if (
+          nestedPackages.length !== packages.length ||
+          nestedPackages.some(
+            (pkg) =>
+              !nestedBodies.some(
+                (range) => pkg.offset >= range.start && pkg.end <= range.end,
+              ),
+          )
+        ) {
+          decodeFailures.push(
+            `${moduleName(file)} has mixed or crossing HII ownership across nested FFS bodies; the enclosing module was not joined.`,
+          );
+        }
+        // The inner drivers are inventoried in their own decoded buffer. Never
+        // expose the carrier body as another editable copy of those packages.
+        continue;
+      }
       const repeatedModule = modules.find(
         (candidate) =>
           candidate.file.guid === file.guid && equalBytes(candidate.bytes, bytes),
@@ -125,7 +192,7 @@ export function inventoryUefiHiiModules(
     modules,
     decodedBufferCount: decoded.buffers.length,
     uniqueBufferCount: unique.length,
-    decodeFailures: [...decoded.decodeFailures],
+    decodeFailures,
   };
 }
 
