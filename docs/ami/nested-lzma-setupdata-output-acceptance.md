@@ -60,8 +60,10 @@ and outer FFS checksums are independently checked.
 ## Scope and reproduction
 
 The source-specific gate now admits Setup HII and SetupData, separately or
-together, on this exact source hash and size. AMITSE and root-vector edits remain
-blocked. The original 16 MiB LZMA acceptance remains HII-only. EFI, mixed
+together, on this exact source hash and size. AMITSE edits remain blocked. A later
+[root and structural queue acceptance](nested-lzma-root-queue-output-acceptance.md)
+adds a code-corroborated root edit in a fitting four-operation queue; root-only
+output on that source is rejected for allocation growth. The original 16 MiB LZMA acceptance remains HII-only. EFI, mixed
 compressed ancestors, unrelated sources, allocation growth and relocation are
 not accepted. Re-open evidence does not establish physical flash validation.
 

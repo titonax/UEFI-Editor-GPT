@@ -160,8 +160,10 @@ variant and mixed compressed ancestors are still awaiting acceptance. An exact
 passes Setup HII output through an outer compressed FV and inner uncompressed
 encapsulation, including inner/outer FFS checksums and untouched Descriptor/ME.
 Its separate [SetupData and combined-queue acceptance](ami/nested-lzma-setupdata-output-acceptance.md)
-now verifies both inner FFS repairs before one shared LZMA recompression. AMITSE
-and root-vector edits on this source remain blocked.
+now verifies both inner FFS repairs before one shared LZMA recompression. Its [root and structural queue acceptance](ami/nested-lzma-root-queue-output-acceptance.md)
+also verifies a same-package Ref move and a fitting four-operation queue with a
+freshly derived eight-entry root vector. Root-only output can still exceed its
+compressed allocation and is rejected; AMITSE editing remains blocked.
 
 Build edited PI artefacts from leaves back to the original image.
 

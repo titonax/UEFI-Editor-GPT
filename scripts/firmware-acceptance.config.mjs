@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: [
-      ["nested-lzma", "nested-lzma-setupdata"].includes(
+      ["nested-lzma", "nested-lzma-setupdata", "nested-lzma-queue"].includes(
         process.env.FIRMWARE_ACCEPTANCE_SCENARIO,
       )
         ? "scripts/firmware-nested-lzma-acceptance.test.mjs"
