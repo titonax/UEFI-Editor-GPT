@@ -287,6 +287,7 @@ function inferMenuProfiles(
       confidence: "high",
       evidence: [
         "Forms and Ref edges were decoded from standard HII packages across independently owned FFS modules.",
+        "FormSet entries and static Ref reachability do not prove runtime registration or visibility.",
       ],
       roots,
     };
@@ -669,7 +670,10 @@ export function buildMenuTree(data: Data): MenuTree {
           pageMask: entry.pageMask,
           incomingReferenceCount: 0,
           outgoingReferenceCount: 0,
-          parentageLabel: "The registered menu root target is missing.",
+          parentageLabel:
+            rootSource === "hii-formset"
+              ? "The structural FormSet entry target is missing."
+              : "The registered menu root target is missing.",
           conditionSummary:
             "The menu entry points to a form that does not exist in the parsed HII graph.",
         };
@@ -695,7 +699,9 @@ export function buildMenuTree(data: Data): MenuTree {
             : vectorEntry.value === 1
               ? "Visible in AMITSE root vector"
               : "Hidden by AMITSE root vector"
-          : "No visibility gate",
+          : data.firmwareFamily === "uefi-hii"
+            ? "No static IFR gate; runtime visibility unproven"
+            : "No visibility gate",
         reachabilityLabel,
         rootSource,
         entry.pageMask,
@@ -703,7 +709,9 @@ export function buildMenuTree(data: Data): MenuTree {
           ? `Registered as a top-level AMITSE SetupData page${entry.pageMask ? ` with selector ${entry.pageMask}` : ""}. It has ${String(form.referencedIn.length)} incoming and ${String(form.children.filter((child) => child.type === "Ref").length)} outgoing IFR Ref(s); its parent is the AMITSE menu profile, not another HII form.`
           : rootSource === "ifr-navigation"
             ? `Declared as the HII FormSet entry and proven as the navigation hub by ${String(form.children.filter((child) => child.type === "Ref").length)} direct IFR Ref(s). Those direct children, not every AMITSE registration, are the current top-level tabs.`
-            : "Registered as a top-level menu entry; it does not require an IFR Ref parent.",
+            : rootSource === "hii-formset"
+              ? "First parsed form in its HII FormSet; runtime registration and visibility are unproven. No incoming static Ref is required for this structural graph entry."
+              : "Registered as a top-level menu entry; it does not require an IFR Ref parent.",
       );
       if (vectorEntry) {
         node.rootVisibilityOriginal = vectorEntry.value;
@@ -816,7 +824,9 @@ export function buildMenuTree(data: Data): MenuTree {
     addDetachedRoot(
       formIndex,
       formSetRootIndices.has(formIndex)
-        ? "HII FormSet entry not registered by the detected menu profile"
+        ? data.firmwareFamily === "uefi-hii"
+          ? "HII FormSet entry without a static path; runtime registration is unproven"
+          : "HII FormSet entry not registered by the detected menu profile"
         : "Unreferenced form; it may be intentionally hidden or linked dynamically at runtime",
     );
   }

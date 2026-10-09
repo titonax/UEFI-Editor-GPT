@@ -77,6 +77,43 @@ function Harness({ initial }: { initial: Data }) {
 }
 
 describe("root visibility controls", () => {
+  it("lists referenced vendor-neutral FormSet entries separately from top-level graph roots", () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockReturnValue({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    );
+    const entry = {
+      name: "Security",
+      formId: "0x2",
+      formSetGuid: visibleGuid,
+      offset: null,
+      source: "uefi-hii" as const,
+    };
+    const data = firmwareData({
+      firmwareFamily: "uefi-hii",
+      menu: [],
+      formSetRoots: [entry],
+      forms: [
+        form({
+          children: [
+            prompt({ type: "Ref", formId: "0x2", targetFormSetGuid: visibleGuid }),
+          ],
+        }),
+        form({ formId: "0x2", formSetGuid: visibleGuid, referencedIn: ["0x1"] }),
+      ],
+    });
+    render(<Harness initial={data} />);
+    expect(screen.getByRole("button", { name: "Security · 0x2" })).toBeEnabled();
+    expect(screen.getByText("1 incoming IFR Ref(s)")).toBeInTheDocument();
+    expect(screen.getByText("Runtime registration / visibility")).toBeInTheDocument();
+    expect(screen.getByText("Unproven")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
   it("toggles a desired state while retaining the original BIOS state", () => {
     vi.stubGlobal(
       "matchMedia",

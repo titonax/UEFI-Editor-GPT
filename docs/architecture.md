@@ -61,6 +61,7 @@
 | `uefiImageRebuilder.ts`          | Bottom-up fixed-size PI rebuild and FFS checksum repair                 |
 | `amiFirmwareRebuilder.ts`        | AMI patch orchestration and independent artefact re-extraction          |
 | `uefiHiiFirmwareRebuilder.ts`    | Bounded HII reconstruction, physical copy checks and full-image re-read |
+| `uefiHiiRootEvidence.ts`         | Read-only FormSet declaration and current static Ref evidence           |
 | `uefiHiiOwnership.ts`            | Offset-preserving owned-package views and changed-byte confinement      |
 | `uefiHiiIdentityVerification.ts` | Mixed identity read-back, decoded boundaries and checksum verification  |
 | `errors.ts`                      | Stable domain error codes and user-facing messages                      |

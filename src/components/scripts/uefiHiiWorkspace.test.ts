@@ -184,6 +184,10 @@ describe("multi-module UEFI HII workspace", () => {
     expect(workspace.warnings).toEqual([
       expect.stringContaining("LenovoSetupSecurityGui"),
     ]);
+    expect(workspace.data.formSetRoots).toMatchObject([
+      { name: "Main", formId: "0x1", formSetGuid: firstGuid },
+      { name: "Security", formId: "0x2", formSetGuid: secondGuid },
+    ]);
     expect(workspace.data.menu).toMatchObject([
       { name: "Main", formId: "0x1", source: "uefi-hii" },
     ]);

@@ -3,6 +3,34 @@ import { firmwareData, form, prompt } from "../../test/fixtures";
 import { buildMenuTree } from "./menuTree";
 
 describe("HII menu graph", () => {
+  it("does not claim runtime registration for vendor-neutral structural roots", () => {
+    const data = firmwareData({
+      firmwareFamily: "uefi-hii",
+      menu: [{ name: "Setup", formId: "0x1", offset: null, source: "uefi-hii" }],
+    });
+    const tree = buildMenuTree(data);
+    expect(tree.roots[0].parentageLabel).toContain(
+      "runtime registration and visibility are unproven",
+    );
+    expect(tree.roots[0].statusLabel).toBe(
+      "No static IFR gate; runtime visibility unproven",
+    );
+    expect(tree.profiles[0].assessment).toBe("unresolved");
+    expect(tree.profiles[0].evidence).toContain(
+      "FormSet entries and static Ref reachability do not prove runtime registration or visibility.",
+    );
+  });
+
+  it("reports a missing structural root without claiming registration", () => {
+    const data = firmwareData({
+      menu: [{ name: "Missing", formId: "0x99", offset: null }],
+      forms: [],
+    });
+    expect(buildMenuTree(data).roots[0].parentageLabel).toBe(
+      "The structural FormSet entry target is missing.",
+    );
+  });
+
   it("keeps a single-FormSet hub as the root and exposes its tabs as movable Refs", () => {
     const guid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
     const data = firmwareData({
