@@ -162,9 +162,6 @@ export function inventoryUefiHiiModules(
         packages = packages.filter((pkg) => !nestedPackages.includes(pkg));
         if (packages.length === 0) continue;
         ownership = "mixed-direct-nested";
-        decodeFailures.push(
-          `${moduleName(file)} has mixed direct/nested HII ownership; its own packages are inventoried for inspection only and complete-image output remains blocked.`,
-        );
       }
       const repeatedModule = modules.find(
         (candidate) =>

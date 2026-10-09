@@ -13,7 +13,9 @@ import {
   type FirmwareProvenanceGraph,
 } from "./firmwareProvenance";
 import { inventoryUefiHiiModules } from "./uefiHiiDiscovery";
-import { buildUefiHiiModulePatches } from "./uefiHiiPatcher";
+import { buildUefiHiiModulePatches, createUefiHiiEditorBytes } from "./uefiHiiPatcher";
+import { createUefiHiiOwnedPackageView } from "./uefiHiiOwnership";
+import { verifyUefiHiiIdentityBuffers } from "./uefiHiiIdentityVerification";
 import type { UefiHiiWorkspace } from "./uefiHiiWorkspace";
 import { rebuildUefiImage, type UefiImageBuildResult } from "./uefiImageRebuilder";
 import type { Data } from "./types";
@@ -55,6 +57,7 @@ export async function buildUefiHiiFirmwareImage(
   workspace = {
     ...workspace,
     sourceBytes: workspace.sourceBytes.slice(),
+    editorBytes: workspace.editorBytes?.slice(),
     modules: structuredClone(workspace.modules),
   };
   data = structuredClone(data);
@@ -77,6 +80,9 @@ export async function buildUefiHiiFirmwareImage(
     );
   }
   const inventory = inventoryUefiHiiModules(decoded);
+  const mixedInventory = inventory.modules.some(
+    (module) => module.ownership === "mixed-direct-nested",
+  );
   if (inventory.decodeFailures.length) {
     throw new FirmwareError(
       "PATCH_FAILED",
@@ -174,25 +180,45 @@ export async function buildUefiHiiFirmwareImage(
     !assessment.traceComplete ||
     assessment.compressions.some(
       (kind) => kind !== "none" && (kind !== "lzma" || !acceptedMirroredSource),
-    )
+    ) ||
+    (mixedInventory && assessment.compressions.some((kind) => kind !== "none"))
   ) {
     throw new FirmwareError(
       "PATCH_FAILED",
       "Generic HII output requires complete uncompressed provenance; compressed output awaits separate acceptance.",
     );
   }
+  // Derive both the editor view and package bounds from fresh discovery.
+  const verifiedSummaries = workspace.modules.map((summary, index) => ({
+    ...summary,
+    ownedPackages: modules[index].packages.map(({ offset, end }) => ({
+      offset,
+      end,
+    })),
+    nestedPayloadRanges: modules[index].nestedPayloadRanges,
+  }));
+  if (
+    workspace.editorBytes &&
+    !sameBytes(
+      workspace.editorBytes,
+      createUefiHiiEditorBytes(workspace.sourceBytes, verifiedSummaries),
+    )
+  ) {
+    throw new FirmwareError(
+      "INTEGRITY_MISMATCH",
+      "The HII editor view does not match fresh source ownership.",
+    );
+  }
   const patches = buildUefiHiiModulePatches(
     data,
     workspace.sourceBytes,
-    // Derive package bounds from fresh discovery, never imported workspace claims.
-    workspace.modules.map((summary, index) => ({
-      ...summary,
-      ownedPackages: modules[index].packages.map(({ offset, end }) => ({
-        offset,
-        end,
-      })),
-    })),
+    verifiedSummaries,
   );
+  for (const patch of patches) {
+    const original = modules.find((module) => module.id === patch.module.id);
+    if (original?.ownership)
+      createUefiHiiOwnedPackageView({ ...original, bytes: patch.bytes });
+  }
   if (
     assessment.compressions.includes("lzma") &&
     patches.some((patch) => patch.module.fileGuid !== acceptedUefiHiiLzmaImage.fileGuid)
@@ -232,6 +258,15 @@ export async function buildUefiHiiFirmwareImage(
       bytes: node.bytes.subarray(file.bodyStart, file.end),
     })),
   );
+  if (mixedInventory) {
+    verifyUefiHiiIdentityBuffers(
+      decoded.buffers,
+      reopenedDecoded.buffers,
+      patches.flatMap((patch) =>
+        (copyGroups.get(patch.module.id) ?? []).map((copy) => copy.file),
+      ),
+    );
+  }
   // Re-open every discovered HII module, including alternates not selected in
   // the editor. An unchanged sibling must remain byte-identical too.
   if (
@@ -247,7 +282,15 @@ export async function buildUefiHiiFirmwareImage(
     const actual = reopened.modules.find((module) => module.id === original.id);
     const expected =
       patches.find((patch) => patch.module.id === original.id)?.bytes ?? original.bytes;
-    if (!actual || !sameBytes(actual.bytes, expected)) {
+    const actualBytes =
+      actual &&
+      (original.ownership
+        ? createUefiHiiOwnedPackageView({ ...original, bytes: actual.bytes }).bytes
+        : actual.bytes);
+    const expectedBytes = original.ownership
+      ? createUefiHiiOwnedPackageView({ ...original, bytes: expected }).bytes
+      : expected;
+    if (!actualBytes || !sameBytes(actualBytes, expectedBytes)) {
       throw new FirmwareError(
         "INTEGRITY_MISMATCH",
         "HII module did not match after re-opening the image.",
@@ -269,7 +312,15 @@ export async function buildUefiHiiFirmwareImage(
           candidate.file.fileStart === copy.file.fileStart &&
           candidate.file.end === copy.file.end,
       );
-      if (!actual || !sameBytes(actual.bytes, expected)) {
+      const actualBytes =
+        actual &&
+        (original.ownership
+          ? createUefiHiiOwnedPackageView({ ...original, bytes: actual.bytes }).bytes
+          : actual.bytes);
+      const expectedBytes = original.ownership
+        ? createUefiHiiOwnedPackageView({ ...original, bytes: expected }).bytes
+        : expected;
+      if (!actualBytes || !sameBytes(actualBytes, expectedBytes)) {
         throw new FirmwareError(
           "INTEGRITY_MISMATCH",
           "A physical HII copy did not match after re-opening the image.",

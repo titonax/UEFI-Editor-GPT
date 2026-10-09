@@ -220,15 +220,15 @@ boundary verification for each supported compression/layout class.
   complete SPI, with 22,320 packed bytes remaining in each original allocation
   and byte-identical non-BIOS regions. Acceptance is hash/size/Setup-FFS specific;
   other Lenovo drivers and generic compressed sources remain blocked.
-- Mixed direct/nested carriers now retain their own package metadata separately
-  from nested drivers, with synthetic boundary and editor-exclusion regressions.
-  The enclosing body stays inspection-only and complete-image output remains
-  blocked. Offset-preserving analysis views now mask nested payloads and their
-  strings, and module patches are confined to valid owned package boundaries;
-  the image builder derives those boundaries from fresh discovery. Integrating
-  the view throughout mixed editor planning/replay and combined parent/child
-  reconstruction remain pending. Packages crossing FFS boundaries or lying in
-  nested FV free space cannot be reassigned to the outer carrier.
+- Mixed direct/nested carriers now use isolated views throughout editor planning
+  and replay, with owned-package changes overlaid onto their immutable original
+  bodies. Combined parent/child reconstruction has synthetic raw/SPI evidence for
+  complete identity-only paths, including queued Ref move + Show, enclosing
+  checksums, nested headers/padding and independent all-buffer verification.
+  Only verified full-image download is offered for mixed workspaces. Real mixed
+  source acceptance, compressed mixed paths and mixed package rebalancing remain
+  pending. Packages crossing FFS boundaries or lying in nested FV free space
+  cannot be reassigned to the outer carrier.
 - Investigate Phoenix/Lenovo registration for FormSet roots without parent Refs.
 - Distinguish runtime-visible roots from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the

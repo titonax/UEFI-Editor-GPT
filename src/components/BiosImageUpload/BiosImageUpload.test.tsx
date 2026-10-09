@@ -359,6 +359,16 @@ describe("complete firmware preflight", () => {
           referenceCount: 1,
           formSetGuids: ["04040404-0404-0404-0404-040404040404"],
         },
+        {
+          id: "owned-carrier",
+          name: "OwnedCarrierDxe",
+          ownership: "mixed-direct-nested",
+          nestedPayloadRanges: [{ offset: 64, end: 128 }],
+          packages: [{}],
+          formCount: 1,
+          referenceCount: 1,
+          formSetGuids: ["05050505-0505-0505-0505-050505050505"],
+        },
       ],
       decodedBufferCount: 2,
       uniqueBufferCount: 1,
@@ -410,6 +420,7 @@ describe("complete firmware preflight", () => {
     expect(screen.getByText("Setup")).toBeInTheDocument();
     expect(screen.getByText("CarrierDxe")).toBeInTheDocument();
     expect(screen.getByText("Inspection only")).toBeInTheDocument();
+    expect(screen.getByText("Own packages only")).toBeInTheDocument();
     expect(screen.getByText("Editor candidate")).toBeInTheDocument();
     expect(screen.getByText("Complete-image output blocked")).toBeInTheDocument();
     expect(

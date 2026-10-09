@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { firmwareData, condition } from "../../test/fixtures";
+import { analyzeIfrBinary, IFR_OPCODE } from "./ifrBinary";
+import { buildUefiHiiWorkspace } from "./uefiHiiWorkspace";
+import { moveMenuReference } from "./menuEditing";
+import { bytesToHex } from "./hex";
+import {
+  createDataChangeEntry,
+  projectDataChangeQueue,
+} from "../ChangeQueue/dataChangeQueue";
 import {
   decodeFirmwareBuffers,
   inventoryFirmwareFiles,
@@ -9,7 +17,11 @@ import { inventoryUefiHiiModules } from "./uefiHiiDiscovery";
 import type { UefiHiiWorkspace } from "./uefiHiiWorkspace";
 import { buildUefiHiiFirmwareImage } from "./uefiHiiFirmwareRebuilder";
 import { createUefiHiiOwnedPackageView } from "./uefiHiiOwnership";
-import { buildUefiHiiModulePatches } from "./uefiHiiPatcher";
+import {
+  buildUefiHiiModulePatches,
+  createUefiHiiEditorBytes,
+  downloadModifiedUefiHiiModules,
+} from "./uefiHiiPatcher";
 
 vi.mock("./aptioIvExtractor", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./aptioIvExtractor")>();
@@ -75,8 +87,13 @@ function volume() {
   return bytes;
 }
 
-function wrappedVolume(inner = volume(), ownPackage = false) {
-  const direct = ownPackage ? formsPackage(4) : new Uint8Array();
+function wrappedVolume(inner = volume(), ownPackage: boolean | Uint8Array = false) {
+  const direct =
+    ownPackage instanceof Uint8Array
+      ? ownPackage
+      : ownPackage
+        ? formsPackage(4)
+        : new Uint8Array();
   const prefix = ownPackage ? (4 + direct.length + 3) & ~3 : 0;
   const end = 0x64 + prefix + inner.length;
   const bytes = new Uint8Array((end + 0xfff) & ~0xfff).fill(0xff);
@@ -129,7 +146,11 @@ async function workspaceFor(image: Uint8Array, decoded?: DecodedFirmwareInventor
   let start = 0;
   // Leave a third module outside the editor; the complete-image re-read must
   // prove that this unselected sibling is preserved.
-  const modules = inventory.modules.slice(0, 2).map((module) => {
+  const carrier = inventory.modules.find((module) => module.ownership);
+  const selected = carrier
+    ? [carrier, ...inventory.modules.filter((module) => !module.ownership).slice(0, 1)]
+    : inventory.modules.slice(0, 2);
+  const modules = selected.map((module) => {
     const summary = {
       id: module.id,
       name: module.name,
@@ -140,13 +161,15 @@ async function workspaceFor(image: Uint8Array, decoded?: DecodedFirmwareInventor
       mirroredBufferIds: module.duplicateBufferIds,
       sourceStart: start,
       sourceEnd: start + module.bytes.length,
+      ownedPackages: module.packages.map(({ offset, end }) => ({ offset, end })),
+      nestedPayloadRanges: module.nestedPayloadRanges,
     };
     start = summary.sourceEnd;
     return summary;
   });
   const sourceBytes = new Uint8Array(start);
   for (const [index, module] of modules.entries())
-    sourceBytes.set(inventory.modules[index].bytes, module.sourceStart);
+    sourceBytes.set(selected[index].bytes, module.sourceStart);
   const data = firmwareData({
     firmwareFamily: "uefi-hii",
     forms: [],
@@ -159,7 +182,13 @@ async function workspaceFor(image: Uint8Array, decoded?: DecodedFirmwareInventor
       }),
     ),
   });
-  const workspace: UefiHiiWorkspace = { data, modules, sourceBytes, warnings: [] };
+  const workspace: UefiHiiWorkspace = {
+    data,
+    modules,
+    sourceBytes,
+    editorBytes: createUefiHiiEditorBytes(sourceBytes, modules),
+    warnings: [],
+  };
   return { data, workspace, inventory };
 }
 
@@ -285,37 +314,280 @@ describe("generic HII complete-image foundation", () => {
     expect(inventory.decodeFailures).toEqual([]);
   });
 
-  it("inventories only the mixed carrier's own packages while blocking complete-image output", async () => {
-    const image = wrappedVolume(volume(), true);
-    const original = image.slice();
-    const { data, workspace, inventory } = await workspaceFor(image);
-    expect(inventory.modules).toHaveLength(4);
-    const carrier = inventory.modules.find((module) => module.bufferId === 0);
-    expect(carrier).toMatchObject({
-      ownership: "mixed-direct-nested",
-      formCount: 1,
-      referenceCount: 1,
-      formSetGuids: ["04040404-0404-0404-0404-040404040404"],
-      packages: [{ offset: 4, end: 62 }],
+  it.each([
+    "raw-parent",
+    "raw-child",
+    "raw-both",
+    "spi-parent",
+    "spi-child",
+    "spi-both",
+    "double-spi-parent",
+    "double-spi-child",
+    "double-spi-both",
+  ])(
+    "combines mixed identity edits and independently verifies %s output",
+    async (kind) => {
+      const bios = wrappedVolume(volume(), true);
+      const image = kind.startsWith("double")
+        ? spi(wrappedVolume(bios))
+        : kind.startsWith("spi")
+          ? spi(bios)
+          : bios;
+      const original = image.slice();
+      const { data, workspace, inventory } = await workspaceFor(image);
+      expect(inventory.modules).toHaveLength(4);
+      const carrier = inventory.modules.find((module) => module.ownership);
+      expect(carrier).toMatchObject({
+        ownership: "mixed-direct-nested",
+        formCount: 1,
+        referenceCount: 1,
+        formSetGuids: ["04040404-0404-0404-0404-040404040404"],
+        packages: [{ offset: 4, end: 62 }],
+      });
+      expect(carrier?.bytes).toEqual(bios.slice(0x60, 0x64 + 64 + 0x1000));
+      const inner = inventory.modules.filter((module) => !module.ownership);
+      expect(inner).toHaveLength(3);
+      expect(inner.every((module) => module.ownership === undefined)).toBe(true);
+      expect(inner.flatMap((module) => module.formSetGuids)).not.toContain(
+        carrier?.formSetGuids[0],
+      );
+      if (!carrier) throw new Error("missing mixed carrier");
+      const view = createUefiHiiOwnedPackageView(carrier);
+      expect(view.ownedPackages).toEqual([{ offset: 4, end: 62 }]);
+      expect(view.bytes.slice(68)).toEqual(new Uint8Array(0x1000));
+      expect(inventory.decodeFailures).toEqual([]);
+      if (kind.endsWith("parent")) data.suppressions[1].active = true;
+      if (kind.endsWith("child")) data.suppressions[0].active = true;
+      const result = await buildUefiHiiFirmwareImage(data, workspace, image);
+      const reopened = inventoryUefiHiiModules(
+        await decodeFirmwareBuffers(result.image),
+      );
+      expect(reopened.modules).toHaveLength(4);
+      expect(reopened.decodeFailures).toEqual([]);
+      for (const [index, summary] of workspace.modules.entries()) {
+        const module = reopened.modules.find(
+          (candidate) => candidate.id === summary.id,
+        );
+        expect(module?.bytes.slice(41, 43)).toEqual(
+          data.suppressions[index].active
+            ? Uint8Array.of(0x0f, 15)
+            : Uint8Array.of(0x29, 2),
+        );
+      }
+      for (const module of inventory.modules.filter(
+        (candidate) =>
+          !workspace.modules.some((summary) => summary.id === candidate.id),
+      )) {
+        expect(
+          reopened.modules.find((candidate) => candidate.id === module.id)?.bytes,
+        ).toEqual(module.bytes);
+      }
+      expect(result.image).toHaveLength(image.length);
+      expect(result.modifiedModuleIds).toHaveLength(kind.endsWith("both") ? 2 : 1);
+      if (kind.includes("spi")) {
+        expect(result.image.slice(0, 0x2000)).toEqual(original.slice(0, 0x2000));
+        expect(result.spaceReport.preservedOutsideBiosBytes).toBe(0x2000);
+      }
+      expect(workspace.editorBytes).toEqual(
+        createUefiHiiEditorBytes(workspace.sourceBytes, workspace.modules),
+      );
+      expect(image).toEqual(original);
+    },
+  );
+
+  it("queues a parent Ref move plus child Show through the isolated workspace and complete SPI rebuild", async () => {
+    const pkg = new Uint8Array(68);
+    uint24(pkg, 0, pkg.length);
+    pkg[3] = 2;
+    pkg.set([0x0e, 0x97], 4);
+    pkg.fill(4, 6, 22);
+    pkg.set([1, 0x86, 1, 0, 1, 0], 27);
+    pkg.set([0x0f, 15, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 3, 0], 33);
+    pkg.set(
+      [0x29, 2, 1, 0x86, 2, 0, 2, 0, 0x29, 2, 1, 0x86, 3, 0, 3, 0, 0x29, 2, 0x29, 2],
+      48,
+    );
+    const image = spi(wrappedVolume(volume(), pkg));
+    const inventory = inventoryUefiHiiModules(await decodeFirmwareBuffers(image));
+    const carrier = inventory.modules.find((module) => module.ownership);
+    const child = inventory.modules.find((module) => !module.ownership);
+    if (!carrier || !child) throw new Error("missing owners");
+    carrier.name = "SetupCarrier";
+    child.name = "SetupChild";
+    const workspace = await buildUefiHiiWorkspace(inventory, (view) => {
+      const model = analyzeIfrBinary(view);
+      expect(model.packages).toHaveLength(1);
+      const text = model.packages[0].opcodes
+        .map((span) => {
+          const bytes =
+            bytesToHex(view.slice(span.offset, span.end))
+              .toUpperCase()
+              .match(/../g)
+              ?.join(" ") ?? "";
+          const prefix = `0x${span.offset.toString(16)}:`;
+          if (span.opcode === IFR_OPCODE.FORM_SET)
+            return `${prefix} FormSet Guid: ${span.formSetGuid ?? ""}, Title: "Setup", Help: "" { ${bytes} }`;
+          if (span.opcode === IFR_OPCODE.FORM)
+            return `${prefix} Form FormId: 0x${span.formId?.toString(16) ?? ""}, Title: "Form ${String(span.formId)}" { ${bytes} }`;
+          if (span.opcode === IFR_OPCODE.REF)
+            return `${prefix} Ref Prompt: "Target", Help: "", QuestionFlags: 0x0, QuestionId: 0x1, VarStoreId: 0x0, VarStoreInfo: 0x0, FormId: 0x${span.formId?.toString(16) ?? ""} { ${bytes} }`;
+          return `${prefix} ${span.name} { ${bytes} }`;
+        })
+        .join("\n");
+      return Promise.resolve(text);
     });
-    expect(carrier?.bytes).toEqual(image.slice(0x60, 0x64 + 64 + 0x1000));
-    const inner = inventory.modules.filter((module) => module.bufferId === 1);
-    expect(inner).toHaveLength(3);
-    expect(inner.every((module) => module.ownership === undefined)).toBe(true);
-    expect(inner.flatMap((module) => module.formSetGuids)).not.toContain(
-      carrier?.formSetGuids[0],
+    expect(workspace.modules).toHaveLength(2);
+    expect(workspace.data.ifrBinary?.packages).toHaveLength(2);
+    const base = workspace.data;
+    const childSummary = workspace.modules.find((module) => module.id === child.id);
+    if (!childSummary || !workspace.editorBytes)
+      throw new Error("missing workspace ownership");
+    base.suppressions = [
+      condition({
+        offset: `0x${(childSummary.sourceStart + 37).toString(16)}`,
+        start: `0x${(childSummary.sourceStart + 41).toString(16)}`,
+        end: `0x${(childSummary.sourceStart + 56).toString(16)}`,
+      }),
+    ];
+    const sourceFormIndex = base.forms.findIndex(
+      (form) =>
+        form.sourceModuleId === carrier.id && Number.parseInt(form.formId) === 1,
     );
-    if (!carrier) throw new Error("missing mixed carrier");
-    const view = createUefiHiiOwnedPackageView(carrier);
-    expect(view.ownedPackages).toEqual([{ offset: 4, end: 62 }]);
-    expect(view.bytes.slice(68)).toEqual(new Uint8Array(0x1000));
-    expect(inventory.decodeFailures).toEqual([
-      expect.stringContaining("mixed direct/nested HII ownership"),
-    ]);
+    const destinationFormIndex = base.forms.findIndex(
+      (form) =>
+        form.sourceModuleId === carrier.id && Number.parseInt(form.formId) === 2,
+    );
+    const moved = await moveMenuReference(base, bytesToHex(workspace.editorBytes), {
+      sourceFormIndex,
+      referenceChildIndex: 0,
+      destinationFormIndex,
+    });
+    const shown = structuredClone(moved);
+    shown.suppressions[0].active = false;
+    const moveEntry = createDataChangeEntry(base, moved, "parent-move");
+    const showEntry = createDataChangeEntry(moved, shown, "child-show");
+    if (!moveEntry || !showEntry) throw new Error("missing queue entries");
+    const applied = projectDataChangeQueue(base, [moveEntry, showEntry]);
+    expect(applied.analysis.canApply).toBe(true);
+    const result = await buildUefiHiiFirmwareImage(applied.data, workspace, image);
+    expect(result.modifiedModuleIds).toHaveLength(2);
+    const reopened = inventoryUefiHiiModules(await decodeFirmwareBuffers(result.image));
+    const parentOutput = reopened.modules.find((module) => module.id === carrier.id);
+    const childOutput = reopened.modules.find((module) => module.id === child.id);
+    if (!parentOutput || !childOutput) throw new Error("missing output owners");
+    const refs = parentOutput.packages[0].opcodes.filter(
+      (span) => span.opcode === IFR_OPCODE.REF,
+    );
+    expect(refs).toMatchObject([{ formId: 3, ownerFormId: 2 }]);
+    expect(childOutput.bytes.slice(41, 43)).toEqual(Uint8Array.of(0x29, 2));
+    expect(result.image.slice(0, 0x2000)).toEqual(image.slice(0, 0x2000));
+  });
+
+  it("preserves an unselected mixed parent while rebuilding its independently selected child", async () => {
+    const image = wrappedVolume(volume(), true);
+    const { data, workspace, inventory } = await workspaceFor(image);
+    const child = workspace.modules[1];
+    const childBytes = workspace.sourceBytes.slice(child.sourceStart, child.sourceEnd);
+    const childData = firmwareData({
+      firmwareFamily: "uefi-hii",
+      forms: [],
+      suppressions: [
+        condition({ active: false, offset: "0x25", start: "0x29", end: "0x38" }),
+      ],
+    });
+    const childWorkspace: UefiHiiWorkspace = {
+      data: childData,
+      modules: [{ ...child, sourceStart: 0, sourceEnd: childBytes.length }],
+      sourceBytes: childBytes,
+      editorBytes: childBytes.slice(),
+      warnings: [],
+    };
+    const result = await buildUefiHiiFirmwareImage(childData, childWorkspace, image);
+    const reopened = inventoryUefiHiiModules(await decodeFirmwareBuffers(result.image));
+    const parent = inventory.modules.find((module) => module.ownership);
+    const parentOutput = reopened.modules.find((module) => module.id === parent?.id);
+    if (!parent || !parentOutput) throw new Error("missing parent");
+    expect(createUefiHiiOwnedPackageView(parentOutput).bytes).toEqual(
+      createUefiHiiOwnedPackageView(parent).bytes,
+    );
+    expect(
+      reopened.modules.find((module) => module.id === child.id)?.bytes.slice(41, 43),
+    ).toEqual(Uint8Array.of(0x29, 2));
+    expect(data).toEqual(workspace.data);
+  });
+
+  it("rejects a stale editor view and rederives omitted summary envelopes", async () => {
+    const image = wrappedVolume(volume(), true);
+    const { data, workspace } = await workspaceFor(image);
+    if (!workspace.editorBytes) throw new Error("missing editor view");
+    workspace.editorBytes[68] = 1;
     await expect(buildUefiHiiFirmwareImage(data, workspace, image)).rejects.toThrow(
-      /unresolved ownership/,
+      /editor view/,
     );
-    expect(image).toEqual(original);
+    workspace.editorBytes[68] = 0;
+    delete workspace.modules[0].nestedPayloadRanges;
+    await expect(
+      buildUefiHiiFirmwareImage(data, workspace, image),
+    ).resolves.toHaveProperty("containerKind", "bios-image");
+  });
+
+  it.each([
+    "outside",
+    "fv-header",
+    "checksum",
+    "header-checksum",
+    "data-checksum",
+    "edited-body",
+    "provenance",
+    "missing-node",
+  ])("independently rejects %s corruption in a mixed read-back", async (problem) => {
+    const image = wrappedVolume(volume(), true);
+    const { data, workspace } = await workspaceFor(image);
+    const original = await decodeFirmwareBuffers(image);
+    const { decodeFirmwareBuffers: actualDecode } =
+      await vi.importActual<typeof import("./aptioIvExtractor")>("./aptioIvExtractor");
+    vi.mocked(decodeFirmwareBuffers)
+      .mockResolvedValueOnce(original)
+      .mockImplementationOnce(async (bytes) => {
+        const result = await actualDecode(bytes);
+        const child = result.buffers.find((node) => node.parent);
+        if (!child?.parent) throw new Error("missing child");
+        if (problem === "outside")
+          result.buffers[0].bytes[result.buffers[0].bytes.length - 1] ^= 1;
+        if (problem === "fv-header") child.bytes[0x10] ^= 1;
+        if (problem === "checksum") child.bytes[0x48 + 16] ^= 1;
+        if (problem === "header-checksum") result.buffers[0].bytes[0x48 + 16] ^= 1;
+        if (problem === "data-checksum") result.buffers[0].bytes[0x48 + 17] ^= 1;
+        if (problem === "edited-body") {
+          child.bytes[0x60 + 45] ^= 1;
+          for (const file of inventoryFirmwareFiles(child)) {
+            child.bytes[file.fileStart + 17] =
+              -sum(child.bytes.slice(file.bodyStart, file.end)) & 255;
+            const header = child.bytes.slice(file.fileStart, file.bodyStart);
+            header[17] = 0;
+            header[23] = 0;
+            header[16] = 0;
+            child.bytes[file.fileStart + 16] = -sum(header) & 255;
+          }
+          const parent = result.buffers[0];
+          parent.bytes.set(child.bytes, child.parent.payloadStart);
+          const file = child.parent.ownerFile;
+          if (!file) throw new Error("missing owner");
+          parent.bytes[file.fileStart + 17] =
+            -sum(parent.bytes.slice(file.bodyStart, file.end)) & 255;
+          const header = parent.bytes.slice(file.fileStart, file.bodyStart);
+          header[17] = 0;
+          header[23] = 0;
+          header[16] = 0;
+          parent.bytes[file.fileStart + 16] = -sum(header) & 255;
+        }
+        if (problem === "provenance") child.parent.sectionEnd--;
+        if (problem === "missing-node") result.buffers.pop();
+        return result;
+      });
+    await expect(buildUefiHiiFirmwareImage(data, workspace, image)).rejects.toThrow(
+      /unowned decoded byte|payload does not match|did not match|provenance changed|inventory changed|checksum is invalid/,
+    );
   });
 
   it("confines staged mixed-carrier patches to its own package without exporting an image", async () => {
@@ -336,6 +608,7 @@ describe("generic HII complete-image foundation", () => {
       sourceStart: 0,
       sourceEnd: carrier.bytes.length,
       ownedPackages,
+      nestedPayloadRanges: carrier.nestedPayloadRanges,
     };
     const data = firmwareData({
       firmwareFamily: "uefi-hii",
@@ -358,8 +631,14 @@ describe("generic HII complete-image foundation", () => {
       }),
     ];
     expect(() => buildUefiHiiModulePatches(data, carrier.bytes, [summary])).toThrow(
-      /outside the owned HII packages/,
+      /closing End/,
     );
+    data.suppressions = [
+      condition({ active: false, offset: "0x25", start: "0x29", end: "0x38" }),
+    ];
+    expect(() => {
+      downloadModifiedUefiHiiModules(data, carrier.bytes, [summary]);
+    }).toThrow(/complete-image download/);
     expect(image).toEqual(original);
   });
 
@@ -431,6 +710,20 @@ describe("generic HII complete-image foundation", () => {
       expect(image).toEqual(original);
     },
   );
+
+  it("verifies a mixed ancestor using the PI fixed 0xAA data-checksum convention", async () => {
+    const image = wrappedVolume(volume(), true);
+    image[0x5b] &= ~0x40;
+    image[0x59] = 0xaa;
+    const header = image.slice(0x48, 0x60);
+    header[16] = 0;
+    header[17] = 0;
+    header[23] = 0;
+    image[0x58] = -sum(header) & 255;
+    const { data, workspace } = await workspaceFor(image);
+    const result = await buildUefiHiiFirmwareImage(data, workspace, image);
+    expect(result.image[0x59]).toBe(0xaa);
+  });
 
   it("rejects overlapping workspace ranges even when both FFS bodies are byte-identical", async () => {
     const image = volume();

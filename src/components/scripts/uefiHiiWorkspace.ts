@@ -19,12 +19,15 @@ export interface UefiHiiWorkspaceModule {
   sourceStart: number;
   sourceEnd: number;
   ownedPackages?: UefiHiiPackageRange[];
+  nestedPayloadRanges?: UefiHiiPackageRange[];
 }
 
 export interface UefiHiiWorkspace {
   data: Data;
   modules: UefiHiiWorkspaceModule[];
   sourceBytes: Uint8Array;
+  /** Offset-preserving isolated stream used by every editor planning/replay action. */
+  editorBytes?: Uint8Array;
   warnings: string[];
 }
 
@@ -36,10 +39,12 @@ function isSetupModule(module: UefiHiiModule) {
 
 function selectWorkspaceModules(inventory: UefiHiiInventory) {
   const inspectionOnly = inventory.modules.filter(
-    (module) => module.ownership === "mixed-direct-nested",
+    (module) =>
+      module.ownership === "mixed-direct-nested" &&
+      (!module.nestedPayloadRanges?.length || !module.packages.length),
   );
   const editableModules = inventory.modules.filter(
-    (module) => module.ownership !== "mixed-direct-nested",
+    (module) => !inspectionOnly.includes(module),
   );
   const setupModules = editableModules.filter(isSetupModule);
   const candidates =
@@ -166,6 +171,9 @@ function moduleSummary(
           ownedPackages: module.packages.map(({ offset, end }) => ({ offset, end })),
         }
       : {}),
+    ...(module.nestedPayloadRanges
+      ? { nestedPayloadRanges: structuredClone(module.nestedPayloadRanges) }
+      : {}),
   };
 }
 
@@ -207,23 +215,16 @@ export async function buildUefiHiiWorkspace(
   }
 
   const source = concatenateModules(modules);
+  const editorBytes = new Uint8Array(source.bytes.length);
   for (const module of modules) {
     try {
       const sourceStart = source.starts.get(module.id) ?? 0;
-      parsedModules.push(
-        namespaceParsedModule(
-          parseIfrText(
-            await extractText(
-              module.packages.length
-                ? createUefiHiiOwnedPackageView(module).bytes
-                : module.bytes.slice(),
-            ),
-            "",
-          ),
-          module,
-          sourceStart,
-        ),
-      );
+      const view = module.packages.length
+        ? createUefiHiiOwnedPackageView(module).bytes
+        : module.bytes.slice();
+      const parsed = parseIfrText(await extractText(view.slice()), "");
+      editorBytes.set(view, sourceStart);
+      parsedModules.push(namespaceParsedModule(parsed, module, sourceStart));
       accepted.push(module);
     } catch (reason) {
       warnings.push(
@@ -247,7 +248,7 @@ export async function buildUefiHiiWorkspace(
       forms,
       varStores: parsedModules.flatMap((parsed) => parsed.varStores),
       suppressions: parsedModules.flatMap((parsed) => parsed.suppressions),
-      ifrBinary: analyzeIfrBinary(source.bytes),
+      ifrBinary: analyzeIfrBinary(editorBytes),
       version: "0.7.0",
       hashes: {
         setupTxt: "",
@@ -261,6 +262,7 @@ export async function buildUefiHiiWorkspace(
       moduleSummary(module, source.starts.get(module.id) ?? 0),
     ),
     sourceBytes: source.bytes,
+    editorBytes,
     warnings,
   };
 }

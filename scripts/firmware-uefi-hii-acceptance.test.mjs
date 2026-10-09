@@ -84,16 +84,20 @@ it("rebuilds the accepted P53 SPI through one queued Ref move in both LZMA copie
   expect(
     analyzeMenuMoveDestinations(
       base,
-      bytesToHex(workspace.sourceBytes),
+      bytesToHex(workspace.editorBytes ?? workspace.sourceBytes),
       sourceFormIndex,
       referenceChildIndex,
     )[destinationFormIndex].compatibility,
   ).toBe("safe-same-package");
-  const staged = await moveMenuReference(base, bytesToHex(workspace.sourceBytes), {
-    sourceFormIndex,
-    referenceChildIndex,
-    destinationFormIndex,
-  });
+  const staged = await moveMenuReference(
+    base,
+    bytesToHex(workspace.editorBytes ?? workspace.sourceBytes),
+    {
+      sourceFormIndex,
+      referenceChildIndex,
+      destinationFormIndex,
+    },
+  );
   const entry = createDataChangeEntry(base, staged, "move-debug");
   expect(entry).not.toBeNull();
   const applied = projectDataChangeQueue(base, [entry]);

@@ -897,7 +897,8 @@ export default function BiosImageUpload({
                   module(s) across {String(uefiHiiInventory.uniqueBufferCount)} unique
                   decoded buffer(s). Eligible Setup-related modules will be joined into
                   one navigation graph with validated Hide, Show and Move controls.
-                  Mixed containers are available for inspection only.
+                  Mixed containers expose only their own HII packages to the editor;
+                  complete-image output requires supported provenance and verification.
                 </Text>
                 <Table striped withColumnBorders>
                   <Table.Thead>
@@ -924,7 +925,10 @@ export default function BiosImageUpload({
                           <Table.Td>{String(module.formSetGuids.length)}</Table.Td>
                           <Table.Td>
                             {module.ownership === "mixed-direct-nested"
-                              ? "Inspection only"
+                              ? module.nestedPayloadRanges?.length &&
+                                module.packages.length
+                                ? "Own packages only"
+                                : "Inspection only"
                               : "Editor candidate"}
                           </Table.Td>
                         </Table.Tr>

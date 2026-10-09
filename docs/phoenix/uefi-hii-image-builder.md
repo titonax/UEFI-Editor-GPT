@@ -5,7 +5,8 @@ edits into independently discovered FFS owners. The editor footer now exposes
 Apply → Check firmware output → Output details → explicit complete-image download.
 The verified bytes are cached for the current source, workspace and applied queue;
 any change invalidates that result, including pending asynchronous completion.
-The existing module-download action remains available separately.
+The module-download action remains available for independent drivers; mixed
+workspaces use verified complete-image output to combine parent and child changes.
 See the [user flow and Firefox checks](uefi-hii-output-user-flow.md).
 The uncompressed routes have synthetic engine evidence. A separate
 [P53 mirrored LZMA acceptance record](p53-mirrored-lzma-output-acceptance.md) covers
@@ -30,12 +31,13 @@ drivers. Identity sections containing direct HII without a nested FFS owner keep
 their existing ownership. For a mixed carrier, discovery retains only its own
 Forms packages in the module metadata, with original body-relative offsets and
 FormSet identities; nested packages remain assigned to their inner drivers.
-The complete carrier body is still retained unchanged as source evidence, so it
-must not be treated as an independently editable body: the module is marked
-`mixed-direct-nested` and excluded before editor selection, text extraction or
-workspace concatenation. A mixed carrier cannot displace an eligible driver in
-the Setup selection or highest-ranked fallback. Its ownership diagnostic blocks
-complete-image output, including edits to otherwise independently owned children.
+The complete carrier body is retained unchanged as source evidence. A carrier
+marked `mixed-direct-nested` can enter the editor only with retained, validated
+owned packages and nested payload envelopes. Its isolated view exposes only
+its own packages; independently selected children retain separate module identity.
+Missing ownership metadata keeps a carrier inspection-only. Existing Setup
+selection and alternate-FormSet rules still apply; discovery is not runtime root
+registration evidence.
 
 Packages crossing a nested FFS body boundary, or present in the decoded nested
 payload without a bounded FFS body owner (including FV free space), produce an
@@ -48,18 +50,21 @@ Contradictory child provenance cannot silently remove an outer HII owner.
 `uefiHiiOwnership.ts` provides an offset-preserving analysis copy for owned Forms
 packages. It masks each proven nested payload envelope in full, including nested
 string packages, and omits other Forms Packages without compacting the body.
-Direct string evidence and all original offsets remain available. Masked bytes
-are never used as patch originals or written to firmware. Current eligible
-workspace modules use this copy for text extraction while retaining their exact
-original bodies and body-relative owned-package ranges.
+Direct string evidence and all original offsets remain available. The workspace
+retains separate original `sourceBytes` and isolated `editorBytes`. Text extraction,
+binary analysis, navigation actions, move planning and replay use the isolated
+stream. Failed text-extraction bodies are masked from that stream too. Source
+bodies and body-relative owned-package ranges remain available independently.
 
 Module patching checks every changed byte against those valid original package
 boundaries. Code, strings, PI section headers and nested driver bytes cannot be
 changed by a package edit. Full-image reconstruction derives the allowed package
 ranges again from fresh source discovery; omitted or widened workspace claims
-cannot override that evidence. Mixed modules remain excluded from the editor:
-the view and edit-boundary primitives prepare their future integration without
-enabling combined parent/child output.
+cannot override that evidence. Replay runs on a freshly constructed isolated
+stream; only changed owned bytes are overlaid onto the original bodies. Zeroed
+nested bytes and gaps in the view are never copied into output. A stale cached
+editor view rejects reconstruction. Mixed edits must preserve their existing
+Forms Package boundaries; package rebalancing in mixed carriers remains blocked.
 
 The shared PI builder receives one expected-byte patch per exact owning FFS. Its
 optional `sourceFileStart` selector distinguishes multiple HII owners in one
@@ -68,10 +73,23 @@ header and data checksums are repaired. The original allocation and image size
 remain fixed, and all bytes outside the affected FFS allocations remain identical.
 Complete SPI output preserves every byte outside the BIOS region.
 
+Parent own-package changes are applied before the shared PI builder propagates
+modified children bottom-up, retaining both changes before repairing enclosing
+FFS checksums. Mixed output accepts complete identity-only ancestry. Compressed
+mixed paths remain blocked, independently of the accepted P53 LZMA route.
+
 The complete result is decoded again and every discovered HII module is checked
-against the exact expected edited or unchanged body. Missing modules, changed
-unselected siblings and decode failures reject the result. Outer BIOS/SPI bounds
-must remain identical too.
+against its exact expected edited or unchanged body. A mixed parent's isolated
+body is compared separately from its nested payloads: a child edit must not make
+its unchanged parent appear to have received an own-package edit. The additional
+`uefiHiiIdentityVerification.ts` guard compares every decoded buffer and permits
+changes only in requested HII bodies, ancestor child payloads and repaired FFS
+checksum fields. It verifies exact child-to-parent payload identity, unchanged
+buffer provenance/allocation bounds, and valid header/data checksums, including
+ancestors without HII. Thus nested FV headers, padding and non-HII siblings stay
+protected even where the parent's analysis view masks them. Missing modules,
+changed unselected siblings and decode failures reject the result. Outer BIOS/SPI
+bounds and every non-BIOS byte remain identical too.
 
 ## Validation
 
@@ -84,16 +102,26 @@ one identity ancestor in raw BIOS/SPI, and two identity ancestors in complete SP
 Negative tests cover stale bytes/GUIDs/IDs,
 wrong bounds, duplicate and overlapping spans, same-buffer mirrored FFS copies,
 wrapper containers, missing edits, stale End opcodes, incomplete/compressed
-provenance, mixed/crossing HII ownership, unowned packages in nested FV free space,
+provenance, crossing HII ownership, unowned packages in nested FV free space,
 contradictory child metadata, decode
 failures and contradictory full-image re-extraction.
 `uefiImageRebuilder.test.ts` covers the selector's ambiguous/missing-owner rejection.
 Mixed inventory tests assert one outer-owned package/FormSet and three separate
-inner drivers with no duplicated package ownership, then verify that image output
-remains blocked and source bytes remain unchanged. `uefiHiiWorkspace.test.ts`
-checks both Setup-named and fallback carriers are excluded before extraction,
-and an inspection-only inventory yields an empty editor workspace. These are
-synthetic regressions, not real mixed-source acceptance.
+inner drivers with no duplicated package ownership. Nine reconstruction variants
+cover parent-only, child-only and combined edits in raw BIOS, SPI and SPI with two
+identity levels. A queued parent Ref move plus child Show runs through the actual
+isolated workspace, semantic planner, queue, patcher, builder and independent
+read-back. Another test rebuilds a selected child while retaining an unselected
+mixed parent. Negative read-back tests cover unowned bytes, nested FV headers,
+checksum corruption, altered requested edits with repaired checksums, provenance
+changes and missing buffers. Stale views reject output; omitted summary envelopes
+cannot remove fresh ownership isolation. Source buffers remain unchanged.
+
+Workspace tests verify isolated mixed/child analysis without duplicate packages,
+masking of failed extraction bodies, and exclusion of carriers lacking ownership
+evidence. Footer tests require verified full-image download for mixed workspaces
+and keep separate module export disabled. These are synthetic regressions, not
+real mixed-source or physical flash acceptance.
 
 `uefiHiiOwnership.test.ts` verifies unchanged source bytes, stable offsets,
 preserved direct strings, removed nested payloads/strings, ordinary views,
@@ -107,12 +135,11 @@ summary claims to prove the builder derives its own bounds independently.
 
 ## Remaining gates
 
-Mixed direct/nested HII package inventory is available for inspection; editing and
-combined parent/child reconstruction remain deferred. Offset-preserving analysis
-views and package-confined patch validation are implemented as internal primitives.
-Enabling mixed editing still requires those views throughout binary editor
-planning/replay, and a shared bottom-up rebuild that combines outer and inner changes before
-checksum repair and independent verification. Generic LZMA output has exact
+Mixed direct/nested HII editing and combined reconstruction now have synthetic
+evidence for bounded, fixed-package, uncompressed identity paths. A real mixed
+source acceptance record remains pending; this does not establish broad vendor
+compatibility. Compressed mixed paths and mixed package rebalancing remain blocked.
+Generic LZMA output has exact
 real-source acceptance only for the P53 Setup FFS and its two physical copies.
 Other LZMA sources/drivers, EFI/Tiano, unknown mirrored modules, wrappers, capsules,
 allocation growth and runtime root registration remain unsupported. AMI acceptance
