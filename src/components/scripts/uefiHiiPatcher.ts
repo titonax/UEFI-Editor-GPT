@@ -5,6 +5,7 @@ import { bytesToHex } from "./hex";
 import { replayIfrEdits } from "./menuEditing";
 import type { Data } from "./types";
 import { applyUefiHiiSuppressionEdits } from "./uefiHiiSuppressionEditing";
+import { assertUefiHiiOwnedPackageChanges } from "./uefiHiiOwnership";
 
 export interface PatchedUefiHiiModule {
   module: UefiHiiWorkspaceModule;
@@ -52,6 +53,7 @@ export function buildUefiHiiModulePatches(
   for (const module of modules) {
     const original = sourceBytes.slice(module.sourceStart, module.sourceEnd);
     const patched = modified.slice(module.sourceStart, module.sourceEnd);
+    assertUefiHiiOwnedPackageChanges(original, patched, module.ownedPackages);
     if (sameBytes(original, patched)) continue;
     changed.push({
       module,

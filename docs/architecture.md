@@ -61,6 +61,7 @@
 | `uefiImageRebuilder.ts`       | Bottom-up fixed-size PI rebuild and FFS checksum repair                 |
 | `amiFirmwareRebuilder.ts`     | AMI patch orchestration and independent artefact re-extraction          |
 | `uefiHiiFirmwareRebuilder.ts` | Bounded HII reconstruction, physical copy checks and full-image re-read |
+| `uefiHiiOwnership.ts`         | Offset-preserving owned-package views and changed-byte confinement      |
 | `errors.ts`                   | Stable domain error codes and user-facing messages                      |
 | `corpusAnalysis.ts`           | Layered local extraction, navigation and editing assessment             |
 | `corpusTypes.ts`              | Versioned corpus result and Worker message contracts                    |
@@ -128,6 +129,11 @@ and the read-only CorpusRunner integration.
   encoded body and re-opens the complete image before enabling the download.
 - Intel SPI reconstruction permits changes only inside the descriptor-declared
   BIOS region and returns Descriptor, ME, GbE, EC and every other byte unchanged.
+- HII analysis views retain offsets while masking nested payloads, including their
+  strings. Original module bodies remain immutable and are used for patching.
+  Owned-package edits cannot change bytes outside their original valid package
+  ranges; full-image reconstruction derives those ranges from fresh discovery.
+  These primitives do not enable mixed parent/child editing or reconstruction.
 - AMIBIOS8 legacy detection is separate from Aptio: a versioned core signature,
   boot-block marker and x86 reset vector are required before the container is
   promoted from a loose vendor string to a confirmed legacy ROM.
