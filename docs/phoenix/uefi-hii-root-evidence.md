@@ -45,6 +45,10 @@ the firmware's runtime root registration or on-machine menu visibility.
 
 ## Remaining gate
 
+The [P53 browser-code investigation](p53-root-registration-research.md) narrows
+the next trace to the handle-preparation routine and separates the Metro
+presentation lookup from an unproven visibility vector.
+
 Runtime registration requires coherent code/data evidence for the selected
 source, followed by independent verification of any proposed registration
 edit. No GUID occurrence, driver name, FormSet title, first-form position or

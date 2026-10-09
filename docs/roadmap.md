@@ -235,7 +235,11 @@ boundary verification for each supported compression/layout class.
   unproven runtime registration/visibility. The exact P53 source contains 11
   parsed FormSet entries, none with an incoming static Ref; this does not prove
   which firmware menus appear. See [root evidence](phoenix/uefi-hii-root-evidence.md).
-- Investigate Phoenix/Lenovo registration for FormSet roots without parent Refs.
+- [P53 browser-code research](phoenix/p53-root-registration-research.md) now
+  reproduces a seven-entry Metro GUID lookup with three 16-bit selectors and a
+  candidate FormBrowser2/SendForm path in SystemBiosSetupDxe. Neither establishes
+  a visibility vector. Trace the handle-preparation routine and interface
+  provenance before promoting runtime root registration or offering edits.
 - Prove runtime-visible roots separately from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
   controlled behavior layer.
