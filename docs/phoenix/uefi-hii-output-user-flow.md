@@ -33,6 +33,34 @@ Before downloading, also try removing or disabling the operation and confirm tha
 download/details become unavailable until a new successful check. Verification
 does not establish runtime root registration or physical flash behavior.
 
-The current automated frontend evidence is synthetic; the separate real P53
-acceptance exercises the actual codecs and full-image engine. This manual Firefox
-flow remains a deployment check.
+The routine frontend tests use synthetic results to exercise lifecycle failures.
+The opt-in real-source frontend acceptance described below additionally exercises
+the actual codecs and full-image engine through rendered React controls. The manual
+Firefox flow remains a separate deployment check.
+
+## Opt-in real-source frontend acceptance
+
+Set `FIRMWARE_ACCEPTANCE_IMAGE` to the existing accepted source on the local machine
+and `FIRMWARE_ACCEPTANCE_WASM_DIR` to the local directory containing the three
+production WASI assets. Then run:
+
+```bash
+FIRMWARE_ACCEPTANCE_SCENARIO=uefi-hii-ui npm run firmware:acceptance
+```
+
+`firmware-uefi-hii-ui-acceptance.test.mjs` discovers and parses the real source,
+renders the actual menu actions and footer in jsdom, selects the existing destination
+in the move dialog, stages/applies the queue and checks the full image. It verifies
+the physical-copy and allocation report, captures only the explicit download in
+memory, checks its complete size/hash and unchanged non-BIOS bytes, independently
+reopens both Setup copies and verifies the Ref's new Form owner. Removing the
+operation must invalidate download/details. No editor, queue, builder or codec is
+mocked; only the download adapter and unavailable DOM layout APIs are substituted.
+The selector uses fixed test geometry and width with automatic dropdown placement
+disabled, because jsdom provides no browser layout. Its actual options, destination
+validation and change handlers remain in use.
+Assets are loaded locally and firmware bytes are neither written nor uploaded.
+
+This test is intentionally outside routine CI because the accepted firmware is
+private and absent from the repository. jsdom does not establish Firefox layout,
+browser file-picker behavior, deployed asset loading or physical flash validation.
