@@ -229,8 +229,14 @@ boundary verification for each supported compression/layout class.
   source acceptance, compressed mixed paths and mixed package rebalancing remain
   pending. Packages crossing FFS boundaries or lying in nested FV free space
   cannot be reassigned to the outer carrier.
+- FormSet entry evidence now retains every parsed declaration separately from
+  graph roots, including entries reached by cross-FormSet Refs. The read-only
+  table reports current static incoming edges, missing/ambiguous identities and
+  unproven runtime registration/visibility. The exact P53 source contains 11
+  parsed FormSet entries, none with an incoming static Ref; this does not prove
+  which firmware menus appear. See [root evidence](phoenix/uefi-hii-root-evidence.md).
 - Investigate Phoenix/Lenovo registration for FormSet roots without parent Refs.
-- Distinguish runtime-visible roots from merely present HII FormSets.
+- Prove runtime-visible roots separately from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
   controlled behavior layer.
 

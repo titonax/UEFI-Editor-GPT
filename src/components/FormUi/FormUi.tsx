@@ -48,6 +48,7 @@ import { errorMessage } from "../scripts/errors";
 import { describeSetupDataFlags } from "../scripts/setupDataFlags";
 import UefiHiiMenuActions from "./UefiHiiMenuActions";
 import UefiHiiNavigationTable from "./UefiHiiNavigationTable";
+import UefiHiiRootsTable from "./UefiHiiRootsTable";
 
 const conditionSourceMeta: Record<
   ConditionSource,
@@ -1060,121 +1061,121 @@ export default function FormUi({
             enabled={navigationEditable}
           />
         )}
-        {data.firmwareFamily === "uefi-hii" && (
-          <Text fw={600} size="sm">
-            HII FormSet roots · structural entries without a parent Ref
-          </Text>
-        )}
-        <Table striped withColumnBorders>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>Form Id</Table.Th>
-              <Table.Th>Root evidence</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {data.menu.map((entry, index) => (
-              <Table.Tr
-                key={index.toString() + (entry.offset ?? "readonly") + entry.formId}
-              >
-                <Table.Td
-                  className={s.pointer}
-                  onClick={() => {
-                    handleRefClick(entry.formId, entry.formSetGuid);
-                  }}
-                >
-                  {entry.name}
-                </Table.Td>
-                <Table.Td className={s.formIdWidth}>
-                  <NativeSelect
-                    className={s.formIdChildWidth}
-                    disabled={entry.offset === null}
-                    value={entry.formId}
-                    data={data.forms
-                      .filter(
-                        (form) =>
-                          !entry.formSetGuid || form.formSetGuid === entry.formSetGuid,
-                      )
-                      .map((form) => form.formId)}
-                    onChange={(ev) => {
-                      const value = ev.target.value;
-                      const selectedName = data.forms.find(
-                        (form) =>
-                          (!entry.formSetGuid ||
-                            form.formSetGuid === entry.formSetGuid) &&
-                          parseInt(form.formId) === parseInt(value),
-                      )?.name;
-
-                      if (!selectedName) return;
-
-                      setData((draft) => {
-                        draft.menu[index].formId = value;
-                        draft.menu[index].name = selectedName;
-                      });
-                    }}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <Group gap={5}>
-                    <Tooltip
-                      label={
-                        entry.source === "setupdata"
-                          ? `This root is registered in the AMITSE SetupData page list${entry.pageMask ? ` with page selector ${entry.pageMask}` : ""}.`
-                          : entry.source === "ifr-hub"
-                            ? "This is the single FormSet entry and IFR navigation hub. Its direct Ref children define the current top-level tabs."
-                            : entry.source === "amitse" || entry.offset !== null
-                              ? "This root is present in the AMITSE executable menu table."
-                              : "This is the entry form declared by its HII FormSet. It is structural evidence, not a runtime visibility condition."
-                      }
-                      multiline
-                      w={360}
-                    >
-                      <Badge
-                        color={
-                          entry.source === "setupdata"
-                            ? "cyan"
-                            : entry.source === "ifr-hub"
-                              ? "blue"
-                              : entry.source === "amitse" || entry.offset !== null
-                                ? "green"
-                                : "blue"
-                        }
-                        variant="light"
-                      >
-                        {entry.source === "setupdata"
-                          ? `SetupData page ${entry.pageMask ?? ""}`
-                          : entry.source === "ifr-hub"
-                            ? "IFR navigation hub"
-                            : entry.source === "amitse" || entry.offset !== null
-                              ? "AMITSE menu"
-                              : "HII FormSet entry"}
-                      </Badge>
-                    </Tooltip>
-                    {data.rootVisibility?.status !== "detected" &&
-                      semanticTree.roots[index]?.profileLabel && (
-                        <Badge
-                          size="xs"
-                          color={
-                            semanticTree.roots[index].profileAssessment ===
-                            "probable-live"
-                              ? "green"
-                              : semanticTree.roots[index].profileAssessment ===
-                                  "probable-fallback"
-                                ? "orange"
-                                : "gray"
-                          }
-                          variant="outline"
-                        >
-                          {semanticTree.roots[index].profileLabel}
-                        </Badge>
-                      )}
-                  </Group>
-                </Table.Td>
+        {data.firmwareFamily === "uefi-hii" ? (
+          <UefiHiiRootsTable data={data} setCurrentFormIndex={setCurrentFormIndex} />
+        ) : (
+          <Table striped withColumnBorders>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Form Id</Table.Th>
+                <Table.Th>Root evidence</Table.Th>
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {data.menu.map((entry, index) => (
+                <Table.Tr
+                  key={index.toString() + (entry.offset ?? "readonly") + entry.formId}
+                >
+                  <Table.Td
+                    className={s.pointer}
+                    onClick={() => {
+                      handleRefClick(entry.formId, entry.formSetGuid);
+                    }}
+                  >
+                    {entry.name}
+                  </Table.Td>
+                  <Table.Td className={s.formIdWidth}>
+                    <NativeSelect
+                      className={s.formIdChildWidth}
+                      disabled={entry.offset === null}
+                      value={entry.formId}
+                      data={data.forms
+                        .filter(
+                          (form) =>
+                            !entry.formSetGuid ||
+                            form.formSetGuid === entry.formSetGuid,
+                        )
+                        .map((form) => form.formId)}
+                      onChange={(ev) => {
+                        const value = ev.target.value;
+                        const selectedName = data.forms.find(
+                          (form) =>
+                            (!entry.formSetGuid ||
+                              form.formSetGuid === entry.formSetGuid) &&
+                            parseInt(form.formId) === parseInt(value),
+                        )?.name;
+
+                        if (!selectedName) return;
+
+                        setData((draft) => {
+                          draft.menu[index].formId = value;
+                          draft.menu[index].name = selectedName;
+                        });
+                      }}
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap={5}>
+                      <Tooltip
+                        label={
+                          entry.source === "setupdata"
+                            ? `This root is registered in the AMITSE SetupData page list${entry.pageMask ? ` with page selector ${entry.pageMask}` : ""}.`
+                            : entry.source === "ifr-hub"
+                              ? "This is the single FormSet entry and IFR navigation hub. Its direct Ref children define the current top-level tabs."
+                              : entry.source === "amitse" || entry.offset !== null
+                                ? "This root is present in the AMITSE executable menu table."
+                                : "This is the entry form declared by its HII FormSet. It is structural evidence, not a runtime visibility condition."
+                        }
+                        multiline
+                        w={360}
+                      >
+                        <Badge
+                          color={
+                            entry.source === "setupdata"
+                              ? "cyan"
+                              : entry.source === "ifr-hub"
+                                ? "blue"
+                                : entry.source === "amitse" || entry.offset !== null
+                                  ? "green"
+                                  : "blue"
+                          }
+                          variant="light"
+                        >
+                          {entry.source === "setupdata"
+                            ? `SetupData page ${entry.pageMask ?? ""}`
+                            : entry.source === "ifr-hub"
+                              ? "IFR navigation hub"
+                              : entry.source === "amitse" || entry.offset !== null
+                                ? "AMITSE menu"
+                                : "HII FormSet entry"}
+                        </Badge>
+                      </Tooltip>
+                      {data.rootVisibility?.status !== "detected" &&
+                        semanticTree.roots[index]?.profileLabel && (
+                          <Badge
+                            size="xs"
+                            color={
+                              semanticTree.roots[index].profileAssessment ===
+                              "probable-live"
+                                ? "green"
+                                : semanticTree.roots[index].profileAssessment ===
+                                    "probable-fallback"
+                                  ? "orange"
+                                  : "gray"
+                            }
+                            variant="outline"
+                          >
+                            {semanticTree.roots[index].profileLabel}
+                          </Badge>
+                        )}
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
       </Stack>
     );
   }

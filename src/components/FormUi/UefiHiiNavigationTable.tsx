@@ -65,7 +65,7 @@ export default function UefiHiiNavigationTable({
             <Table.Th>Menu</Table.Th>
             <Table.Th>Form Id</Table.Th>
             <Table.Th>Parent</Table.Th>
-            <Table.Th>Visibility</Table.Th>
+            <Table.Th>Static IFR visibility</Table.Th>
             <Table.Th>HII module</Table.Th>
             <Table.Th>Actions</Table.Th>
           </Table.Tr>

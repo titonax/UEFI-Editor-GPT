@@ -11,6 +11,7 @@ import {
   inventoryFirmwareFiles,
 } from "../src/components/scripts/aptioIvExtractor";
 import { inventoryUefiHiiModules } from "../src/components/scripts/uefiHiiDiscovery";
+import { analyzeUefiHiiRoots } from "../src/components/scripts/uefiHiiRootEvidence";
 import { buildUefiHiiWorkspace } from "../src/components/scripts/uefiHiiWorkspace";
 import { analyzeIfrBinary, IFR_OPCODE } from "../src/components/scripts/ifrBinary";
 import { bytesToHex } from "../src/components/scripts/hex";
@@ -127,6 +128,20 @@ it("moves a real P53 Ref through the UI, verifies and explicitly downloads the c
   const workspace = await buildUefiHiiWorkspace(inventory);
   progress("workspace parsed");
   const base = workspace.data;
+  const rootEvidence = analyzeUefiHiiRoots(base);
+  expect(rootEvidence.length).toBeGreaterThan(0);
+  expect(
+    rootEvidence.every(
+      (root) =>
+        root.runtimeRegistration === "unproven" &&
+        root.runtimeVisibility === "unproven" &&
+        root.formIndex !== null,
+    ),
+  ).toBe(true);
+  expect(rootEvidence.length).toBeGreaterThanOrEqual(base.menu.length);
+  console.info(
+    `Real HII root evidence: ${String(rootEvidence.length)} FormSet entries; ${String(rootEvidence.filter((root) => root.staticEntry === "referenced").length)} with incoming static Refs; ${String(rootEvidence.filter((root) => root.staticEntry === "no-incoming-ref").length)} without incoming static Refs.`,
+  );
   const sourceIndex = base.forms.findIndex(
     (form) =>
       form.name === "Intel Advanced Menu" &&

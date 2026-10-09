@@ -467,6 +467,8 @@ export default function Navigation({
               </Text>
               <Text size="xs" c="dimmed">
                 {data.forms.length} forms
+                {data.firmwareFamily === "uefi-hii" &&
+                  " · static IFR graph; runtime visibility unproven"}
               </Text>
             </div>
           </Group>

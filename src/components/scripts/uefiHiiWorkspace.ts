@@ -235,16 +235,14 @@ export async function buildUefiHiiWorkspace(
 
   const forms = parsedModules.flatMap((parsed) => parsed.forms);
   rebuildCrossModuleReferences(forms);
-  const roots = workspaceRoots(
-    parsedModules.flatMap((parsed) => parsed.formSetRoots),
-    forms,
-  );
+  const formSetRoots = parsedModules.flatMap((parsed) => parsed.formSetRoots);
+  const roots = workspaceRoots(formSetRoots, forms);
 
   return {
     data: {
       firmwareFamily: "uefi-hii",
       menu: roots,
-      formSetRoots: roots,
+      formSetRoots,
       forms,
       varStores: parsedModules.flatMap((parsed) => parsed.varStores),
       suppressions: parsedModules.flatMap((parsed) => parsed.suppressions),

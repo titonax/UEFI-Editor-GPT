@@ -156,4 +156,6 @@ bytes, report contents, queue mutations, source/workspace replacement and stale
 asynchronous completion. This is separate from the real source engine acceptance;
 Firefox/hardware behavior is not established by the synthetic UI tests.
 Root FormSet presence continues to be distinct
-from runtime registration or visibility.
+from runtime registration or visibility. The [root evidence table](uefi-hii-root-evidence.md)
+retains all parsed declarations, including entries with incoming cross-FormSet Refs,
+without adding registration or runtime-visibility edits.
