@@ -45,6 +45,22 @@ bodies cannot be reassigned to the outer carrier merely because it is contained
 in the outer FFS allocation.
 Contradictory child provenance cannot silently remove an outer HII owner.
 
+`uefiHiiOwnership.ts` provides an offset-preserving analysis copy for owned Forms
+packages. It masks each proven nested payload envelope in full, including nested
+string packages, and omits other Forms Packages without compacting the body.
+Direct string evidence and all original offsets remain available. Masked bytes
+are never used as patch originals or written to firmware. Current eligible
+workspace modules use this copy for text extraction while retaining their exact
+original bodies and body-relative owned-package ranges.
+
+Module patching checks every changed byte against those valid original package
+boundaries. Code, strings, PI section headers and nested driver bytes cannot be
+changed by a package edit. Full-image reconstruction derives the allowed package
+ranges again from fresh source discovery; omitted or widened workspace claims
+cannot override that evidence. Mixed modules remain excluded from the editor:
+the view and edit-boundary primitives prepare their future integration without
+enabling combined parent/child output.
+
 The shared PI builder receives one expected-byte patch per exact owning FFS. Its
 optional `sourceFileStart` selector distinguishes multiple HII owners in one
 buffer; callers omitting it retain the previous unique-owner requirement. FFS
@@ -79,12 +95,23 @@ checks both Setup-named and fallback carriers are excluded before extraction,
 and an inspection-only inventory yields an empty editor workspace. These are
 synthetic regressions, not real mixed-source acceptance.
 
+`uefiHiiOwnership.test.ts` verifies unchanged source bytes, stable offsets,
+preserved direct strings, removed nested payloads/strings, ordinary views,
+malformed and overlapping envelopes, stale package claims, length changes and
+changed bytes outside owned packages. Workspace tests verify text extraction
+receives a separate copy and original bodies retain their package bounds.
+An additional synthetic PI carrier regression stages a valid own-package
+SuppressIf edit and rejects the same edit redirected into its nested driver.
+Existing raw/SPI reconstruction regressions now also supply empty or widened
+summary claims to prove the builder derives its own bounds independently.
+
 ## Remaining gates
 
 Mixed direct/nested HII package inventory is available for inspection; editing and
-combined parent/child reconstruction remain deferred. Supporting them will require
-an offset-preserving owned-package editor view, edits confined to those packages,
-and a shared bottom-up rebuild that combines outer and inner changes before
+combined parent/child reconstruction remain deferred. Offset-preserving analysis
+views and package-confined patch validation are implemented as internal primitives.
+Enabling mixed editing still requires those views throughout binary editor
+planning/replay, and a shared bottom-up rebuild that combines outer and inner changes before
 checksum repair and independent verification. Generic LZMA output has exact
 real-source acceptance only for the P53 Setup FFS and its two physical copies.
 Other LZMA sources/drivers, EFI/Tiano, unknown mirrored modules, wrappers, capsules,

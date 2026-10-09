@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { UefiHiiInventory, UefiHiiModule } from "./uefiHiiDiscovery";
 import { buildUefiHiiWorkspace } from "./uefiHiiWorkspace";
+import { analyzeIfrBinary } from "./ifrBinary";
 
 const firstGuid = "11111111-1111-1111-1111-111111111111";
 const secondGuid = "22222222-2222-2222-2222-222222222222";
@@ -58,6 +59,33 @@ function ifrText(
 }
 
 describe("multi-module UEFI HII workspace", () => {
+  it("extracts an offset-preserving copy and retains original bytes with owned-package bounds", async () => {
+    const owner = module("owned", "Setup", 1, firstGuid);
+    const bytes = new Uint8Array(37);
+    bytes.set([37, 0, 0, 2, 0x0e, 0x97]);
+    bytes.fill(1, 6, 22);
+    bytes.set([1, 0x86, 1, 0, 1, 0, 0x29, 2, 0x29, 2], 27);
+    owner.bytes = bytes;
+    owner.packages = analyzeIfrBinary(bytes).packages;
+    const original = bytes.slice();
+    const workspace = await buildUefiHiiWorkspace(
+      {
+        modules: [owner],
+        decodedBufferCount: 1,
+        uniqueBufferCount: 1,
+        decodeFailures: [],
+      },
+      (view) => {
+        expect(view).toEqual(original);
+        expect(view).not.toBe(bytes);
+        view.fill(0);
+        return Promise.resolve(ifrText(firstGuid, "0x1", "Owned"));
+      },
+    );
+    expect(owner.bytes).toEqual(original);
+    expect(workspace.sourceBytes).toEqual(original);
+    expect(workspace.modules[0].ownedPackages).toEqual([{ offset: 0, end: 37 }]);
+  });
   it("joins cross-FormSet references and keeps module provenance", async () => {
     const inventory: UefiHiiInventory = {
       modules: [

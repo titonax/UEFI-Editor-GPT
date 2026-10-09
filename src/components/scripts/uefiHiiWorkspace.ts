@@ -3,6 +3,10 @@ import { analyzeIfrBinary } from "./ifrBinary";
 import { parseIfrText, type ParsedIfrText } from "./ifrTextParser";
 import type { Data, Form, Menu, Suppression } from "./types";
 import type { UefiHiiInventory, UefiHiiModule } from "./uefiHiiDiscovery";
+import {
+  createUefiHiiOwnedPackageView,
+  type UefiHiiPackageRange,
+} from "./uefiHiiOwnership";
 
 export interface UefiHiiWorkspaceModule {
   id: string;
@@ -14,6 +18,7 @@ export interface UefiHiiWorkspaceModule {
   mirroredBufferIds: number[];
   sourceStart: number;
   sourceEnd: number;
+  ownedPackages?: UefiHiiPackageRange[];
 }
 
 export interface UefiHiiWorkspace {
@@ -156,6 +161,11 @@ function moduleSummary(
     mirroredBufferIds: [...module.duplicateBufferIds],
     sourceStart,
     sourceEnd: sourceStart + module.bytes.length,
+    ...(module.packages.length
+      ? {
+          ownedPackages: module.packages.map(({ offset, end }) => ({ offset, end })),
+        }
+      : {}),
   };
 }
 
@@ -202,7 +212,14 @@ export async function buildUefiHiiWorkspace(
       const sourceStart = source.starts.get(module.id) ?? 0;
       parsedModules.push(
         namespaceParsedModule(
-          parseIfrText(await extractText(module.bytes), ""),
+          parseIfrText(
+            await extractText(
+              module.packages.length
+                ? createUefiHiiOwnedPackageView(module).bytes
+                : module.bytes.slice(),
+            ),
+            "",
+          ),
           module,
           sourceStart,
         ),

@@ -22,6 +22,8 @@ export interface UefiHiiModule {
   referenceCount: number;
   /** Own packages are inventoried, but the body also contains nested FFS owners. */
   ownership?: "mixed-direct-nested";
+  /** Body-relative identity payload envelopes; excluded only in analysis views. */
+  nestedPayloadRanges?: { offset: number; end: number }[];
 }
 
 export interface UefiHiiInventory {
@@ -197,7 +199,15 @@ export function inventoryUefiHiiModules(
         formCount: opcodes.filter((opcode) => opcode.opcode === IFR_OPCODE.FORM).length,
         referenceCount: opcodes.filter((opcode) => opcode.opcode === IFR_OPCODE.REF)
           .length,
-        ...(ownership ? { ownership } : {}),
+        ...(ownership
+          ? {
+              ownership,
+              nestedPayloadRanges: nestedPayloads.map(({ start, end }) => ({
+                offset: start,
+                end,
+              })),
+            }
+          : {}),
       });
     }
   }

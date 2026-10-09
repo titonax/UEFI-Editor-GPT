@@ -184,7 +184,14 @@ export async function buildUefiHiiFirmwareImage(
   const patches = buildUefiHiiModulePatches(
     data,
     workspace.sourceBytes,
-    workspace.modules,
+    // Derive package bounds from fresh discovery, never imported workspace claims.
+    workspace.modules.map((summary, index) => ({
+      ...summary,
+      ownedPackages: modules[index].packages.map(({ offset, end }) => ({
+        offset,
+        end,
+      })),
+    })),
   );
   if (
     assessment.compressions.includes("lzma") &&

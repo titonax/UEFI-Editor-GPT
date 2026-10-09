@@ -223,9 +223,12 @@ boundary verification for each supported compression/layout class.
 - Mixed direct/nested carriers now retain their own package metadata separately
   from nested drivers, with synthetic boundary and editor-exclusion regressions.
   The enclosing body stays inspection-only and complete-image output remains
-  blocked. Owned-package editing and combined parent/child reconstruction remain
-  pending; packages crossing FFS boundaries or lying in nested FV free space
-  cannot be reassigned to the outer carrier.
+  blocked. Offset-preserving analysis views now mask nested payloads and their
+  strings, and module patches are confined to valid owned package boundaries;
+  the image builder derives those boundaries from fresh discovery. Integrating
+  the view throughout mixed editor planning/replay and combined parent/child
+  reconstruction remain pending. Packages crossing FFS boundaries or lying in
+  nested FV free space cannot be reassigned to the outer carrier.
 - Investigate Phoenix/Lenovo registration for FormSet roots without parent Refs.
 - Distinguish runtime-visible roots from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the

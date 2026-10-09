@@ -8,6 +8,8 @@ import {
 import { inventoryUefiHiiModules } from "./uefiHiiDiscovery";
 import type { UefiHiiWorkspace } from "./uefiHiiWorkspace";
 import { buildUefiHiiFirmwareImage } from "./uefiHiiFirmwareRebuilder";
+import { createUefiHiiOwnedPackageView } from "./uefiHiiOwnership";
+import { buildUefiHiiModulePatches } from "./uefiHiiPatcher";
 
 vi.mock("./aptioIvExtractor", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./aptioIvExtractor")>();
@@ -181,6 +183,15 @@ describe("generic HII complete-image foundation", () => {
                 : spi(wrappedVolume(wrappedVolume()));
       const originalDecoded = await decodeFirmwareBuffers(image);
       const { data, workspace, inventory } = await workspaceFor(image);
+      // Summary claims cannot remove or widen the builder's freshly derived
+      // package bounds. Source ownership comes from independent discovery.
+      workspace.modules[0].ownedPackages = [];
+      workspace.modules[1].ownedPackages = [
+        {
+          offset: 0,
+          end: workspace.modules[1].sourceEnd - workspace.modules[1].sourceStart,
+        },
+      ];
       const original = image.slice();
       const sourceBytes = workspace.sourceBytes.slice();
       vi.mocked(decodeFirmwareBuffers).mockClear();
@@ -294,11 +305,60 @@ describe("generic HII complete-image foundation", () => {
     expect(inner.flatMap((module) => module.formSetGuids)).not.toContain(
       carrier?.formSetGuids[0],
     );
+    if (!carrier) throw new Error("missing mixed carrier");
+    const view = createUefiHiiOwnedPackageView(carrier);
+    expect(view.ownedPackages).toEqual([{ offset: 4, end: 62 }]);
+    expect(view.bytes.slice(68)).toEqual(new Uint8Array(0x1000));
     expect(inventory.decodeFailures).toEqual([
       expect.stringContaining("mixed direct/nested HII ownership"),
     ]);
     await expect(buildUefiHiiFirmwareImage(data, workspace, image)).rejects.toThrow(
       /unresolved ownership/,
+    );
+    expect(image).toEqual(original);
+  });
+
+  it("confines staged mixed-carrier patches to its own package without exporting an image", async () => {
+    const image = wrappedVolume(volume(), true);
+    const original = image.slice();
+    const inventory = inventoryUefiHiiModules(await decodeFirmwareBuffers(image));
+    const carrier = inventory.modules.find((module) => module.ownership);
+    if (!carrier) throw new Error("missing carrier");
+    const { ownedPackages } = createUefiHiiOwnedPackageView(carrier);
+    const summary = {
+      id: carrier.id,
+      name: carrier.name,
+      fileGuid: carrier.file.guid,
+      formSetGuids: carrier.formSetGuids,
+      formCount: 1,
+      referenceCount: 1,
+      mirroredBufferIds: [],
+      sourceStart: 0,
+      sourceEnd: carrier.bytes.length,
+      ownedPackages,
+    };
+    const data = firmwareData({
+      firmwareFamily: "uefi-hii",
+      forms: [],
+      suppressions: [
+        condition({ active: false, offset: "0x25", start: "0x29", end: "0x38" }),
+      ],
+    });
+    const patches = buildUefiHiiModulePatches(data, carrier.bytes, [summary]);
+    expect(patches).toHaveLength(1);
+    expect(patches[0].bytes.slice(41, 43)).toEqual(Uint8Array.of(0x29, 2));
+    expect(patches[0].bytes.slice(62)).toEqual(carrier.bytes.slice(62));
+    const nestedBase = 68 + 0x60;
+    data.suppressions = [
+      condition({
+        active: false,
+        offset: `0x${(nestedBase + 37).toString(16)}`,
+        start: `0x${(nestedBase + 41).toString(16)}`,
+        end: `0x${(nestedBase + 56).toString(16)}`,
+      }),
+    ];
+    expect(() => buildUefiHiiModulePatches(data, carrier.bytes, [summary])).toThrow(
+      /outside the owned HII packages/,
     );
     expect(image).toEqual(original);
   });
