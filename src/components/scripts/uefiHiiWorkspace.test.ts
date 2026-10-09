@@ -119,4 +119,52 @@ describe("multi-module UEFI HII workspace", () => {
     expect(workspace.modules).toHaveLength(1);
     expect(workspace.data.forms[0].name).toBe("Network");
   });
+
+  it.each(["SetupCarrier", "CarrierDxe"])(
+    "excludes inspection-only %s before choosing modules or extracting their bodies",
+    async (name) => {
+      const carrier = module("carrier", name, 1, firstGuid);
+      carrier.ownership = "mixed-direct-nested";
+      const inventory: UefiHiiInventory = {
+        modules: [carrier, module("inner", "NetworkDxe", 2, secondGuid)],
+        decodedBufferCount: 2,
+        uniqueBufferCount: 2,
+        decodeFailures: ["mixed source remains blocked"],
+      };
+      const extracted: number[] = [];
+      const workspace = await buildUefiHiiWorkspace(inventory, (bytes) => {
+        extracted.push(bytes[0]);
+        return Promise.resolve(ifrText(secondGuid, "0x2", "Inner"));
+      });
+      expect(extracted).toEqual([2]);
+      expect(workspace.modules.map((module) => module.id)).toEqual(["inner"]);
+      expect(workspace.sourceBytes).toEqual(Uint8Array.of(2));
+      expect(workspace.data.forms).toHaveLength(1);
+      expect(workspace.data.forms[0].formSetGuid).toBe(secondGuid);
+      expect(workspace.warnings).toEqual([
+        "mixed source remains blocked",
+        expect.stringContaining(`${name} has mixed direct/nested ownership`),
+      ]);
+    },
+  );
+
+  it("keeps an inspection-only inventory out of an empty editor workspace", async () => {
+    const carrier = module("carrier", "SetupCarrier", 1, firstGuid);
+    carrier.ownership = "mixed-direct-nested";
+    const workspace = await buildUefiHiiWorkspace(
+      {
+        modules: [carrier],
+        decodedBufferCount: 1,
+        uniqueBufferCount: 1,
+        decodeFailures: [],
+      },
+      () => {
+        throw new Error("inspection-only bytes must not be extracted");
+      },
+    );
+    expect(workspace.modules).toEqual([]);
+    expect(workspace.sourceBytes).toHaveLength(0);
+    expect(workspace.data.forms).toEqual([]);
+    expect(workspace.warnings).toEqual([expect.stringContaining("inspection only")]);
+  });
 });

@@ -351,10 +351,18 @@ describe("complete firmware preflight", () => {
           referenceCount: 154,
           formSetGuids: ["E14F04FA-8706-4353-92F2-9C2424746F9F"],
         },
+        {
+          id: "carrier",
+          name: "CarrierDxe",
+          ownership: "mixed-direct-nested",
+          formCount: 1,
+          referenceCount: 1,
+          formSetGuids: ["04040404-0404-0404-0404-040404040404"],
+        },
       ],
       decodedBufferCount: 2,
       uniqueBufferCount: 1,
-      decodeFailures: [],
+      decodeFailures: ["CarrierDxe has mixed direct/nested HII ownership."],
     };
     discoverUefiHiiModules.mockResolvedValue(inventory);
     const workspace = {
@@ -400,6 +408,13 @@ describe("complete firmware preflight", () => {
       await screen.findByText("Standard UEFI HII modules discovered"),
     ).toBeInTheDocument();
     expect(screen.getByText("Setup")).toBeInTheDocument();
+    expect(screen.getByText("CarrierDxe")).toBeInTheDocument();
+    expect(screen.getByText("Inspection only")).toBeInTheDocument();
+    expect(screen.getByText("Editor candidate")).toBeInTheDocument();
+    expect(screen.getByText("Complete-image output blocked")).toBeInTheDocument();
+    expect(
+      screen.getByText("CarrierDxe has mixed direct/nested HII ownership."),
+    ).toBeInTheDocument();
     expect(extractAmiFirmwareBytes).not.toHaveBeenCalled();
 
     fireEvent.click(
