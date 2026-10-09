@@ -274,17 +274,33 @@ describe("generic HII complete-image foundation", () => {
     expect(inventory.decodeFailures).toEqual([]);
   });
 
-  it("blocks mixed direct/nested HII ownership rather than joining overlapping carrier views", async () => {
+  it("inventories only the mixed carrier's own packages while blocking complete-image output", async () => {
     const image = wrappedVolume(volume(), true);
+    const original = image.slice();
     const { data, workspace, inventory } = await workspaceFor(image);
-    expect(inventory.modules).toHaveLength(3);
-    expect(inventory.modules.every((module) => module.bufferId === 1)).toBe(true);
+    expect(inventory.modules).toHaveLength(4);
+    const carrier = inventory.modules.find((module) => module.bufferId === 0);
+    expect(carrier).toMatchObject({
+      ownership: "mixed-direct-nested",
+      formCount: 1,
+      referenceCount: 1,
+      formSetGuids: ["04040404-0404-0404-0404-040404040404"],
+      packages: [{ offset: 4, end: 62 }],
+    });
+    expect(carrier?.bytes).toEqual(image.slice(0x60, 0x64 + 64 + 0x1000));
+    const inner = inventory.modules.filter((module) => module.bufferId === 1);
+    expect(inner).toHaveLength(3);
+    expect(inner.every((module) => module.ownership === undefined)).toBe(true);
+    expect(inner.flatMap((module) => module.formSetGuids)).not.toContain(
+      carrier?.formSetGuids[0],
+    );
     expect(inventory.decodeFailures).toEqual([
-      expect.stringContaining("mixed or crossing HII ownership"),
+      expect.stringContaining("mixed direct/nested HII ownership"),
     ]);
     await expect(buildUefiHiiFirmwareImage(data, workspace, image)).rejects.toThrow(
       /unresolved ownership/,
     );
+    expect(image).toEqual(original);
   });
 
   it("blocks a valid HII package crossing a truncated nested FFS allocation", async () => {
@@ -292,7 +308,21 @@ describe("generic HII complete-image foundation", () => {
     uint24(image, 0x64 + 0x48 + 20, 44);
     const { data, workspace, inventory } = await workspaceFor(image);
     expect(inventory.decodeFailures).toEqual([
-      expect.stringContaining("mixed or crossing HII ownership"),
+      expect.stringContaining("crossing or unowned HII packages"),
+    ]);
+    await expect(buildUefiHiiFirmwareImage(data, workspace, image)).rejects.toThrow(
+      /unresolved ownership/,
+    );
+  });
+
+  it("does not assign a package in nested FV free space to the outer carrier", async () => {
+    const image = wrappedVolume(volume(), true);
+    image.set(formsPackage(5), 0x64 + 64 + 0x500);
+    const { data, workspace, inventory } = await workspaceFor(image);
+    expect(inventory.modules).toHaveLength(3);
+    expect(inventory.modules.every((module) => module.bufferId === 1)).toBe(true);
+    expect(inventory.decodeFailures).toEqual([
+      expect.stringContaining("crossing or unowned HII packages"),
     ]);
     await expect(buildUefiHiiFirmwareImage(data, workspace, image)).rejects.toThrow(
       /unresolved ownership/,

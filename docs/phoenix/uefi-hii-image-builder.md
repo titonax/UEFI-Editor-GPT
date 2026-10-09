@@ -27,8 +27,22 @@ Discovery excludes an enclosing carrier only after matching its actual PI sectio
 FFS owner, payload bounds and byte-identical decoded child. Valid Forms packages
 within the child's independently inventoried FFS bodies belong to those inner
 drivers. Identity sections containing direct HII without a nested FFS owner keep
-their existing ownership. Mixed direct/nested packages or packages crossing a
-nested FFS boundary produce an explicit ownership diagnostic and block the build.
+their existing ownership. For a mixed carrier, discovery retains only its own
+Forms packages in the module metadata, with original body-relative offsets and
+FormSet identities; nested packages remain assigned to their inner drivers.
+The complete carrier body is still retained unchanged as source evidence, so it
+must not be treated as an independently editable body: the module is marked
+`mixed-direct-nested` and excluded before editor selection, text extraction or
+workspace concatenation. A mixed carrier cannot displace an eligible driver in
+the Setup selection or highest-ranked fallback. Its ownership diagnostic blocks
+complete-image output, including edits to otherwise independently owned children.
+
+Packages crossing a nested FFS body boundary, or present in the decoded nested
+payload without a bounded FFS body owner (including FV free space), produce an
+explicit diagnostic and prevent the carrier from being joined. The payload
+envelope as well as its FFS body ranges are checked; a package outside those
+bodies cannot be reassigned to the outer carrier merely because it is contained
+in the outer FFS allocation.
 Contradictory child provenance cannot silently remove an outer HII owner.
 
 The shared PI builder receives one expected-byte patch per exact owning FFS. Its
@@ -54,13 +68,24 @@ one identity ancestor in raw BIOS/SPI, and two identity ancestors in complete SP
 Negative tests cover stale bytes/GUIDs/IDs,
 wrong bounds, duplicate and overlapping spans, same-buffer mirrored FFS copies,
 wrapper containers, missing edits, stale End opcodes, incomplete/compressed
-provenance, mixed/crossing HII ownership, contradictory child metadata, decode
+provenance, mixed/crossing HII ownership, unowned packages in nested FV free space,
+contradictory child metadata, decode
 failures and contradictory full-image re-extraction.
 `uefiImageRebuilder.test.ts` covers the selector's ambiguous/missing-owner rejection.
+Mixed inventory tests assert one outer-owned package/FormSet and three separate
+inner drivers with no duplicated package ownership, then verify that image output
+remains blocked and source bytes remain unchanged. `uefiHiiWorkspace.test.ts`
+checks both Setup-named and fallback carriers are excluded before extraction,
+and an inspection-only inventory yields an empty editor workspace. These are
+synthetic regressions, not real mixed-source acceptance.
 
 ## Remaining gates
 
-Mixed direct/nested HII ownership remains deferred. Generic LZMA output has exact
+Mixed direct/nested HII package inventory is available for inspection; editing and
+combined parent/child reconstruction remain deferred. Supporting them will require
+an offset-preserving owned-package editor view, edits confined to those packages,
+and a shared bottom-up rebuild that combines outer and inner changes before
+checksum repair and independent verification. Generic LZMA output has exact
 real-source acceptance only for the P53 Setup FFS and its two physical copies.
 Other LZMA sources/drivers, EFI/Tiano, unknown mirrored modules, wrappers, capsules,
 allocation growth and runtime root registration remain unsupported. AMI acceptance

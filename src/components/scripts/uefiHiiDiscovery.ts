@@ -20,6 +20,8 @@ export interface UefiHiiModule {
   formSetGuids: string[];
   formCount: number;
   referenceCount: number;
+  /** Own packages are inventoried, but the body also contains nested FFS owners. */
+  ownership?: "mixed-direct-nested";
 }
 
 export interface UefiHiiInventory {
@@ -64,8 +66,8 @@ function moduleRank(module: UefiHiiModule) {
   return nameRank + module.formCount * 100 + module.referenceCount;
 }
 
-/** Physical nested FFS bodies reached through a proven identity encapsulation. */
-function nestedFileBodies(
+/** Identity payloads and their independently inventoried physical FFS bodies. */
+function nestedFilePayloads(
   node: FirmwareBufferNode,
   file: FirmwareFileInventoryEntry,
   buffers: FirmwareBufferNode[],
@@ -97,10 +99,18 @@ function nestedFileBodies(
       !equalBytes(payload.bytes, child.bytes)
     )
       return [];
-    return (files.get(child.id) ?? []).map((inner) => ({
-      start: edge.payloadStart + inner.bodyStart - file.bodyStart,
-      end: edge.payloadStart + inner.end - file.bodyStart,
-    }));
+    const innerFiles = files.get(child.id) ?? [];
+    if (innerFiles.length === 0) return [];
+    return [
+      {
+        start: edge.payloadStart - file.bodyStart,
+        end: edge.payloadEnd - file.bodyStart,
+        bodies: innerFiles.map((inner) => ({
+          start: edge.payloadStart + inner.bodyStart - file.bodyStart,
+          end: edge.payloadStart + inner.end - file.bodyStart,
+        })),
+      },
+    ];
   });
 }
 
@@ -122,29 +132,37 @@ export function inventoryUefiHiiModules(
   for (const { node, duplicateIds } of unique) {
     for (const file of files.get(node.id) ?? []) {
       const bytes = node.bytes.slice(file.bodyStart, file.end);
-      const packages = analyzeIfrBinary(bytes).packages.filter((pkg) => pkg.valid);
+      let packages = analyzeIfrBinary(bytes).packages.filter((pkg) => pkg.valid);
       if (packages.length === 0) continue;
-      const nestedBodies = nestedFileBodies(node, file, decoded.buffers, files);
+      const nestedPayloads = nestedFilePayloads(node, file, decoded.buffers, files);
       const nestedPackages = packages.filter((pkg) =>
-        nestedBodies.some((range) => pkg.offset < range.end && pkg.end > range.start),
+        nestedPayloads.some((range) => pkg.offset < range.end && pkg.end > range.start),
       );
-      if (nestedPackages.length) {
+      let ownership: UefiHiiModule["ownership"];
+      if (nestedPayloads.length) {
         if (
-          nestedPackages.length !== packages.length ||
           nestedPackages.some(
             (pkg) =>
-              !nestedBodies.some(
-                (range) => pkg.offset >= range.start && pkg.end <= range.end,
+              !nestedPayloads.some((payload) =>
+                payload.bodies.some(
+                  (range) => pkg.offset >= range.start && pkg.end <= range.end,
+                ),
               ),
           )
         ) {
           decodeFailures.push(
-            `${moduleName(file)} has mixed or crossing HII ownership across nested FFS bodies; the enclosing module was not joined.`,
+            `${moduleName(file)} has crossing or unowned HII packages inside a nested FFS payload; the enclosing module was not joined.`,
           );
+          continue;
         }
-        // The inner drivers are inventoried in their own decoded buffer. Never
-        // expose the carrier body as another editable copy of those packages.
-        continue;
+        // Retain only the carrier's own package metadata. Nested packages belong
+        // to the independently inventoried inner drivers, never both owners.
+        packages = packages.filter((pkg) => !nestedPackages.includes(pkg));
+        if (packages.length === 0) continue;
+        ownership = "mixed-direct-nested";
+        decodeFailures.push(
+          `${moduleName(file)} has mixed direct/nested HII ownership; its own packages are inventoried for inspection only and complete-image output remains blocked.`,
+        );
       }
       const repeatedModule = modules.find(
         (candidate) =>
@@ -179,6 +197,7 @@ export function inventoryUefiHiiModules(
         formCount: opcodes.filter((opcode) => opcode.opcode === IFR_OPCODE.FORM).length,
         referenceCount: opcodes.filter((opcode) => opcode.opcode === IFR_OPCODE.REF)
           .length,
+        ...(ownership ? { ownership } : {}),
       });
     }
   }

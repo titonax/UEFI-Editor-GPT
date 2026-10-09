@@ -30,9 +30,15 @@ function isSetupModule(module: UefiHiiModule) {
 }
 
 function selectWorkspaceModules(inventory: UefiHiiInventory) {
-  const setupModules = inventory.modules.filter(isSetupModule);
+  const inspectionOnly = inventory.modules.filter(
+    (module) => module.ownership === "mixed-direct-nested",
+  );
+  const editableModules = inventory.modules.filter(
+    (module) => module.ownership !== "mixed-direct-nested",
+  );
+  const setupModules = editableModules.filter(isSetupModule);
   const candidates =
-    setupModules.length > 0 ? setupModules : inventory.modules.slice(0, 1);
+    setupModules.length > 0 ? setupModules : editableModules.slice(0, 1);
   const selected: UefiHiiModule[] = [];
   const skippedVariants: UefiHiiModule[] = [];
   const loadedFormSets = new Set<string>();
@@ -48,7 +54,7 @@ function selectWorkspaceModules(inventory: UefiHiiInventory) {
     selected.push(module);
     for (const identity of identities) loadedFormSets.add(identity);
   }
-  return { selected, skippedVariants };
+  return { selected, skippedVariants, inspectionOnly };
 }
 
 function shiftedOffset(sourceStart: number, offset?: string) {
@@ -171,10 +177,19 @@ export async function buildUefiHiiWorkspace(
   inventory: UefiHiiInventory,
   extractText: UefiIfrTextExtractor = extractIfrTextFromHii,
 ): Promise<UefiHiiWorkspace> {
-  const { selected: modules, skippedVariants } = selectWorkspaceModules(inventory);
+  const {
+    selected: modules,
+    skippedVariants,
+    inspectionOnly,
+  } = selectWorkspaceModules(inventory);
   const parsedModules: ParsedIfrText[] = [];
   const accepted: UefiHiiModule[] = [];
   const warnings = [...inventory.decodeFailures];
+  for (const module of inspectionOnly) {
+    warnings.push(
+      `${module.name} has mixed direct/nested ownership and is retained in the inventory for inspection only; its enclosing body was excluded from the editor.`,
+    );
+  }
   for (const variant of skippedVariants) {
     warnings.push(
       `${variant.name} was retained as an alternate module but not merged because its FormSet identity is already provided by a higher-ranked module.`,

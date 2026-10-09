@@ -220,7 +220,12 @@ boundary verification for each supported compression/layout class.
   complete SPI, with 22,320 packed bytes remaining in each original allocation
   and byte-identical non-BIOS regions. Acceptance is hash/size/Setup-FFS specific;
   other Lenovo drivers and generic compressed sources remain blocked.
-- Mixed direct/nested ownership handling remains pending.
+- Mixed direct/nested carriers now retain their own package metadata separately
+  from nested drivers, with synthetic boundary and editor-exclusion regressions.
+  The enclosing body stays inspection-only and complete-image output remains
+  blocked. Owned-package editing and combined parent/child reconstruction remain
+  pending; packages crossing FFS boundaries or lying in nested FV free space
+  cannot be reassigned to the outer carrier.
 - Investigate Phoenix/Lenovo registration for FormSet roots without parent Refs.
 - Distinguish runtime-visible roots from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the

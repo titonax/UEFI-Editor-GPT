@@ -895,8 +895,9 @@ export default function BiosImageUpload({
                 <Text size="sm">
                   Found {String(uefiHiiInventory.modules.length)} structurally valid HII
                   module(s) across {String(uefiHiiInventory.uniqueBufferCount)} unique
-                  decoded buffer(s). Setup-related modules will be joined into one
-                  navigation graph with validated Hide, Show and Move controls.
+                  decoded buffer(s). Eligible Setup-related modules will be joined into
+                  one navigation graph with validated Hide, Show and Move controls.
+                  Mixed containers are available for inspection only.
                 </Text>
                 <Table striped withColumnBorders>
                   <Table.Thead>
@@ -905,21 +906,40 @@ export default function BiosImageUpload({
                       <Table.Th>Forms</Table.Th>
                       <Table.Th>References</Table.Th>
                       <Table.Th>FormSets</Table.Th>
+                      <Table.Th>Editing</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {uefiHiiInventory.modules
-                      .filter((module) => module.name.toLowerCase().includes("setup"))
+                      .filter(
+                        (module) =>
+                          module.name.toLowerCase().includes("setup") ||
+                          module.ownership === "mixed-direct-nested",
+                      )
                       .map((module) => (
                         <Table.Tr key={module.id}>
                           <Table.Td>{module.name}</Table.Td>
                           <Table.Td>{String(module.formCount)}</Table.Td>
                           <Table.Td>{String(module.referenceCount)}</Table.Td>
                           <Table.Td>{String(module.formSetGuids.length)}</Table.Td>
+                          <Table.Td>
+                            {module.ownership === "mixed-direct-nested"
+                              ? "Inspection only"
+                              : "Editor candidate"}
+                          </Table.Td>
                         </Table.Tr>
                       ))}
                   </Table.Tbody>
                 </Table>
+                {uefiHiiInventory.decodeFailures.length > 0 && (
+                  <Alert color="yellow" title="Complete-image output blocked">
+                    {[...new Set(uefiHiiInventory.decodeFailures)].map((failure) => (
+                      <Text size="sm" key={failure}>
+                        {failure}
+                      </Text>
+                    ))}
+                  </Alert>
+                )}
               </Stack>
             </Alert>
           )}
