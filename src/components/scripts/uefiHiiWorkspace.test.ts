@@ -59,6 +59,63 @@ function ifrText(
 }
 
 describe("multi-module UEFI HII workspace", () => {
+  it("joins proven mixed ownership with an isolated editor stream and separate original bodies", async () => {
+    const carrier = module("carrier", "SetupCarrier", 1, firstGuid);
+    const child = module("child", "SetupChild", 2, secondGuid);
+    child.bytes = new Uint8Array(37);
+    child.bytes.set([37, 0, 0, 2, 0x0e, 0x97]);
+    child.bytes.fill(2, 6, 22);
+    child.bytes.set([1, 0x86, 2, 0, 1, 0, 0x29, 2, 0x29, 2], 27);
+    child.packages = analyzeIfrBinary(child.bytes).packages;
+    carrier.bytes = new Uint8Array(128).fill(0xaa);
+    carrier.bytes.set(child.bytes, 0);
+    carrier.bytes.fill(1, 6, 22);
+    carrier.bytes.set(child.bytes, 64);
+    carrier.packages = analyzeIfrBinary(carrier.bytes).packages.slice(0, 1);
+    carrier.ownership = "mixed-direct-nested";
+    carrier.nestedPayloadRanges = [{ offset: 56, end: 112 }];
+    const workspace = await buildUefiHiiWorkspace(
+      {
+        modules: [carrier, child],
+        decodedBufferCount: 2,
+        uniqueBufferCount: 2,
+        decodeFailures: [],
+      },
+      (view) => {
+        expect(analyzeIfrBinary(view).packages).toHaveLength(1);
+        return Promise.resolve(
+          ifrText(view[6] === 1 ? firstGuid : secondGuid, "0x1", "Owned"),
+        );
+      },
+    );
+    expect(workspace.modules.map((module) => module.id)).toEqual(["carrier", "child"]);
+    expect(workspace.sourceBytes.slice(0, 128)).toEqual(carrier.bytes);
+    expect(workspace.sourceBytes.slice(128)).toEqual(child.bytes);
+    expect(workspace.editorBytes?.slice(56, 112)).toEqual(new Uint8Array(56));
+    expect(workspace.editorBytes?.slice(128)).toEqual(child.bytes);
+    expect(workspace.data.ifrBinary?.packages).toHaveLength(2);
+    expect(workspace.warnings).toEqual([]);
+  });
+
+  it("masks failed text-extraction bodies out of the editor while retaining source evidence", async () => {
+    const inventory: UefiHiiInventory = {
+      modules: [
+        module("bad", "SetupBad", 1, firstGuid),
+        module("good", "SetupGood", 2, secondGuid),
+      ],
+      decodedBufferCount: 2,
+      uniqueBufferCount: 2,
+      decodeFailures: [],
+    };
+    const workspace = await buildUefiHiiWorkspace(inventory, (view) =>
+      view[0] === 1
+        ? Promise.reject(new Error("cannot extract"))
+        : Promise.resolve(ifrText(secondGuid, "0x1", "Good")),
+    );
+    expect(workspace.modules.map((module) => module.id)).toEqual(["good"]);
+    expect(workspace.sourceBytes).toEqual(Uint8Array.of(1, 2));
+    expect(workspace.editorBytes).toEqual(Uint8Array.of(0, 2));
+  });
   it("extracts an offset-preserving copy and retains original bytes with owned-package bounds", async () => {
     const owner = module("owned", "Setup", 1, firstGuid);
     const bytes = new Uint8Array(37);

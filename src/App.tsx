@@ -78,6 +78,16 @@ export default function App({
     setError(message);
   }, []);
   const phoenixQueue = usePhoenixChangeQueue(phoenixSession?.inventory ?? null);
+  const uefiHiiEditorHex = React.useMemo(
+    () =>
+      uefiHiiSession
+        ? bytesToHex(
+            uefiHiiSession.workspace.editorBytes ??
+              uefiHiiSession.workspace.sourceBytes,
+          )
+        : "",
+    [uefiHiiSession],
+  );
 
   return (
     <>
@@ -89,7 +99,7 @@ export default function App({
               currentFormIndex={currentFormIndex}
               setCurrentFormIndex={setCurrentFormIndex}
               setData={setData}
-              originalSetupSct={bytesToHex(uefiHiiSession.workspace.sourceBytes)}
+              originalSetupSct={uefiHiiEditorHex}
             />
             <NavigationResizer
               width={navigationWidth}
@@ -128,7 +138,7 @@ export default function App({
             <FormUi
               data={data}
               setData={setData}
-              originalSetupSct={bytesToHex(uefiHiiSession.workspace.sourceBytes)}
+              originalSetupSct={uefiHiiEditorHex}
               currentFormIndex={currentFormIndex}
               setCurrentFormIndex={setCurrentFormIndex}
               readOnly

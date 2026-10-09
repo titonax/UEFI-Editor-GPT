@@ -63,7 +63,7 @@ const output: UefiHiiFirmwareBuildResult = {
   },
 };
 
-function Workspace() {
+function Workspace({ mixed = false }: { mixed?: boolean }) {
   const [base] = React.useState(() =>
     firmwareData({
       firmwareFamily: "uefi-hii",
@@ -77,7 +77,22 @@ function Workspace() {
   const [sourceImage, setSourceImage] = React.useState(() => Uint8Array.of(1, 2, 3));
   const [workspace, setWorkspace] = React.useState<UefiHiiWorkspace>(() => ({
     data: base,
-    modules: [],
+    modules: mixed
+      ? [
+          {
+            id: "mixed",
+            name: "SetupCarrier",
+            fileGuid: "fixture",
+            formSetGuids: [],
+            formCount: 1,
+            referenceCount: 1,
+            mirroredBufferIds: [],
+            sourceStart: 0,
+            sourceEnd: 2,
+            nestedPayloadRanges: [{ offset: 1, end: 2 }],
+          },
+        ]
+      : [],
     sourceBytes: Uint8Array.of(4, 5),
     warnings: [],
   }));
@@ -228,6 +243,25 @@ describe("generic HII complete-image frontend (synthetic orchestration)", () => 
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it("routes mixed workspaces through verified image output and disables separate module export", async () => {
+    render(<Workspace mixed />);
+    click("Show first");
+    click("Apply queue");
+    expect(screen.getByRole("button", { name: "Modified HII modules" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Modified HII modules" }),
+    ).toHaveAttribute("title", expect.stringContaining("complete-image download"));
+    click("Check firmware output");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled(),
+    );
+    expect(saveAs).not.toHaveBeenCalled();
+    click("Modified firmware image");
+    expect(saveAs).toHaveBeenCalledOnce();
   });
 
   it("requires Apply and verification, reports both copies, and explicitly downloads exact cached bytes", async () => {

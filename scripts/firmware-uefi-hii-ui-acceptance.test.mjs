@@ -143,7 +143,7 @@ it("moves a real P53 Ref through the UI, verifies and explicitly downloads the c
       form.sourceModuleId === workspace.modules[0].id,
   );
   expect(destination).toBeDefined();
-  const originalHex = bytesToHex(workspace.sourceBytes);
+  const originalHex = bytesToHex(workspace.editorBytes ?? workspace.sourceBytes);
 
   function Editor() {
     const queue = useDataChangeQueue(base);

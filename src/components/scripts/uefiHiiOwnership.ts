@@ -50,7 +50,9 @@ function validatePackages(source: Uint8Array, ranges: UefiHiiPackageRange[]) {
  * nested payload (including its strings), and omit non-owned Forms Packages.
  * The immutable original body is always used for patching and reconstruction.
  */
-export function createUefiHiiOwnedPackageView(module: UefiHiiModule) {
+export function createUefiHiiOwnedPackageView(
+  module: Pick<UefiHiiModule, "bytes" | "packages" | "nestedPayloadRanges">,
+) {
   const ranges = module.packages.map(({ offset, end }) => ({ offset, end }));
   const packages = validatePackages(module.bytes, ranges);
   const nested = module.nestedPayloadRanges ?? [];

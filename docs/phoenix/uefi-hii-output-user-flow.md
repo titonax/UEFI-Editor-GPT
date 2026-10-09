@@ -12,7 +12,9 @@ edits, open **Change queue** and choose **Apply selected**. Then:
    image. Remaining bytes are local to each section.
 3. Choose **Modified firmware image** to download the exact checked bytes as
    `<original-name>-modified.bin`. A complete SPI input produces a complete SPI
-   output. **Modified HII modules** is a separate extracted-module export.
+   output. **Modified HII modules** is a separate extracted-module export for
+   independent drivers; it is disabled in mixed workspaces, which require combined
+   verified full-image output.
 
 Changing, disabling, removing, clearing or reordering operations requires another
 Apply and Check. Loading another image or replacing the workspace also invalidates

@@ -65,6 +65,9 @@ export default function UefiHiiFooter({
   const queueApplied =
     changeQueue.analysis.canApply &&
     changeQueue.appliedFingerprint === changeQueue.analysis.fingerprint;
+  const mixedWorkspace = workspace.modules.some(
+    (module) => module.nestedPayloadRanges?.length,
+  );
   const input = React.useMemo(
     () => ({
       fileName,
@@ -171,11 +174,13 @@ export default function UefiHiiFooter({
             size="xs"
             variant="default"
             leftSection={<IconDownload size={14} />}
-            disabled={!queueApplied || editCount === 0}
+            disabled={!queueApplied || editCount === 0 || mixedWorkspace}
             title={
-              queueApplied
-                ? undefined
-                : "Apply the selected change queue before exporting."
+              mixedWorkspace
+                ? "Mixed HII changes require the verified complete-image download."
+                : queueApplied
+                  ? undefined
+                  : "Apply the selected change queue before exporting."
             }
             onClick={() => {
               try {
