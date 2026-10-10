@@ -238,8 +238,10 @@ boundary verification for each supported compression/layout class.
 - [P53 browser-code research](phoenix/p53-root-registration-research.md) now
   reproduces a seven-entry Metro GUID lookup with three 16-bit selectors and a
   candidate FormBrowser2/SendForm path in SystemBiosSetupDxe. Neither establishes
-  a visibility vector. Trace the handle-preparation routine and interface
-  provenance before promoting runtime root registration or offering edits.
+  a visibility vector. The handle-selection trace now links the browser array/count
+  globals to Forms-package enumeration and observes temporary filtering plus
+  conditional mutation/re-enumeration paths. Trace interface initialization and
+  condition-byte provenance before promoting runtime root registration or edits.
 - Prove runtime-visible roots separately from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
   controlled behavior layer.
