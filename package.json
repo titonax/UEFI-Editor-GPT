@@ -52,7 +52,7 @@
     "eslint-plugin-react-dom": "^5.23.3",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
-    "eslint-plugin-react-x": "^1.40.1",
+    "eslint-plugin-react-x": "^5.24.8",
     "globals": "^16",
     "jsdom": "^26.1.0",
     "postcss": "^8.5.28",
