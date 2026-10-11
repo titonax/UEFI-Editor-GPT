@@ -3,7 +3,8 @@
 This continues the [browser/handle investigation](p53-root-registration-research.md)
 for the exact authorized P53 SPI with SHA-256
 `68eba5b369baf36c879551c0482a6feea31d68082bc4dd0631bf9e4427a88a64`.
-The same four immutable driver bodies and bounded raw/RVA mappings are used.
+The four previously traced immutable driver bodies and bounded raw/RVA mappings
+are retained; the OEM guard investigation adds PriorBootDxe below.
 The local probe decodes instructions; it never executes firmware or services.
 All RVAs below belong to the named driver's own PE image.
 
@@ -241,10 +242,64 @@ at 1298/1309. The keyboard gate at global 47864 must also be set at 1320 before
 the GUID-list copy can be reached.
 
 These are precise protocol identity, buffer and control-flow observations.
-The protocol's provider, method contract and the meanings of those two bytes
-remain unknown. They are not promoted to named hardware capabilities, current
+The provider and first-method output layout are corroborated below; the flag
+origins, effective values and their semantic meanings remain unknown. They are not promoted to named hardware capabilities, current
 machine state or menu visibility. The static probe does not invoke this OEM
 interface or synthesize a successful response.
+
+## OEM guard provider and output construction
+
+The local GUID search is a discovery lead only. Instruction and data ownership
+now corroborate a publisher in **PriorBootDxe**, FFS GUID
+`57F48613-300A-4101-A76D-4F73C533B5B8`, in decoded buffer 2 at FFS start 15945744. Its immutable body SHA-256 is
+`3f496da8f1e7651acb35eb628347a5bca2f9487fafc1ec6ffcff6964fb0b1034`.
+All RVAs in this section belong to that driver's own PE image.
+
+The PE entry 736 reads System Table BootServices +0x60 at 740 and stores it
+in global 5656 at 744. It supplies callback 1208 to Boot Services slot +0x170
+at 813/869, matching CreateEventEx. Inside that callback's bounded window,
+the call at 1792 loads the same Boot Services global and supplies:
+
+| Argument | Landmark RVA | Value / target RVA            |
+| -------- | ------------ | ----------------------------- |
+| RCX      | 1785         | Address of handle global 5768 |
+| RDX      | 1778         | OEM guard GUID at 5296        |
+| R8       | 1768         | Interface table at 5456       |
+| R9       | 1775         | Zero terminator               |
+
+Slot +0x148 matches InstallMultipleProtocolInterfaces. The interface table's
+first 64-bit entry is 1116, an executable RVA whose complete 91-byte method
+ends at 1206. This links the same GUID used by LenovoSetupMainDxe's second
+lookup to a concrete publishing path and first method. Publication is
+conditional; the probe does not establish that this event callback ran, that
+installation succeeded or that no other publisher exists.
+
+Method 1116 preserves its caller's buffer pointer in RBX and clears 15 bytes
+through helper 704 at 1130. That helper uses zeroed RAX and REP STOSQ/STOSB.
+The method then copies individual global bytes into the output:
+
+| Output byte | Source global RVA | Store RVA |
+| ----------- | ----------------- | --------- |
+| 1           | 5587              | 1169      |
+| 2           | 5586              | 1172      |
+| 3           | 5584              | 1176      |
+| 4           | 5585              | 1160      |
+| 5           | 5588              | 1179      |
+
+Byte 0 stays zero unless at least one of globals 5587, 5586 or 5584 equals
+**exactly 1**; the compare/branch path at 1182–1197 then sets byte 0 to one.
+The method returns status zero at 1199. Consequently the consumer's byte-0
+guard tests that aggregate result, while its byte-5 guard tests the copied
+value of global 5588 for nonzero. The byte-5 condition does not require exactly
+
+1. These facts describe output construction and the consumer's tests; they do
+   not assign hardware, authentication or visibility meanings to the flags.
+   The flags' initialization/writes and effective runtime values remain open.
+
+The search also found GUID references in LenovoVariableDxe. Its examined paths
+use LocateProtocol and a notification helper, so those references alone do not
+make it a provider. The discovery scan is not a whole-image absence proof or
+a complete inventory of protocol consumers.
 
 ## Reproduction, sources and next gate
 
@@ -253,7 +308,8 @@ Use the existing `hii-registration` opt-in scenario described in the
 It asserts publication/consumer GUID ownership, callback address, list-copy
 landmarks, Ref construction and field flow, database update, owned labels,
 insertion/remainder copies, keyboard gate and bounded invocation/reset flow,
-consumer Boot Services provenance, explicit signal order and OEM output guards,
+consumer Boot Services provenance, explicit signal order, OEM output guards,
+and PriorBootDxe publication/first-method field flow,
 and retains immutable source and body hashes. Output remains metadata only; no firmware is supplied to CI.
 The scenario adds no frontend controls, parser rule or writer allowance.
 
@@ -268,7 +324,7 @@ Primary layouts used for corroboration:
 - [EDK II HII library](https://github.com/tianocore/edk2/blob/master/MdeModulePkg/Library/UefiHiiLib/HiiLib.c)
 
 Next trace indirect selection re-entry, actual notification delivery/order and the
-OEM guard provider/output semantics, plus actual selected handles and resolved Ref
+OEM guard flag origins/effective values and semantics, plus actual selected handles and resolved Ref
 strings/device paths.
 Only then
 can a controlled scenario explain a navigation outcome. Runtime registration,
