@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-11
 
-PRs #119–#123 and #128–#135 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#136 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -53,13 +53,13 @@ blocked; it does not invalidate the separately accepted static Ref output path.
 
 ## Functional closure and bounded research scope
 
-| Track                              | Evidence / open gate                                                                  | Priority                               |
-| ---------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------- |
-| Supported P53 editing/output       | Engine and real-source React/jsdom acceptance passed; real Firefox flow pending       | Finish browser acceptance              |
-| Mixed uncompressed carriers        | Synthetic combined parent/child reconstruction passed; real-source acceptance pending | Assess existing supplied sources       |
-| P53 dynamic roots                  | Substantial static trace; execution, ordering and edit semantics unproven             | Parked research backlog                |
-| Broader compression/layout support | EFI variant and compressed mixed ancestry remain unsupported                          | Separate bounded acceptance work       |
-| Product hardening                  | Comparison, undo/redo, portable sessions and recovery documentation pending           | Resume after supported-circuit closure |
+| Track                              | Evidence / open gate                                                                                                  | Priority                              |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Supported P53 editing/output       | Engine and real-source React/jsdom acceptance passed; real Firefox flow pending                                       | Finish browser acceptance             |
+| Mixed uncompressed carriers        | Synthetic reconstruction passed; no qualifying carrier in 31 inventoried local inputs; real-source acceptance pending | Retain missing-source gate            |
+| P53 dynamic roots                  | Substantial static trace; execution, ordering and edit semantics unproven                                             | Parked research backlog               |
+| Broader compression/layout support | EFI variant and compressed mixed ancestry remain unsupported                                                          | Separate bounded acceptance work      |
+| Product hardening                  | Comparison, undo/redo, portable sessions and recovery documentation pending                                           | Proceed with validation gates visible |
 
 The next work order is:
 
@@ -73,9 +73,17 @@ The next work order is:
    acceptance. If none qualifies, record that missing acceptance source and
    retain the blocker; do not expand the corpus or unlock a compressed path to
    make the test pass.
-3. Report closure separately for each supported path, then advance the shared
+3. Report the achieved validation level separately for each supported path, then advance the shared
    product-hardening work. Unsupported codecs/layouts retain their own gates.
    Additional BIOS cases remain deferred under phase 9.
+
+The [existing-source mixed inventory](phoenix/mixed-source-triage.md) has now
+checked 31 unique available images: no `mixed-direct-nested` carrier was reported,
+22 inputs yielded HII modules, and three reported decode failures. This is not
+format-wide absence or mixed output acceptance. Retain the missing qualifying-source
+gate and the unavailable Firefox gate; proceed with shared comparison/history/session
+work without claiming that those validation gates have passed. Further corpus
+acquisition and P53 OEM research remain deferred.
 
 Resume P53 runtime research only for a concrete defect in the supported circuit
 or an explicit decision to implement dynamic-root behavior. The remaining
