@@ -19,8 +19,8 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-11
 
-PRs #119–#122 are integrated. This status distinguishes implemented support
-from real-source acceptance and remaining runtime evidence; it is not a global
+PRs #119–#123 and #128 are integrated. This status distinguishes implemented
+support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
 | Phase                            | Status                          | Completed scope / remaining gate                                                                                                                                 |
@@ -39,10 +39,12 @@ compatibility percentage.
 
 The immediate work stays in phase 8. The P53 browser handle array/count are now
 linked to Forms-package enumeration. The static database initialization chain
-and two GUID-presence branch bytes are now traced. The next step resolves who
-changes the published GUID list and the effects of the conditional package
-mutations. Runtime menu controls require evidence for the actual selected source
-and edit semantics, followed by output acceptance.
+and two GUID-presence branch bytes are now traced. The OEM list publication
+and LenovoSetupMainDxe consumer are now linked: a guarded callback copies its
+FormSet GUID over the first terminator. Conditional Ref construction and an HII
+package-update path are corroborated. The next step establishes selection
+re-entry and the exact Forms/labels changed by that path. Runtime menu controls
+require evidence for the actual selected source and edit semantics, followed by output acceptance.
 
 Legacy structural editing and controlled execution remain tracked above; they
 are not implicitly completed by progress in UEFI HII. Real Firefox interaction,
@@ -274,9 +276,12 @@ boundary verification for each supported compression/layout class.
   globals to Forms-package enumeration and observes temporary filtering plus
   conditional mutation/re-enumeration paths. The database LocateProtocol output
   now has a PE-entry initialization trace, and the two branch bytes accumulate
-  presence of two OEM GUIDs; neither is a per-root visibility flag. Trace the
-  GUID-list provider/consumer and package-mutation effects before promoting
-  runtime root registration or edits.
+  presence of two OEM GUIDs; neither is a per-root visibility flag.
+  [Publication/consumer research](phoenix/p53-runtime-navigation-research.md)
+  links the OEM pointer interface to a guarded LenovoSetupMainDxe FormSet append
+  and corroborates conditional Ref construction followed by HII package update.
+  Selection re-entry, callback conditions and exact replacement Forms/labels
+  remain open before promoting runtime root registration or edits.
 - Prove runtime-visible roots separately from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
   controlled behavior layer.

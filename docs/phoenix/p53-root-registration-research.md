@@ -53,16 +53,20 @@ Its RIP-relative LEA candidate is at body offset 4557 (RVA 4553). The bounded
 local decode starts there and observes an indirect call at interface offset
 0x140, a call to the routine at RVA 2844 (`0xB1C`), and later a first-slot
 indirect call at RVA 4824 (`0x12D8`). The latter sequence supplies a handle-array
-pointer and count from data, clears R9 and supplies the Form Id from SI; that register's origin is not resolved in this bounded window.
+pointer and count from data and clears R9. The extended window from routine
+entry RVA 4516 observes ESI cleared at 4545: FormId is zero and
+ScreenDimensions is null at the later stack argument stores.
 
 This is compatible with a LocateProtocol/SendForm path. It is an inference from
-instruction and ABI shape: the full browser-interface origin, upstream control
-flow and runtime conditions have not been proven. The array/count globals are
-linked to the enumeration routine below; its database-interface output now has
+instruction and ABI shape. The extended window links the LocateProtocol stack
+output to the interface used by the first-slot call; upstream control flow,
+lookup success and runtime conditions have not been proven. The array/count
+globals are linked to the enumeration routine below; its database-interface output now has
 a separate static initialization trace. No root is classified as
-registered or runtime-visible by this sequence. The next trace should establish
-the GUID-list provider/consumer and conditional mutation effects before
-classifying runtime roots.
+registered or runtime-visible by this sequence. The
+[publication/consumer follow-up](p53-runtime-navigation-research.md) traces the
+list interface and conditional Ref/package update while retaining the runtime
+execution and exact mutation-target gates.
 
 The standard interfaces distinguish adding HII packages to the database from
 asking the browser to display a selected handle array. Primary definitions used
@@ -117,15 +121,17 @@ opcode comparison (`0x01`). This corroborates inspection of package/FormSet
 metadata. It does not identify every declaration in a package as a displayed root.
 
 Conditional code also contains an indirect +0x80 call and calls to routines that
-build/update opcode-like data. Their full interface provenance and effects remain
+build/update opcode-like data. The follow-up corroborates a Ref builder and an
+HiiDatabase package update. Exact mutation targets and runtime effects remain
 unresolved; these are mutation leads, not an editing recipe. Another refresh is
 inside one such path. The final refresh status is not checked immediately at its
 call site, and not every branch reaches that refresh. Static instruction matches
 cannot establish successful enumeration, branch execution or runtime visibility.
 
-Next: trace the provider/consumer of the published GUID-list global and resolve
-the conditional mutation callbacks and their effect on HII packages. Keep the
-original HII registration and actual on-machine visibility as separate gates.
+The [follow-up](p53-runtime-navigation-research.md) traces publication, the
+guarded consumer append and a conditional Ref/package-update path. Selection
+re-entry and exact Forms/labels changed remain unresolved. Keep original HII
+registration and actual on-machine visibility as separate gates.
 
 ## Database interface initialization
 
@@ -141,7 +147,7 @@ as RCX, and calls service slot +0x140. This matches `LocateProtocol(Guid, NULL,
 &Interface)` and links its output address to the interface used for enumeration
 and package export. There is no immediate status branch after this particular
 call in the bounded decode. Successful lookup, valid interface contents at
-runtime and the complete downstream browser-interface provenance remain open.
+runtime and upstream browser invocation conditions remain open.
 
 ## GUID-dependent condition bytes
 
@@ -180,9 +186,11 @@ conditions are false, the routine branches to its cleanup/return path before
 the conditional mutation work. This explains the gate's static structure,
 not whether a later protocol consumer replaces or extends the list.
 
-Next resolve how the GUID list is exposed, who can change it, and which HII
-packages/opcodes the conditional paths install or update. No Phoenix runtime
-Show/Hide capability follows from this evidence alone.
+The [follow-up](p53-runtime-navigation-research.md) identifies the OEM pointer
+interface and a guarded consumer that can overwrite the first terminator, making
+the later marker reachable. It also traces conditional Ref construction and
+package update; execution, re-entry and exact targets remain unresolved.
+No Phoenix runtime Show/Hide capability follows from this evidence alone.
 
 ## Reproduction and limits
 
@@ -200,6 +208,8 @@ ownership, the seven records and selector reads, the candidate call shapes, and 
 enumeration-to-browser global links. It also asserts the temporary handle copy,
 conditional branch landmarks, package-inspection landmarks, the PE-entry
 initialization chain, the two GUID/byte pairs and the initial list sentinel.
+The follow-up adds publication/consumer landmarks, the signed backward callback
+address, sentinel copy, browser zero arguments and Ref/package-update landmarks.
 It checks immutable body/source hashes before and after analysis and prints
 metadata only. It does not save decoded firmware, execute firmware or rebuild
 an image. Private source firmware is not supplied to CI.
