@@ -29,8 +29,9 @@ body offset 43900, with candidates at 1406 and 2426.
 The publishing driver's service global is linked to Boot Services by the prior
 entry trace. The +0x80/+0x90 calls match InstallProtocolInterface and
 UninstallProtocolInterface. The consumer's +0x50/+0xA8 method shapes match
-CreateEvent and RegisterProtocolNotify; its full service-global initialization
-has not yet been traced. Its backward RIP-relative callback address is checked
+CreateEvent and RegisterProtocolNotify; the entry/helper trace below now links
+the service global to Boot Services. Its backward RIP-relative callback address
+is checked
 using a signed displacement, not by treating it as a positive offset.
 
 The callback is guarded by successful protocol lookups, an indirect call's
@@ -198,8 +199,52 @@ checks that same byte at 1320. The key callback and list callback both reach
 slot +0x28 using the same interface/notify handle, at 1505 and 1447 respectively.
 That slot is UnregisterKeyNotify. The list callback then clears the gate byte
 at 1458. Its tail is keyboard notification cleanup, so it supplies no evidence
-of selection re-entry. Keystroke delivery, full service-global initialization,
-actual callback ordering and the other protocol/output-byte guards remain open.
+of selection re-entry. Keystroke delivery, actual callback delivery/order and
+the OEM output-byte semantics remain open.
+
+## Consumer service chain and explicit initial signal
+
+LenovoSetupMainDxe's PE entry RVA is 980. It calls initialization helper 1000
+at 984 before main routine 1672 at 989. The helper reads System Table +0x60
+into RBX at 1006 and stores it in global 46272 at 1014; it stores the System
+Table pointer in global 46264 at 1028. The OEM callback and event-registration
+sequence load the same Boot Services global. This closes the previous service
+pointer provenance gap without executing its methods.
+
+| Landmark                                                  | LenovoSetupMainDxe RVA |
+| --------------------------------------------------------- | ---------------------- |
+| Set EBX to 8, then pass it as NotifyTpl in EDX            | 2117, 2195             |
+| Pass event output address, null context and callback 1184 | 2168–2181              |
+| Create event with type 0x200                              | 2197, 2202             |
+| Pass returned event and registration output address       | 2212, 2217             |
+| Register OEM protocol notification                        | 2222, 2229             |
+| Pass the same event to an explicit SignalEvent call       | 2242, 2247             |
+
+The EDK II constants identify type 0x200 as EVT_NOTIFY_SIGNAL and TPL 8 as
+TPL_CALLBACK. Boot Services slot +0x68 is SignalEvent. The decoded sequence
+therefore explicitly signals its event after registering protocol notification;
+it does not depend solely on a later protocol-install signal. No status branch
+intervenes between these three calls in this bounded path. The probe establishes
+instruction and argument order, not successful creation/registration, event
+scheduling or delivery, driver dispatch order, or callback execution before or
+after SystemBiosSetupDxe's selector. Those runtime facts remain unresolved.
+
+## Remaining OEM output guard
+
+The second protocol lookup in callback 1184 uses GUID
+`B68D09CD-E5D8-49B4-AF9F-419F7A3B5B10` at data RVA 35264. Its output interface
+is stored at stack +0x50. After rejecting a failed lookup, the callback zeroes a
+15-byte local buffer at stack +0x20 through helper 736, whose bounded instruction
+path uses REP STOSB. It passes that buffer in RCX to interface slot zero at 1287.
+A failed method status exits at 1292; byte offsets 0 and 5 must both be nonzero
+at 1298/1309. The keyboard gate at global 47864 must also be set at 1320 before
+the GUID-list copy can be reached.
+
+These are precise protocol identity, buffer and control-flow observations.
+The protocol's provider, method contract and the meanings of those two bytes
+remain unknown. They are not promoted to named hardware capabilities, current
+machine state or menu visibility. The static probe does not invoke this OEM
+interface or synthesize a successful response.
 
 ## Reproduction, sources and next gate
 
@@ -208,6 +253,7 @@ Use the existing `hii-registration` opt-in scenario described in the
 It asserts publication/consumer GUID ownership, callback address, list-copy
 landmarks, Ref construction and field flow, database update, owned labels,
 insertion/remainder copies, keyboard gate and bounded invocation/reset flow,
+consumer Boot Services provenance, explicit signal order and OEM output guards,
 and retains immutable source and body hashes. Output remains metadata only; no firmware is supplied to CI.
 The scenario adds no frontend controls, parser rule or writer allowance.
 
@@ -221,8 +267,8 @@ Primary layouts used for corroboration:
 - [EDK II SimpleTextInputEx](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/SimpleTextInEx.h)
 - [EDK II HII library](https://github.com/tianocore/edk2/blob/master/MdeModulePkg/Library/UefiHiiLib/HiiLib.c)
 
-Next trace indirect selection re-entry, actual notification ordering and the remaining
-protocol/output-byte guards, plus actual selected handles and resolved Ref
+Next trace indirect selection re-entry, actual notification delivery/order and the
+OEM guard provider/output semantics, plus actual selected handles and resolved Ref
 strings/device paths.
 Only then
 can a controlled scenario explain a navigation outcome. Runtime registration,
