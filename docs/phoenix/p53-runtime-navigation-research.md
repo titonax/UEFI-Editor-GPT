@@ -362,6 +362,18 @@ The OEM gate therefore includes media/content-dependent results as well as the
 separate keyboard flag. It cannot be treated as a fixed hidden-menu bit from
 this evidence. No branch is patched and no unsupported runtime edit is enabled.
 
+## Research status and scope boundary
+
+The current static investigation is parked after the media/content flag-writer
+trace. The remaining questions below belong to a future dynamic-navigation
+extension, not to acceptance of the already supported P53 Setup Ref move.
+That move has its own [full-SPI acceptance](p53-mirrored-lzma-output-acceptance.md)
+and [frontend/browser checklist](uefi-hii-output-user-flow.md).
+Follow the [roadmap's functional-closure order](../roadmap.md#functional-closure-and-bounded-research-scope)
+for current priorities. Resume this branch for a concrete supported-path defect
+or an explicit dynamic-root implementation decision; keep unsupported runtime
+controls blocked until their own evidence and output gates pass.
+
 ## Reproduction, sources and next gate
 
 Use the existing `hii-registration` opt-in scenario described in the
@@ -386,7 +398,7 @@ Primary layouts used for corroboration:
 - [EDK II DevicePath](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/DevicePath.h)
 - [EDK II HII library](https://github.com/tianocore/edk2/blob/master/MdeModulePkg/Library/UefiHiiLib/HiiLib.c)
 
-Next trace indirect selection re-entry, actual notification delivery/order and the
+When this research resumes, trace indirect selection re-entry, actual notification delivery/order and the
 remaining OEM flag initialization/effective values and semantics, plus actual selected handles and resolved Ref
 strings/device paths.
 Only then
