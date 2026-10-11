@@ -56,11 +56,12 @@ indirect call at RVA 4824 (`0x12D8`). The latter sequence supplies a handle-arra
 pointer and count from data, clears R9 and supplies the Form Id from SI; that register's origin is not resolved in this bounded window.
 
 This is compatible with a LocateProtocol/SendForm path. It is an inference from
-instruction and ABI shape: the full origin of the interface pointer, complete
-handle-list dataflow, upstream control flow and runtime conditions have not
-been proven. No root is classified as registered or runtime-visible by this
-sequence. The next trace should follow the routine at RVA 2844 and prove where
-the array and count used by the candidate SendForm call come from.
+instruction and ABI shape: the full origin of the interface pointer, upstream
+control flow and runtime conditions have not been proven. The array/count globals
+are now linked to the enumeration routine below. No root is classified as
+registered or runtime-visible by this sequence. The next trace should establish
+the interface global's initialization and the conditions governing the mutation
+branches before classifying runtime roots.
 
 The standard interfaces distinguish adding HII packages to the database from
 asking the browser to display a selected handle array. Primary definitions used
@@ -68,11 +69,62 @@ for landmarks and method layout are:
 
 - [EDK II FormBrowser2](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/FormBrowser2.h)
 - [EDK II HiiDatabase](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/HiiDatabase.h)
+- [EDK II HII package types and IFR opcodes](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Uefi/UefiInternalFormRepresentation.h)
 - [EDK II HiiConfigAccess](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/HiiConfigAccess.h)
 
 A protocol GUID occurrence alone proves neither publication nor invocation.
 Setup and LenovoSetupMainDxe also contain database, browser and config-access
 landmarks; their individual occurrences remain separate from registration proof.
+
+## Handle selection and re-enumeration
+
+The local bounded decode now follows the routine at RVA 2844, its enumeration
+helper at RVA 976 (`0x3D0`) and its package-inspection helper at RVA 1840
+(`0x730`). These are static observations from the exact source above; the probe
+never executes firmware or calls a firmware service.
+
+| Landmark                     | Observed use                                                                                     | Evidence RVA           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------- |
+| Global 17168 (`0x4310`)      | Handle-array allocation stored by enumeration; loaded into RDX before candidate SendForm         | 1084, 4792             |
+| Global 17208 (`0x4338`)      | Returned buffer size shifted right by three and stored; loaded into R8 before candidate SendForm | 1144, 1148, 4781       |
+| Global 17248 (`0x4360`)      | Interface used by both enumeration calls at slot +0x18                                           | 1041, 1053, 1118, 1133 |
+| Temporary R15 array          | Selected source handles copied into eight-byte entries, with RSI as count                        | 2985, 3166, 3170       |
+| Condition bytes 17153, 17154 | Separate conditional paths; their complete initialization and meanings remain unresolved         | 3573, 3933             |
+| Refresh call                 | Clears the published array/count, then calls enumeration again on this branch                    | 4290, 4297, 4304       |
+
+The enumeration helper supplies package type 2 and a null package-GUID filter to
+both +0x18 calls, using a size query followed by allocation and a second call.
+It compares the first status against `0x8000000000000005` and converts the second
+returned byte count to an eight-byte handle count. This matches the EDK II
+HiiDatabase `ListPackageLists` method layout and Forms package type. The exact
+interface-global initialization has not yet been traced, so the protocol-method
+classification remains an ABI inference. The array/count address equality with
+the later browser arguments is directly reproduced.
+
+The selection routine walks the source handles, calls the inspection helper,
+compares GUID halves against separate lists and conditionally appends handles to
+a temporary array. That temporary array is not stored into the published array
+global in this trace. One path clears the published globals and re-enumerates
+before returning; therefore the temporary subset cannot be reported as the final
+SendForm root list.
+
+The inspection helper has two calls at interface slot +0x20, compatible with
+`ExportPackageLists`, followed by a Forms package-type comparison, an IFR
+FormSet opcode comparison (`0x0E`), a GUID copy beginning at opcode +2 and a Form
+opcode comparison (`0x01`). This corroborates inspection of package/FormSet
+metadata. It does not identify every declaration in a package as a displayed root.
+
+Conditional code also contains an indirect +0x80 call and calls to routines that
+build/update opcode-like data. Their full interface provenance and effects remain
+unresolved; these are mutation leads, not an editing recipe. Another refresh is
+inside one such path. The final refresh status is not checked immediately at its
+call site, and not every branch reaches that refresh. Static instruction matches
+cannot establish successful enumeration, branch execution or runtime visibility.
+
+Next: trace initialization of the interface global at RVA 17248, the published
+GUID-list globals and the two condition bytes; then resolve the conditional
+mutation callbacks and their effect on HII packages. Keep the original HII
+registration and actual on-machine visibility as separate gates.
 
 ## Reproduction and limits
 
@@ -86,7 +138,9 @@ npm run firmware:acceptance
 ```
 
 The scenario asserts source identity, four exact FFS identities, bounded PE
-ownership, the seven records and selector reads, and the candidate call shapes.
+ownership, the seven records and selector reads, the candidate call shapes, and the
+enumeration-to-browser global links. It also asserts the temporary handle copy,
+conditional branch landmarks and package-inspection landmarks.
 It checks immutable body/source hashes before and after analysis and prints
 metadata only. It does not save decoded firmware, execute firmware or rebuild
 an image. Private source firmware is not supplied to CI.

@@ -213,13 +213,94 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
                 instruction.mnemonic === "call" && instruction.op_str === "0xb1c",
             ),
           ).toBe(true);
+          const traceRva = (rva, count) => {
+            const owner = sections.find(
+              (section) =>
+                section.executable &&
+                rva >= section.rva &&
+                rva + count <= section.rva + section.end - section.start,
+            );
+            expect(owner).toBeDefined();
+            return trace(owner.start + rva - owner.rva - file.bodyStart, count);
+          };
+          const list = traceRva(976, 187);
+          const inspect = traceRva(1840, 749);
+          const selection = traceRva(2844, 1652);
+          const assertAt = (instructions, rva, mnemonic, operands) => {
+            const instruction = instructions.find(
+              (item) => Number(item.address) === rva,
+            );
+            expect(instruction?.mnemonic).toBe(mnemonic);
+            expect(instruction?.op_str).toBe(operands);
+            return instruction;
+          };
+          const assertRip = (instructions, rva, mnemonic, operands, target) => {
+            const instruction = assertAt(instructions, rva, mnemonic, operands);
+            const displacement = /\[rip \+ (0x[0-9a-f]+)\]/.exec(instruction.op_str);
+            expect(displacement).not.toBeNull();
+            expect(rva + instruction.size + Number(displacement[1])).toBe(target);
+          };
+          // Both enumeration calls use type 2, a null GUID filter and the same
+          // interface global. The returned byte size is divided by eight.
+          assertRip(list, 1041, "mov", "rax, qword ptr [rip + 0x3f48]", 17248);
+          assertAt(list, 1038, "xor", "r8d, r8d");
+          assertAt(list, 1048, "mov", "dl, 2");
+          assertAt(list, 1053, "call", "qword ptr [rax + 0x18]");
+          assertAt(list, 1059, "movabs", "rax, 0x8000000000000005");
+          assertRip(list, 1084, "mov", "qword ptr [rip + 0x3ecd], rax", 17168);
+          assertRip(list, 1118, "mov", "rax, qword ptr [rip + 0x3efb]", 17248);
+          assertAt(list, 1125, "xor", "r8d, r8d");
+          assertAt(list, 1128, "mov", "dl, 2");
+          assertAt(list, 1133, "call", "qword ptr [rax + 0x18]");
+          assertAt(list, 1144, "shr", "rax, 3");
+          assertRip(list, 1148, "mov", "qword ptr [rip + 0x3eb5], rax", 17208);
+          assertRip(code, 4781, "mov", "r8, qword ptr [rip + 0x3084]", 17208);
+          assertRip(code, 4792, "mov", "rdx, qword ptr [rip + 0x3051]", 17168);
+          // The temporary filtered array is not published as the browser array.
+          assertRip(selection, 2953, "mov", "rax, qword ptr [rip + 0x3780]", 17168);
+          assertAt(selection, 2985, "mov", "r12, qword ptr [rax + rdi*8]");
+          assertAt(selection, 2996, "call", "0x730");
+          assertAt(selection, 3166, "mov", "qword ptr [r15 + rsi*8], rcx");
+          assertAt(selection, 3170, "add", "rsi, r13");
+          assertRip(selection, 3573, "cmp", "byte ptr [rip + 0x3506], r12b", 17154);
+          assertRip(selection, 3933, "cmp", "byte ptr [rip + 0x339d], r12b", 17153);
+          assertAt(selection, 3770, "call", "qword ptr [rax + 0x80]");
+          assertAt(selection, 4253, "xor", "r12d, r12d");
+          assertAt(selection, 4304, "call", "0x3d0");
+          assertRip(selection, 4290, "mov", "qword ptr [rip + 0x3247], r12", 17168);
+          assertRip(selection, 4297, "mov", "qword ptr [rip + 0x3268], r12", 17208);
+          // Package export and IFR landmarks corroborate the helper's role;
+          // callback interfaces and all runtime conditions remain unresolved.
+          assertRip(inspect, 2076, "mov", "rax, qword ptr [rip + 0x3b3d]", 17248);
+          assertRip(inspect, 2130, "mov", "r10, qword ptr [rip + 0x3b07]", 17248);
+          assertAt(inspect, 2103, "call", "qword ptr [rax + 0x20]");
+          assertAt(inspect, 2153, "call", "qword ptr [r10 + 0x20]");
+          assertAt(inspect, 2267, "cmp", "ecx, 0x2000000");
+          assertAt(inspect, 2296, "cmp", "byte ptr [rdi], 0xe");
+          assertAt(inspect, 2305, "lea", "rdx, [rdi + 2]");
+          assertAt(inspect, 2342, "cmp", "byte ptr [rdi], 1");
+          record.handleSelection = {
+            routineRva: 2844,
+            enumerationRoutineRva: 976,
+            inspectionRoutineRva: 1840,
+            interfaceGlobalRva: 17248,
+            handleArrayGlobalRva: 17168,
+            handleCountGlobalRva: 17208,
+            packageType: 2,
+            packageGuidFilter: null,
+            handleWidth: 8,
+            conditionByteRvas: [17153, 17154],
+            refreshCallRva: 4304,
+            interpretation:
+              "candidate forms-package enumeration feeds SendForm; temporary filtering and conditional mutations precede re-enumeration",
+          };
           record.browserPath = {
             browserGuidBodyOffset: browser.offset - file.bodyStart,
             candidateCodeBodyOffset: 4557,
             firstSlotCallRva: 4824,
             handlePreparationCallTargetRva: 2844,
             interpretation:
-              "candidate LocateProtocol/SendForm sequence; interface and handle dataflow remain unresolved",
+              "candidate LocateProtocol/SendForm sequence; array/count globals linked to enumeration, interface origin and runtime conditions unresolved",
           };
         }
         records.push(record);
