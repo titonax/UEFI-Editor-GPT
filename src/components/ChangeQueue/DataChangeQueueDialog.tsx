@@ -14,6 +14,7 @@ export default function DataChangeQueueDialog({
     <ChangeQueueDialog
       opened={opened}
       entries={queue.entries}
+      comparison={queue.comparison}
       analysis={queue.analysis}
       appliedFingerprint={queue.appliedFingerprint}
       onClose={onClose}

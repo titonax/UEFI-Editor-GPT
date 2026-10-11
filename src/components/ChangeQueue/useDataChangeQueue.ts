@@ -16,9 +16,12 @@ import {
 
 import { useChangeQueueHistory } from "./useChangeQueueHistory";
 
+import { dataQueueComparison, type QueueComparison } from "./queueComparison";
+
 export interface DataChangeQueueController {
   entries: ChangeQueueEntry<DataChangePayload>[];
   previewData: Data;
+  comparison: QueueComparison;
   appliedData: Data;
   analysis: ReturnType<typeof projectDataChangeQueue>["analysis"];
   appliedFingerprint: string | null;
@@ -49,6 +52,11 @@ export function useDataChangeQueue(initialData: Data): DataChangeQueueController
   const projection = React.useMemo(
     () => projectDataChangeQueue(base, entries),
     [base, entries],
+  );
+
+  const comparison = React.useMemo(
+    () => dataQueueComparison(base, projection),
+    [base, projection],
   );
 
   const enqueueData = React.useCallback<Updater<Data>>(
@@ -102,6 +110,7 @@ export function useDataChangeQueue(initialData: Data): DataChangeQueueController
   return {
     entries,
     previewData: projection.data,
+    comparison,
     appliedData: applied ? projection.data : base,
     analysis: projection.analysis,
     appliedFingerprint,

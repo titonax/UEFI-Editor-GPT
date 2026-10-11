@@ -17,6 +17,7 @@ export interface DataChangePayload {
 
 export interface DataQueueProjection {
   data: Data;
+  netPatches: DataValuePatch[];
   analysis: ChangeQueueAnalysis<DataChangePayload>;
 }
 
@@ -597,6 +598,7 @@ export function projectDataChangeQueue(
   const fingerprint = selectedEntries.map((entry) => entry.id).join(";");
   return {
     data,
+    netPatches,
     analysis: {
       selectedEntries,
       patches: [],
