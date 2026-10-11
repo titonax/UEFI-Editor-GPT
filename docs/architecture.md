@@ -115,8 +115,13 @@ including paused entries, before replacing the queue as one undoable mutation.
 The shared session controls bound file/text size to 1 MiB and operations to 1000,
 and discard delayed save/load actions after context replacement or unmount.
 Import invalidates Apply and output through the normal queue revision; no writer
-runs during save/load. AMI/HII session adapters and schema migration remain
-pending. See [Queue sessions](queue-sessions.md).
+runs during save/load. AMI/HII now have a bounded `hii-ref-moves` adapter: exact
+full-image/context identity, ordered Form/child index selectors and fresh editor
+replay for every entry, including paused operations against the selected prefix.
+Export requires each complete logical entry to equal one regenerated Ref move;
+stale, compound and all other edit types reject rather than losing changes.
+Trusted module ownership is hashed, never imported. Other AMI/HII adapters and
+schema migration remain pending. See [Queue sessions](queue-sessions.md).
 
 ## Safety invariants
 

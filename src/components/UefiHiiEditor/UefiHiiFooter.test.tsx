@@ -18,6 +18,7 @@ import {
 } from "../scripts/uefiHiiFirmwareRebuilder";
 import type { UefiHiiWorkspace } from "../scripts/uefiHiiWorkspace";
 import UefiHiiFooter from "./UefiHiiFooter";
+import { saveHiiQueueSession } from "../scripts/hiiQueueSession";
 
 // Exercise the actual queue, cache lifecycle and report. Binary reconstruction
 // has separate synthetic engine tests and exact real P53 acceptance.
@@ -63,16 +64,18 @@ const output: UefiHiiFirmwareBuildResult = {
   },
 };
 
+function workspaceBase() {
+  return firmwareData({
+    firmwareFamily: "uefi-hii",
+    suppressions: [
+      condition(),
+      condition({ offset: "0x10", start: "0x10", end: "0x12" }),
+    ],
+  });
+}
+
 function Workspace({ mixed = false }: { mixed?: boolean }) {
-  const [base] = React.useState(() =>
-    firmwareData({
-      firmwareFamily: "uefi-hii",
-      suppressions: [
-        condition(),
-        condition({ offset: "0x10", start: "0x10", end: "0x12" }),
-      ],
-    }),
-  );
+  const [base] = React.useState(workspaceBase);
   const queue = useDataChangeQueue(base);
   const [sourceImage, setSourceImage] = React.useState(() => Uint8Array.of(1, 2, 3));
   const [workspace, setWorkspace] = React.useState<UefiHiiWorkspace>(() => ({
@@ -229,7 +232,9 @@ function readBlob(blob: Blob) {
 }
 
 describe("generic HII complete-image frontend (synthetic orchestration)", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { webcrypto } = await vi.importActual<{ webcrypto: Crypto }>("node:crypto");
+    vi.stubGlobal("crypto", webcrypto);
     vi.mocked(buildUefiHiiFirmwareImage).mockReset().mockResolvedValue(output);
     vi.mocked(saveAs).mockReset();
     vi.stubGlobal(
@@ -252,6 +257,63 @@ describe("generic HII complete-image frontend (synthetic orchestration)", () => 
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it("loads a source-bound empty session, rejects mismatches, and invalidates verified output through Undo", async () => {
+    render(<Workspace />);
+    apply();
+    await check();
+    click("Change queue (1)");
+    const text = await saveHiiQueueSession(
+      {
+        sourceBytes: Uint8Array.of(1, 2, 3),
+        originalSetupSct: "0405",
+        base: workspaceBase(),
+        ownershipKey: "[]",
+      },
+      [],
+    );
+    const upload = (content: string) => {
+      const file = new File([content], "session.json");
+      Object.defineProperty(file, "text", { value: () => Promise.resolve(content) });
+      fireEvent.change(screen.getByLabelText("Load queue session file"), {
+        target: { files: [file] },
+      });
+    };
+    upload(text.replace('"size": 3', '"size": 4'));
+    expect(
+      await screen.findByText(/belongs to a different firmware/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeEnabled();
+    click("Save queue session");
+    expect(
+      await screen.findByText(/supports individual Ref moves only/),
+    ).toBeInTheDocument();
+    expect(saveAs).not.toHaveBeenCalled();
+    upload(text);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Change queue (0)" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeDisabled();
+    click("Undo queue change");
+    expect(
+      screen.getByRole("button", { name: "Change queue (1)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeDisabled();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    click("Apply queue");
+    await check();
+    expect(buildUefiHiiFirmwareImage).toHaveBeenCalledTimes(2);
+    expect(saveAs).not.toHaveBeenCalled();
   });
 
   it("routes mixed workspaces through verified image output and disables separate module export", async () => {
