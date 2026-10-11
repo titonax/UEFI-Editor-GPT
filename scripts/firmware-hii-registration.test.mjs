@@ -505,6 +505,95 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             { bodyOffset: 15685, number: 1001 },
             { bodyOffset: 15706, number: 1002 },
           ]);
+          // Follow output pointers through the package inspector and Ref builder.
+          assertAt(inspect, 1847, "mov", "qword ptr [rax + 0x20], r9");
+          assertAt(inspect, 1851, "mov", "qword ptr [rax + 0x10], rdx");
+          assertAt(inspect, 1870, "lea", "rbp, [rax - 0x57]");
+          assertAt(inspect, 1894, "mov", "r12, r8");
+          assertAt(inspect, 1917, "mov", "rdi, qword ptr [rbp + 0x7f]");
+          assertAt(inspect, 2052, "mov", "word ptr [rdi], ax");
+          assertAt(inspect, 2214, "mov", "rbx, qword ptr [rbp + 0x77]");
+          assertAt(inspect, 2301, "mov", "rcx, qword ptr [rbp + 0x67]");
+          assertAt(inspect, 2314, "mov", "r8d, 0x10");
+          assertAt(inspect, 2320, "call", "0x280");
+          assertAt(inspect, 2328, "movzx", "ecx, word ptr [rdi + 0x12]");
+          assertAt(inspect, 2337, "mov", "word ptr [r12], cx");
+          assertAt(inspect, 2345, "je", "0x940");
+          assertAt(inspect, 2368, "movzx", "ecx, word ptr [rdi + 2]");
+          assertAt(inspect, 2372, "mov", "word ptr [rbx], cx");
+          assertRip(inspect, 2494, "cmp", "byte ptr [rip + 0x393c], 1", 17153);
+          assertAt(inspect, 2529, "mov", "word ptr [r12], ax");
+          assertAt(selection, 3998, "mov", "rcx, qword ptr [r15 + rbx*8]");
+          assertAt(selection, 4002, "lea", "rax, [rbp + 0x67]");
+          assertAt(selection, 4006, "lea", "r9, [rbp + 0x77]");
+          assertAt(selection, 4010, "mov", "qword ptr [rsp + 0x20], rax");
+          assertAt(selection, 4015, "lea", "r8, [rbp + 0x6f]");
+          assertAt(selection, 4019, "lea", "rdx, [rbp - 1]");
+          assertAt(selection, 4023, "call", "0x730");
+          assertAt(selection, 4034, "js", "0x10a0");
+          assertAt(selection, 4118, "movzx", "r8d, word ptr [rbp + 0x6f]");
+          assertAt(selection, 4128, "movzx", "edx, word ptr [rbp + 0x77]");
+          assertAt(selection, 4136, "mov", "ecx, 0x2000");
+          assertAt(selection, 4145, "add", "ecx, ebx");
+          assertAt(selection, 4147, "movzx", "eax, word ptr [rbp + 0x67]");
+          assertAt(selection, 4151, "mov", "word ptr [rsp + 0x40], ax");
+          assertAt(selection, 4156, "lea", "rax, [rbp - 1]");
+          assertAt(selection, 4160, "mov", "qword ptr [rsp + 0x38], rax");
+          assertAt(selection, 4165, "mov", "word ptr [rsp + 0x28], cx");
+          assertAt(selection, 4170, "mov", "rcx, r13");
+          assertAt(refBuilder, 13111, "push", "r14");
+          assertAt(refBuilder, 13113, "sub", "rsp, 0x60");
+          assertAt(refBuilder, 13117, "movzx", "edi, dx");
+          assertAt(refBuilder, 13134, "movzx", "ebx, r8w");
+          assertAt(refBuilder, 13143, "xor", "r14d, r14d");
+          assertAt(refBuilder, 13146, "mov", "word ptr [rsp + 0x32], bx");
+          assertAt(refBuilder, 13151, "mov", "rbx, qword ptr [rsp + 0xa8]");
+          assertAt(refBuilder, 13159, "lea", "eax, [rsi - 0x1f]");
+          assertAt(refBuilder, 13162, "mov", "word ptr [rsp + 0x34], ax");
+          assertAt(refBuilder, 13167, "movzx", "eax, word ptr [rsp + 0x98]");
+          assertAt(refBuilder, 13175, "mov", "word ptr [rsp + 0x3d], di");
+          assertAt(refBuilder, 13180, "movzx", "edi, word ptr [rsp + 0xb0]");
+          assertAt(refBuilder, 13188, "mov", "word ptr [rsp + 0x36], ax");
+          assertAt(refBuilder, 13193, "mov", "byte ptr [rsp + 0x3c], r14b");
+          assertAt(refBuilder, 13198, "mov", "word ptr [rsp + 0x3f], r14w");
+          assertAt(refBuilder, 13204, "mov", "word ptr [rsp + 0x51], di");
+          assertAt(refBuilder, 13231, "lea", "rcx, [rsp + 0x41]");
+          assertAt(refBuilder, 13241, "test", "di, di");
+          assertAt(refBuilder, 13244, "jne", "0x33cc");
+          assertAt(refBuilder, 13246, "mov", "esi, 0xf");
+          assertAt(refBuilder, 13254, "lea", "eax, [rsi + 0x12]");
+          assertAt(refBuilder, 13257, "cmovne", "esi, eax");
+          // After the start match, insert and copy the original remainder directly.
+          assertAt(replacement, 13666, "mov", "rax, qword ptr [rcx]");
+          assertAt(replacement, 13669, "mov", "r8, qword ptr [rcx + 0x10]");
+          assertAt(replacement, 13686, "sub", "r8, r14");
+          assertAt(replacement, 13708, "mov", "rax, qword ptr [rcx + 0x10]");
+          assertAt(replacement, 13716, "sub", "rax, r14");
+          assertAt(replacement, 13740, "add", "r12, rax");
+          assertAt(replacement, 13743, "lea", "rdx, [r12 + r15]");
+          assertAt(replacement, 13747, "sub", "r8, r12");
+          assertAt(replacement, 13760, "call", "0x280");
+          assertAt(replacement, 13814, "jmp", "0x3602");
+          assertAt(replacement, 13849, "ret", "");
+          record.refSourceFlow = {
+            sourceHandleLoadRva: 3998,
+            inspectionCallRva: 4023,
+            formSetGuidOutput: "FormSet opcode +2, 16 bytes",
+            formIdOutput: "first Form opcode +2 within a scanned Forms package",
+            promptOutput: "FormSet title at +18, with conditional string processing",
+            devicePathOutput:
+              "fifth inspector output, used as optional Ref DevicePath string ID",
+            questionIdExpression: "low16(0x2000 + selected-handle index)",
+            helpStringId: 4,
+            refQuestionId: 0,
+            questionFlags: 0,
+            refSizeWithDevicePath: 35,
+            refSizeWithoutDevicePath: 33,
+            mutationMode:
+              "insert after start anchor, then preserve original package remainder",
+            interpretation:
+              "bounded static field flow; actual selected handles, resolved device path and executed navigation unproven",
+          };
           record.packageMutationTarget = {
             formSetGuid: targetGuid,
             formId: 1,
@@ -512,7 +601,7 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             labels,
             replacementHelperRva: 13312,
             interpretation:
-              "static FormSet/Form match and start-anchor insertion corroborated; end-buffer use and runtime effects unproven",
+              "static FormSet/Form match, Ref field flow and insertion with original remainder corroborated; runtime effects unproven",
           };
           record.guidListPublication = {
             guid: protocolGuids.guidList,

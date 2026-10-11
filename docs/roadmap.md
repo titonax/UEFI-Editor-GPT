@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-11
 
-PRs #119–#123 and #128–#129 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#130 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -42,9 +42,11 @@ linked to Forms-package enumeration. The static database initialization chain
 and two GUID-presence branch bytes are now traced. The OEM list publication
 and LenovoSetupMainDxe consumer are now linked: a guarded callback copies the
 Advanced-module FormSet GUID over the first terminator. Conditional Ref
-construction and an HII
-package-update path are corroborated. The next step establishes selection
-re-entry and full Ref/end-buffer semantics. The replacement target is now
+construction and an HII package-update path are corroborated. The Ref fields
+now link to the inspected handle's GUID/Form, prompt and optional DevicePath
+outputs. The bounded helper inserts after the start label and preserves the
+original package remainder. The next step establishes selection re-entry, actual
+selected handles and resolved string/device-path outputs. The replacement target is now
 corroborated as SystemBiosSetupDxe Form 1 with labels 1001/1002; the consumer
 tail unregisters a keyboard notification. Runtime menu controls
 require evidence for the actual selected source and edit semantics, followed by output acceptance.
@@ -286,9 +288,12 @@ boundary verification for each supported compression/layout class.
   and corroborates conditional Ref construction followed by HII package update.
   The replacement helper matches SystemBiosSetupDxe Form 1 and its label anchors
   1001/1002. A keyboard callback sets the append gate, and the tail unregisters
-  that notification. Selection re-entry, other callback conditions, inserted Ref
-  destinations and end-buffer use remain open before promoting runtime root
-  registration or edits.
+  that notification. Ref field flow now links to the inspected handle, with
+  insertion after the start
+  anchor and preservation of the original remainder. Actual selected handles,
+  resolved strings/device paths, selection re-entry, other callback conditions and
+  runtime ordering remain open before promoting
+  runtime root registration or edits.
 - Prove runtime-visible roots separately from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
   controlled behavior layer.
