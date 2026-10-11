@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-11
 
-PRs #119–#123 and #128–#132 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#133 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -50,8 +50,10 @@ return route are now traced. Selection occurs before OEM publication; these
 wrappers show no second direct selector call. The consumer Boot Services chain
 and create/register/explicit initial signal sequence are now corroborated. Its
 second OEM lookup and two required nonzero output bytes are identified without
-assigning them visibility semantics. The next step establishes indirect
-re-entry, actual notification delivery/order, OEM guard provider semantics,
+assigning them visibility semantics. PriorBootDxe now supplies a corroborated
+conditional publisher and first-method output layout: byte 0 aggregates three
+flags equal to one, and byte 5 copies another internal flag. The next step establishes indirect
+re-entry, actual notification delivery/order, OEM guard flag origins/effective values and semantics,
 selected handles and resolved
 string/device-path outputs. The replacement target is now
 corroborated as SystemBiosSetupDxe Form 1 with labels 1001/1002; the consumer
@@ -298,7 +300,7 @@ boundary verification for each supported compression/layout class.
   that notification. Ref field flow now links to the inspected handle, with
   insertion after the start
   anchor and preservation of the original remainder. Actual selected handles,
-  resolved strings/device paths, selection re-entry, OEM guard provider/output semantics and
+  resolved strings/device paths, selection re-entry, OEM guard flag origins/effective values and semantics and
   runtime ordering remain open before promoting runtime root registration or
   edits. The entry tail-jump and wrapper/browser call chain now link the initial
   selection-before-publication sequence to SendForm and its reset-request return

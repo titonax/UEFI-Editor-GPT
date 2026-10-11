@@ -27,6 +27,7 @@ const protocolGuids = {
   guidList: "F5261E18-F373-40BA-87FD-7F1C300CBBFF",
 };
 const driverGuids = {
+  PriorBootDxe: "57F48613-300A-4101-A76D-4F73C533B5B8",
   Setup: "E6A7A1CE-5881-4B49-80BE-69C91811685C",
   SystemBiosSetupDxe: "721C8B66-426C-4E86-8E99-3457C46AB0B9",
   SystemFormBrowserMetroViewDxe: "C7351A96-9215-4026-BCBD-12D6E7DB36E9",
@@ -875,6 +876,86 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             copyCallRva: 1415,
             interpretation:
               "guarded notification callback locates and dereferences the published pointer, then copies a FormSet GUID into the sentinel slot; execution and re-entry unproven",
+          };
+        }
+        if (name === "PriorBootDxe") {
+          expect(bodyDigest).toBe(
+            "3f496da8f1e7651acb35eb628347a5bca2f9487fafc1ec6ffcff6964fb0b1034",
+          );
+          const pe = executable.start + executable.headerSize;
+          expect(
+            readUint32(node.bytes, pe + readUint32(node.bytes, pe + 60) + 40),
+          ).toBe(736);
+          const entry = traceRva(736, 146);
+          const publisher = traceRva(1208, 631);
+          const method = traceRva(1116, 91);
+          const clear = traceRva(704, 29);
+          const guardGuid = "B68D09CD-E5D8-49B4-AF9F-419F7A3B5B10";
+          expect(readGuid(node.bytes, dataAtRva(5296, 16))).toBe(guardGuid);
+          expect(
+            new DataView(
+              node.bytes.buffer,
+              node.bytes.byteOffset + dataAtRva(5456, 8),
+              8,
+            ).getBigUint64(0, true),
+          ).toBe(1116n);
+          assertAt(entry, 740, "mov", "rax, qword ptr [rdx + 0x60]");
+          assertRip(entry, 744, "mov", "qword ptr [rip + 0x1329], rax", 5656);
+          assertRip(entry, 813, "lea", "r8, [rip + 0x184]", 1208);
+          assertAt(entry, 869, "call", "qword ptr [rax + 0x170]");
+          assertRip(publisher, 1761, "mov", "rax, qword ptr [rip + 0xf30]", 5656);
+          assertRip(publisher, 1768, "lea", "r8, [rip + 0xe61]", 5456);
+          assertAt(publisher, 1775, "xor", "r9d, r9d");
+          assertRip(publisher, 1778, "lea", "rdx, [rip + 0xdb7]", 5296);
+          assertRip(publisher, 1785, "lea", "rcx, [rip + 0xf88]", 5768);
+          assertAt(publisher, 1792, "call", "qword ptr [rax + 0x148]");
+          assertAt(method, 1122, "mov", "edx, 0xf");
+          assertAt(method, 1127, "mov", "rbx, rcx");
+          assertAt(method, 1130, "call", "0x2c0");
+          assertAt(clear, 706, "xor", "rax, rax");
+          assertAt(clear, 709, "mov", "rdi, rcx");
+          assertAt(clear, 712, "mov", "rcx, rdx");
+          assertAt(clear, 723, "rep stosq", "qword ptr [rdi], rax");
+          assertAt(clear, 728, "rep stosb", "byte ptr [rdi], al");
+          assertRip(method, 1135, "mov", "al, byte ptr [rip + 0x115c]", 5585);
+          assertRip(method, 1141, "mov", "dl, byte ptr [rip + 0x1158]", 5587);
+          assertRip(method, 1147, "mov", "r8b, byte ptr [rip + 0x1150]", 5586);
+          assertRip(method, 1154, "mov", "cl, byte ptr [rip + 0x1148]", 5584);
+          assertRip(method, 1163, "mov", "al, byte ptr [rip + 0x1143]", 5588);
+          assertAt(method, 1160, "mov", "byte ptr [rbx + 4], al");
+          assertAt(method, 1169, "mov", "byte ptr [rbx + 1], dl");
+          assertAt(method, 1172, "mov", "byte ptr [rbx + 2], r8b");
+          assertAt(method, 1176, "mov", "byte ptr [rbx + 3], cl");
+          assertAt(method, 1179, "mov", "byte ptr [rbx + 5], al");
+          assertAt(method, 1182, "mov", "al, 1");
+          assertAt(method, 1184, "cmp", "dl, al");
+          assertAt(method, 1186, "je", "0x4ad");
+          assertAt(method, 1188, "cmp", "r8b, al");
+          assertAt(method, 1191, "je", "0x4ad");
+          assertAt(method, 1193, "cmp", "cl, al");
+          assertAt(method, 1195, "jne", "0x4af");
+          assertAt(method, 1197, "mov", "byte ptr [rbx], al");
+          assertAt(method, 1199, "xor", "eax, eax");
+          assertAt(method, 1206, "ret", "");
+          record.guardProvider = {
+            protocolGuid: guardGuid,
+            protocolGuidRva: 5296,
+            interfaceRva: 5456,
+            firstMethodRva: 1116,
+            bootServicesGlobalRva: 5656,
+            eventCallbackRva: 1208,
+            installationCallRva: 1792,
+            clearedOutputBytes: 15,
+            copiedFields: [
+              { outputByte: 1, globalRva: 5587 },
+              { outputByte: 2, globalRva: 5586 },
+              { outputByte: 3, globalRva: 5584 },
+              { outputByte: 4, globalRva: 5585 },
+              { outputByte: 5, globalRva: 5588 },
+            ],
+            aggregateByte: { outputByte: 0, equalsOneGlobalRvas: [5587, 5586, 5584] },
+            interpretation:
+              "conditional OEM publication and first-method output construction corroborated; flag origins/semantics, effective values, event delivery and selector re-entry unproven",
           };
         }
         records.push(record);
