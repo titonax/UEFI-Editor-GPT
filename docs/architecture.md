@@ -106,6 +106,18 @@ row count, with omissions labelled. They do not serialize complete Data or byte
 buffers. The comparison does not call a writer, set Apply, alter the revision,
 verify full-image bytes or persist session state.
 
+Portable Phoenix queue sessions use a separate strict version-1 JSON contract.
+They contain image size/SHA-256, template SHA-256, ordered item offsets and enabled
+flags only. No firmware, decoded body, imported patch bytes, labels, Apply status
+or history snapshot is accepted. Import compares both identities, regenerates
+operations from unique currently inventoried items and checks every patch,
+including paused entries, before replacing the queue as one undoable mutation.
+The shared session controls bound file/text size to 1 MiB and operations to 1000,
+and discard delayed save/load actions after context replacement or unmount.
+Import invalidates Apply and output through the normal queue revision; no writer
+runs during save/load. AMI/HII session adapters and schema migration remain
+pending. See [Queue sessions](queue-sessions.md).
+
 ## Safety invariants
 
 - A `SuppressIf` patch is rejected unless its expected `End` opcode is present.

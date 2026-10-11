@@ -1,3 +1,5 @@
+import { phoenixShowChange } from "../scripts/phoenixChangeQueue";
+import { savePhoenixQueueSession } from "../scripts/phoenixQueueSession";
 import React from "react";
 import { MantineProvider } from "@mantine/core";
 import {
@@ -127,6 +129,7 @@ function Workspace({ stale = false }: { stale?: boolean }) {
         onUndo={queue.undo}
         onRedo={queue.redo}
         queueRevision={queue.revision}
+        onRestoreEntries={queue.restoreEntries}
         onClose={vi.fn()}
       />
     </MantineProvider>
@@ -162,7 +165,9 @@ function downloadedBytes(blob: Blob) {
   });
 }
 describe("Phoenix verified output (synthetic UI integration)", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { webcrypto } = await vi.importActual<{ webcrypto: Crypto }>("node:crypto");
+    vi.stubGlobal("crypto", webcrypto);
     vi.mocked(rebuildPhoenixFirmware).mockReset();
     vi.mocked(saveAs).mockReset();
     vi.stubGlobal(
@@ -390,5 +395,42 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
     expect(screen.queryByText("13 00")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Apply selected" })).toBeDisabled();
     expect(rebuildPhoenixFirmware).not.toHaveBeenCalled();
+  });
+  it("restores the same session as an unapplied queue and invalidates verified output", async () => {
+    const opened = inventory();
+    const text = await savePhoenixQueueSession(new Uint8Array(3), opened, [
+      phoenixShowChange(item),
+    ]);
+    vi.mocked(rebuildPhoenixFirmware).mockResolvedValue(output);
+    render(<Workspace />);
+    await apply();
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    await screen.findByRole("button", { name: "Load queue session" });
+    const file = new File([text], "session.json");
+    Object.defineProperty(file, "text", { value: () => Promise.resolve(text) });
+    fireEvent.change(screen.getByLabelText("Load queue session file"), {
+      target: { files: [file] },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Apply selected" })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(
+      screen.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled();
+    });
+    expect(rebuildPhoenixFirmware).toHaveBeenCalledTimes(2);
   });
 });
