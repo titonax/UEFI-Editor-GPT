@@ -324,7 +324,7 @@ function structuralDescription(
   const newEdit = newEdits[newEdits.length - 1];
   if (!newEdit) return undefined;
   const moved = movedReference(before, after);
-  const visibilityMatch = /^(Hide|Show) top-level tab (.+?) by /.exec(
+  const visibilityMatch = /^(Hide|Show) top-level tab (.+?) (?:by |inside )/.exec(
     newEdit.description,
   );
   if (visibilityMatch) {

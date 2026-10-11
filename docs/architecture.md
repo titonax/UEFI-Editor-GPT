@@ -118,8 +118,13 @@ Import invalidates Apply and output through the normal queue revision; no writer
 runs during save/load. AMI/HII now have a bounded `hii-ref-moves` adapter: exact
 full-image/context identity, ordered Form/child index selectors and fresh editor
 replay for every entry, including paused operations against the selected prefix.
-Export requires each complete logical entry to equal one regenerated Ref move;
-stale, compound and all other edit types reject rather than losing changes.
+Queues with supported AMI hub-tab or vendor-neutral HII menu Hide/Show use the
+strict version-1 `hii-menu-actions` contract. Visibility runs the existing family
+editor against the selected prefix, regenerating HII parent/sibling/opcode restore
+anchors. Ref-only sessions retain their original format and remain readable.
+Export requires each complete logical entry to equal one regenerated supported
+action; stale, compound and other edit types reject rather than losing changes.
+Local descriptions only route replay, never establish editing capability.
 Trusted module ownership is hashed, never imported. Other AMI/HII adapters and
 schema migration remain pending. See [Queue sessions](queue-sessions.md).
 

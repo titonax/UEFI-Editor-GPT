@@ -34,7 +34,7 @@ export function useHiiQueueSession(
   const input = { ...context, sourceBytes: context.sourceBytes };
   return {
     context,
-    description: "AMI/HII queue session · individual Ref moves only.",
+    description: "AMI/HII queue session · Ref moves and supported menu Hide/Show.",
     save: () => saveHiiQueueSession(input, context.entries),
     load: async (text) => {
       const restored = await loadHiiQueueSession(text, input);
