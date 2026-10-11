@@ -130,7 +130,7 @@ cannot establish successful enumeration, branch execution or runtime visibility.
 
 The [follow-up](p53-runtime-navigation-research.md) traces publication, the
 guarded consumer append and a conditional Ref/package-update path. Selection
-re-entry, inserted Ref destinations and end-buffer use remain unresolved; the
+re-entry and actual selected Ref destinations remain unresolved; the
 follow-up now corroborates the target Form 1 and label anchors. Keep original HII
 registration and actual on-machine visibility as separate gates.
 
@@ -191,7 +191,8 @@ The [follow-up](p53-runtime-navigation-research.md) identifies the OEM pointer
 interface and a guarded consumer that can overwrite the first terminator, making
 the later marker reachable. It also traces conditional Ref construction and
 package update; the follow-up corroborates Form 1 and labels 1001/1002. Execution,
-re-entry and complete Ref/end-buffer semantics remain unresolved.
+re-entry and actual resolved Ref destinations remain unresolved. The bounded
+field-flow and insertion/remainder path are corroborated in that follow-up.
 No Phoenix runtime Show/Hide capability follows from this evidence alone.
 
 ## Reproduction and limits

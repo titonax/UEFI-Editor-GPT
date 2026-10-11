@@ -72,8 +72,9 @@ package list at RVAs 13934 and 14008, checks package type 2, calls a Forms
 replacement helper at 14195 and reaches interface slot +0x10 at 14325.
 That slot is UpdatePackageList. The export/Forms/replacement/update sequence is
 corroborated by EDK II HiiUpdateForm. The matched FormSet/Form and label anchors
-are corroborated below. Complete
-argument provenance, end-buffer use and successful execution remain unresolved.
+are corroborated below.
+Field flow and insertion behavior are detailed below; selected handles, resolved
+strings/device paths and successful execution remain unresolved.
 
 This creates a concrete lead for runtime-generated navigation: conditional Ref
 construction followed by an HII database update. It does not contradict the
@@ -101,9 +102,51 @@ writes these same numbers at 4090 and 4132. The replacement helper compares the
 start opcode by length and bytes at 13630, then copies data after the start
 anchor at 13682/13699. Its not-found return is `0x800000000000000E` at 13816.
 This ties the mutation lead to a concrete source Form and start anchor.
-The constructed second label does not alone prove that the update consumes an
-end buffer or replaces the entire region between the labels. Exact inserted Ref
-destinations and full caller argument provenance remain open.
+The constructed second label does not prove replacement of the region between
+the labels. The extended helper trace below corroborates insertion followed by
+preservation of the original remainder. Runtime outcomes remain open.
+
+## Ref source fields and insertion behavior
+
+At RVA 3998 the conditional loop loads a handle from its temporary selected array.
+It passes four output addresses to inspection routine 1840: a GUID at caller
+`[rbp-1]`, prompt at `[rbp+0x6F]`, Form ID at `[rbp+0x77]`, and a fifth-argument
+DevicePath string output at `[rbp+0x67]`. The inspector exports that handle's HII
+package list. It copies 16 bytes from FormSet opcode +2, reads its title at +18,
+and writes the ID from the first Form opcode reached in a scanned Forms package.
+The prompt output can be rewritten by conditional string processing before return.
+The DevicePath string's final value and multi-package traversal outcomes are not
+resolved by these landmarks.
+
+The caller reloads those outputs into the Ref builder. Its bounded 104-byte
+stack adjustment and field stores match the following IFR layout:
+
+| Ref field         | Static source / value                                                                    | Offset in Ref |
+| ----------------- | ---------------------------------------------------------------------------------------- | ------------- |
+| Prompt            | Inspector prompt output; initially the FormSet title, with conditional string processing | 2             |
+| Help              | Builder constant string ID 4                                                             | 4             |
+| QuestionId        | Low 16 bits of `0x2000 + selected-handle index`                                          | 6             |
+| Question flags    | Zero                                                                                     | 12            |
+| Target FormId     | Inspector Form ID output                                                                 | 13            |
+| Target QuestionId | Zero                                                                                     | 15            |
+| Target FormSetId  | Inspector GUID output, passed as a non-null pointer                                      | 17            |
+| DevicePath        | Inspector fifth output, an optional string ID                                            | 33            |
+
+The device-path value determines a 35-byte Ref4 or a 33-byte Ref3 in this caller
+path. A GUID found in the consumer's static data does not fix every inserted
+Ref destination to Advanced. The GUID and Form outputs belong to the currently
+inspected handle. Actual handle membership, final string IDs and executed
+navigation require separate runtime evidence.
+
+After matching the start opcode, helper 13312 reads the start buffer's position,
+skips its first opcode and copies the rest at 13682/13699. It then advances the
+original package offset past that matched opcode and immediately copies the
+original remainder at 13743/13760. This corroborates insertion after the start
+anchor and retention of subsequent source opcodes, including the second label.
+There is no end-anchor search in that matched path. Its shape matches the EDK II
+HiiUpdateForm insertion case with a null end buffer; this is an inference from
+compiled code, not proof of the original symbolic call arguments. The separately
+constructed 1002 buffer does not establish a two-anchor replacement operation.
 
 ## Keyboard gate and cleanup
 
@@ -126,7 +169,8 @@ actual callback ordering and the other protocol/output-byte guards remain open.
 Use the existing `hii-registration` opt-in scenario described in the
 [prior research record](p53-root-registration-research.md#reproduction-and-limits).
 It asserts publication/consumer GUID ownership, callback address, list-copy
-landmarks, Ref construction, database update, owned labels and keyboard gate,
+landmarks, Ref construction and field flow, database update, owned labels,
+insertion/remainder copies and keyboard gate,
 and retains immutable source and body hashes. Output remains metadata only; no firmware is supplied to CI.
 The scenario adds no frontend controls, parser rule or writer allowance.
 
@@ -140,7 +184,8 @@ Primary layouts used for corroboration:
 - [EDK II HII library](https://github.com/tianocore/edk2/blob/master/MdeModulePkg/Library/UefiHiiLib/HiiLib.c)
 
 Next trace selection re-entry, actual notification ordering and the remaining
-protocol/output-byte guards, plus inserted Ref destinations and end-buffer use.
+protocol/output-byte guards, plus actual selected handles and resolved Ref
+strings/device paths.
 Only then
 can a controlled scenario explain a navigation outcome. Runtime registration,
 runtime visibility and physical flashing remain unproven.
