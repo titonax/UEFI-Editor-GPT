@@ -13,7 +13,11 @@ import {
   readPeEvidenceSections,
   findPeGuidEvidence,
 } from "../src/components/scripts/peGuidEvidence";
-import { readGuid, readUint16 } from "../src/components/scripts/binaryReader";
+import {
+  readGuid,
+  readUint16,
+  readUint32,
+} from "../src/components/scripts/binaryReader";
 import { acceptedUefiHiiLzmaImage } from "../src/components/scripts/firmwareAcceptance";
 
 const protocolGuids = {
@@ -223,6 +227,21 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             expect(owner).toBeDefined();
             return trace(owner.start + rva - owner.rva - file.bodyStart, count);
           };
+          const peStart = executable.start + executable.headerSize;
+          const peHeader = peStart + readUint32(node.bytes, peStart + 0x3c);
+          const entryRva = readUint32(node.bytes, peHeader + 0x28);
+          expect(entryRva).toBe(768);
+          const initialization = traceRva(entryRva, 113);
+          const dataAtRva = (rva, size) => {
+            const owner = sections.find(
+              (section) =>
+                !section.executable &&
+                rva >= section.rva &&
+                rva + size <= section.rva + section.end - section.start,
+            );
+            expect(owner).toBeDefined();
+            return owner.start + rva - owner.rva;
+          };
           const list = traceRva(976, 187);
           const inspect = traceRva(1840, 749);
           const selection = traceRva(2844, 1652);
@@ -239,6 +258,104 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             const displacement = /\[rip \+ (0x[0-9a-f]+)\]/.exec(instruction.op_str);
             expect(displacement).not.toBeNull();
             expect(rva + instruction.size + Number(displacement[1])).toBe(target);
+          };
+          // EFI entry RDX reaches the initialization call unchanged. The x64
+          // System Table's BootServices field is retained in the service global.
+          assertAt(initialization, 777, "call", "0x31c");
+          assertAt(initialization, 800, "mov", "r9, qword ptr [rdx + 0x60]");
+          assertRip(initialization, 831, "mov", "qword ptr [rip + 0x4002], r9", 17224);
+          assertRip(initialization, 852, "mov", "rax, qword ptr [rip + 0x3fed]", 17224);
+          assertRip(initialization, 859, "lea", "r8, [rip + 0x3ffe]", 17248);
+          assertAt(initialization, 866, "xor", "edx, edx");
+          assertRip(initialization, 868, "lea", "rcx, [rip + 0x3645]", 14768);
+          assertAt(initialization, 875, "call", "qword ptr [rax + 0x140]");
+          expect(readGuid(node.bytes, dataAtRva(14768, 16))).toBe(
+            protocolGuids.database,
+          );
+          // Two GUID-presence accumulators, not one visibility byte per root.
+          const conditionGuids = [
+            {
+              guidRva: 14736,
+              byteRva: 17153,
+              guid: "F5261E19-F373-40BA-87FD-7F1C300CBBFF",
+            },
+            {
+              guidRva: 15728,
+              byteRva: 17154,
+              guid: "F5261E1A-F373-40BA-87FD-7F1C300CBBFF",
+            },
+          ];
+          for (const item of conditionGuids) {
+            expect(readGuid(node.bytes, dataAtRva(item.guidRva, 16))).toBe(item.guid);
+            expect(node.bytes[dataAtRva(item.byteRva, 1)]).toBe(0);
+            expect(
+              inventory.modules.some((module) =>
+                module.formSetGuids.includes(item.guid),
+              ),
+            ).toBe(false);
+          }
+          expect(readGuid(node.bytes, dataAtRva(17136, 16))).toBe(
+            "00000000-0000-0000-0000-000000000000",
+          );
+          assertRip(selection, 3200, "mov", "r13, qword ptr [rip + 0x36a1]", 17192);
+          assertRip(selection, 3210, "mov", "r11, qword ptr [rip + 0x30e7]", 15736);
+          assertRip(selection, 3220, "mov", "r10, qword ptr [rip + 0x2cfd]", 14744);
+          assertAt(selection, 3227, "mov", "edi, 1");
+          assertRip(selection, 3232, "mov", "r8b, byte ptr [rip + 0x365b]", 17154);
+          assertRip(selection, 3239, "mov", "dl, byte ptr [rip + 0x3654]", 17153);
+          assertRip(selection, 3252, "cmp", "qword ptr [rip + 0x3635], r9", 17136);
+          assertRip(selection, 3265, "cmp", "qword ptr [rip + 0x3630], rax", 17144);
+          assertAt(selection, 3272, "je", "0xd08");
+          assertRip(selection, 3274, "cmp", "r9, qword ptr [rip + 0x309f]", 15728);
+          assertAt(selection, 3283, "cmp", "qword ptr [rcx + 8], r11");
+          assertAt(selection, 3291, "cmove", "r8d, edi");
+          assertRip(selection, 3295, "mov", "byte ptr [rip + 0x361c], r8b", 17154);
+          assertRip(selection, 3302, "cmp", "r9, qword ptr [rip + 0x2ca3]", 14736);
+          assertAt(selection, 3311, "cmp", "qword ptr [rcx + 8], r10");
+          assertAt(selection, 3318, "cmove", "edx, edi");
+          assertRip(selection, 3321, "mov", "byte ptr [rip + 0x3602], dl", 17153);
+          assertAt(selection, 3330, "add", "rcx, 0x10");
+          assertAt(selection, 3341, "jne", "0xd18");
+          assertAt(selection, 3346, "je", "0x1181");
+          const initialGuidList = Array.from({ length: 6 }, (_, index) =>
+            readGuid(node.bytes, dataAtRva(15440 + index * 16, 16)),
+          );
+          expect(readGuid(node.bytes, dataAtRva(15536, 16))).toBe(
+            "00000000-0000-0000-0000-000000000000",
+          );
+          expect(initialGuidList).toEqual([
+            "59BFC760-3A82-4656-B1E1-D90A499AEA84",
+            "61912FA5-D42A-4F3F-955D-BB07B8DD1F57",
+            "480B3204-C23C-4AE1-BB16-A73FADDA475F",
+            "2C0EEABD-4107-44A8-A787-2E38FFC52B2B",
+            "348CA223-637B-4430-BAF3-1CE5D322B3FD",
+            "A7F26116-CFDC-4296-8224-ED7D140170C7",
+          ]);
+          expect(readGuid(node.bytes, dataAtRva(15552, 16))).toBe(
+            conditionGuids[0].guid,
+          );
+          for (const item of conditionGuids)
+            expect(initialGuidList).not.toContain(item.guid);
+          assertRip(code, 4607, "lea", "rdx, [rip + 0x2a4a]", 15440);
+          assertAt(code, 4619, "mov", "r8d, 0x90");
+          assertAt(code, 4628, "call", "0x280");
+          assertRip(code, 4633, "mov", "qword ptr [rip + 0x3108], rbx", 17192);
+          record.interfaceInitialization = {
+            entryRva,
+            routineRva: 796,
+            locateCallRva: 875,
+            databaseGuidRva: 14768,
+            serviceGlobalRva: 17224,
+            interfaceGlobalRva: 17248,
+            interpretation:
+              "static EFI entry-to-HiiDatabase LocateProtocol output chain; lookup success remains unproven",
+          };
+          record.guidConditions = {
+            conditionGuids,
+            initialGuidList,
+            initialListSentinelRva: 15536,
+            interpretation:
+              "GUID-presence accumulators with zero source bytes; neither is a per-FormSet visibility vector",
           };
           // Both enumeration calls use type 2, a null GUID filter and the same
           // interface global. The returned byte size is divided by eight.
@@ -300,7 +417,7 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             firstSlotCallRva: 4824,
             handlePreparationCallTargetRva: 2844,
             interpretation:
-              "candidate LocateProtocol/SendForm sequence; array/count globals linked to enumeration, interface origin and runtime conditions unresolved",
+              "candidate LocateProtocol/SendForm sequence; array/count globals linked to enumeration, database lookup output linked; lookup success, callbacks and runtime conditions unresolved",
           };
         }
         records.push(record);

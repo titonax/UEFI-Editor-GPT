@@ -17,6 +17,38 @@ producing a flashable image are separate capabilities.
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
 | Full-image writing        | Phoenix legacy, fixed-size uncompressed UEFI paths and exact accepted LZMA/Tiano sources            |
 
+## Progress at 2026-10-11
+
+PRs #119–#122 are integrated. This status distinguishes implemented support
+from real-source acceptance and remaining runtime evidence; it is not a global
+compatibility percentage.
+
+| Phase                            | Status                          | Completed scope / remaining gate                                                                                                                                 |
+| -------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0. Transactional queue           | Complete                        | Shared AMI, UEFI HII and Phoenix queue, apply/invalidation and verified download lifecycle                                                                       |
+| 1. Phoenix module editor         | Complete for verified callbacks | Fixed-size Show patches and source-preserving module export; unsupported callbacks stay disabled                                                                 |
+| 2. Phoenix LH5 / FFV writer      | Complete for fixed allocations  | Real Z03 full-image rebuild and independent reread; directory/allocation growth stays blocked                                                                    |
+| 3. Phoenix structural menus      | Pending                         | Reading roots/submenus is available; generic directory editing and the Advanced2 exit gate are not complete                                                      |
+| 4. Controlled callback execution | Partial                         | Bounded static tracing exists; deterministic 8086 execution with scenario inputs is pending                                                                      |
+| 5. Case generalization           | Partial                         | Reviewed knowledge/corpus/intake foundation exists; multi-image semantic callback rules remain pending                                                           |
+| 6. Generic UEFI reconstruction   | Partial                         | Fixed uncompressed paths and exact accepted LZMA/Tiano sources work; EFI variant and real mixed compressed ancestry acceptance remain pending                    |
+| 7. Complete AMI output           | Partial                         | Exact accepted full-SPI edit combinations work; broader layout/compression acceptance and AMITSE edits remain blocked                                            |
+| 8. Phoenix UEFI/HII output       | Active                          | P53 mirrored LZMA Setup Ref move passes full-SPI acceptance; runtime root/condition semantics, real mixed-source acceptance and Firefox verification remain open |
+| 9. Broader corpus / 90%          | Deferred                        | Resume new BIOS cases after the current end-to-end editing/output circuit is closed; no new coverage percentage is claimed                                       |
+| 10. Product hardening            | Partial                         | Pre-save allocation/preservation reports exist; comparison, undo/redo, portable sessions and release/recovery documentation remain pending                       |
+
+The immediate work stays in phase 8. The P53 browser handle array/count are now
+linked to Forms-package enumeration. The static database initialization chain
+and two GUID-presence branch bytes are now traced. The next step resolves who
+changes the published GUID list and the effects of the conditional package
+mutations. Runtime menu controls require evidence for the actual selected source
+and edit semantics, followed by output acceptance.
+
+Legacy structural editing and controlled execution remain tracked above; they
+are not implicitly completed by progress in UEFI HII. Real Firefox interaction,
+independent output rereading and physical flashing are different validation
+levels, and only the completed levels are claimed.
+
 PhoenixBIOS legacy FFV, Phoenix SecureCore hybrids and Phoenix UEFI/HII are
 tracked separately. A shared vendor string is not evidence that they share a
 Setup format or reconstruction path.
@@ -240,8 +272,11 @@ boundary verification for each supported compression/layout class.
   candidate FormBrowser2/SendForm path in SystemBiosSetupDxe. Neither establishes
   a visibility vector. The handle-selection trace now links the browser array/count
   globals to Forms-package enumeration and observes temporary filtering plus
-  conditional mutation/re-enumeration paths. Trace interface initialization and
-  condition-byte provenance before promoting runtime root registration or edits.
+  conditional mutation/re-enumeration paths. The database LocateProtocol output
+  now has a PE-entry initialization trace, and the two branch bytes accumulate
+  presence of two OEM GUIDs; neither is a per-root visibility flag. Trace the
+  GUID-list provider/consumer and package-mutation effects before promoting
+  runtime root registration or edits.
 - Prove runtime-visible roots separately from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
   controlled behavior layer.
@@ -281,6 +316,9 @@ list the blocker for every unsupported case.
 
 ## Execution order
 
-Work proceeds in the numbered order above. Cross-cutting refactors are accepted
-only when required by the active phase and must retain the parser/editor/UI
+The numbered phases describe dependencies, not a claim that all earlier exit
+gates have passed. The current priority is to finish the phase-8 UEFI HII
+editing/output circuit before adding more BIOS cases in phase 9. Unfinished
+legacy extensions remain explicit backlog. Cross-cutting refactors are accepted
+only when required by the active work and must retain the parser/editor/UI
 module boundaries documented in [architecture.md](architecture.md).

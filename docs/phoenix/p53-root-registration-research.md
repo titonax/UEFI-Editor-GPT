@@ -56,18 +56,20 @@ indirect call at RVA 4824 (`0x12D8`). The latter sequence supplies a handle-arra
 pointer and count from data, clears R9 and supplies the Form Id from SI; that register's origin is not resolved in this bounded window.
 
 This is compatible with a LocateProtocol/SendForm path. It is an inference from
-instruction and ABI shape: the full origin of the interface pointer, upstream
-control flow and runtime conditions have not been proven. The array/count globals
-are now linked to the enumeration routine below. No root is classified as
+instruction and ABI shape: the full browser-interface origin, upstream control
+flow and runtime conditions have not been proven. The array/count globals are
+linked to the enumeration routine below; its database-interface output now has
+a separate static initialization trace. No root is classified as
 registered or runtime-visible by this sequence. The next trace should establish
-the interface global's initialization and the conditions governing the mutation
-branches before classifying runtime roots.
+the GUID-list provider/consumer and conditional mutation effects before
+classifying runtime roots.
 
 The standard interfaces distinguish adding HII packages to the database from
 asking the browser to display a selected handle array. Primary definitions used
 for landmarks and method layout are:
 
 - [EDK II FormBrowser2](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/FormBrowser2.h)
+- [EDK II System Table, Boot Services and entry ABI](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Uefi/UefiSpec.h)
 - [EDK II HiiDatabase](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/HiiDatabase.h)
 - [EDK II HII package types and IFR opcodes](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Uefi/UefiInternalFormRepresentation.h)
 - [EDK II HiiConfigAccess](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/HiiConfigAccess.h)
@@ -89,16 +91,16 @@ never executes firmware or calls a firmware service.
 | Global 17208 (`0x4338`)      | Returned buffer size shifted right by three and stored; loaded into R8 before candidate SendForm | 1144, 1148, 4781       |
 | Global 17248 (`0x4360`)      | Interface used by both enumeration calls at slot +0x18                                           | 1041, 1053, 1118, 1133 |
 | Temporary R15 array          | Selected source handles copied into eight-byte entries, with RSI as count                        | 2985, 3166, 3170       |
-| Condition bytes 17153, 17154 | Separate conditional paths; their complete initialization and meanings remain unresolved         | 3573, 3933             |
+| Condition bytes 17153, 17154 | Separate GUID-presence accumulators; runtime mutation effects remain unresolved                  | 3573, 3933             |
 | Refresh call                 | Clears the published array/count, then calls enumeration again on this branch                    | 4290, 4297, 4304       |
 
 The enumeration helper supplies package type 2 and a null package-GUID filter to
 both +0x18 calls, using a size query followed by allocation and a second call.
 It compares the first status against `0x8000000000000005` and converts the second
 returned byte count to an eight-byte handle count. This matches the EDK II
-HiiDatabase `ListPackageLists` method layout and Forms package type. The exact
-interface-global initialization has not yet been traced, so the protocol-method
-classification remains an ABI inference. The array/count address equality with
+HiiDatabase `ListPackageLists` method layout and Forms package type. The static initialization chain below corroborates the database-interface
+output argument. Successful protocol lookup and enumeration at runtime are
+still not proven. The array/count address equality with
 the later browser arguments is directly reproduced.
 
 The selection routine walks the source handles, calls the inspection helper,
@@ -121,10 +123,66 @@ inside one such path. The final refresh status is not checked immediately at its
 call site, and not every branch reaches that refresh. Static instruction matches
 cannot establish successful enumeration, branch execution or runtime visibility.
 
-Next: trace initialization of the interface global at RVA 17248, the published
-GUID-list globals and the two condition bytes; then resolve the conditional
-mutation callbacks and their effect on HII packages. Keep the original HII
-registration and actual on-machine visibility as separate gates.
+Next: trace the provider/consumer of the published GUID-list global and resolve
+the conditional mutation callbacks and their effect on HII packages. Keep the
+original HII registration and actual on-machine visibility as separate gates.
+
+## Database interface initialization
+
+The PE entry point is RVA 768 (`0x300`). Its entry window preserves RDX while
+calling the helper at RVA 796 (`0x31C`). Under the x64 EFI entry ABI, RDX holds
+the System Table. The helper loads its BootServices field at +0x60 into R9 and
+stores it in global RVA 17224 (`0x4348`). This is a static dataflow observation
+corroborated by the EDK II System Table layout, not execution of the entry point.
+
+At RVAs 852–875 the helper reloads that service global, supplies the address of
+global 17248 as R8, clears RDX, supplies the actual HiiDatabase GUID at RVA 14768
+as RCX, and calls service slot +0x140. This matches `LocateProtocol(Guid, NULL,
+&Interface)` and links its output address to the interface used for enumeration
+and package export. There is no immediate status branch after this particular
+call in the bounded decode. Successful lookup, valid interface contents at
+runtime and the complete downstream browser-interface provenance remain open.
+
+## GUID-dependent condition bytes
+
+The two source bytes start at zero in a bounded raw-backed data section. In the
+selection routine a 16-byte GUID-list scan reads their current values, compares
+both halves of each GUID and conditionally replaces a value with one. A non-match
+retains the previous value; this is an accumulation, not a reset at each entry.
+
+| Source byte RVA  | Compared GUID RVA | Exact GUID                           | Write RVA |
+| ---------------- | ----------------- | ------------------------------------ | --------- |
+| 17153 (`0x4301`) | 14736             | F5261E19-F373-40BA-87FD-7F1C300CBBFF | 3321      |
+| 17154 (`0x4302`) | 15728             | F5261E1A-F373-40BA-87FD-7F1C300CBBFF | 3295      |
+
+Neither GUID is among the FormSet GUIDs inventoried in this exact source. Their
+OEM semantic names are unknown. These two global branch accumulators cannot be
+presented as an editable per-FormSet visibility vector.
+
+The browser setup path copies 0x90 bytes from RVA 15440 and publishes the pointer
+in global 17192 before calling the selection routine. Its first six 16-byte
+records are followed by a zero-GUID sentinel at RVA 15536:
+
+| Index | GUID                                 |
+| ----- | ------------------------------------ |
+| 0     | 59BFC760-3A82-4656-B1E1-D90A499AEA84 |
+| 1     | 61912FA5-D42A-4F3F-955D-BB07B8DD1F57 |
+| 2     | 480B3204-C23C-4AE1-BB16-A73FADDA475F |
+| 3     | 2C0EEABD-4107-44A8-A787-2E38FFC52B2B |
+| 4     | 348CA223-637B-4430-BAF3-1CE5D322B3FD |
+| 5     | A7F26116-CFDC-4296-8224-ED7D140170C7 |
+
+Neither condition GUID is in those six records. A further occurrence of
+F5261E19 follows the sentinel in the copied allocation; allocation length is
+not list length, and that occurrence is not an additional entry in this scan.
+The loop ends after comparing the two zero-GUID halves. If both accumulated
+conditions are false, the routine branches to its cleanup/return path before
+the conditional mutation work. This explains the gate's static structure,
+not whether a later protocol consumer replaces or extends the list.
+
+Next resolve how the GUID list is exposed, who can change it, and which HII
+packages/opcodes the conditional paths install or update. No Phoenix runtime
+Show/Hide capability follows from this evidence alone.
 
 ## Reproduction and limits
 
@@ -140,7 +198,8 @@ npm run firmware:acceptance
 The scenario asserts source identity, four exact FFS identities, bounded PE
 ownership, the seven records and selector reads, the candidate call shapes, and the
 enumeration-to-browser global links. It also asserts the temporary handle copy,
-conditional branch landmarks and package-inspection landmarks.
+conditional branch landmarks, package-inspection landmarks, the PE-entry
+initialization chain, the two GUID/byte pairs and the initial list sentinel.
 It checks immutable body/source hashes before and after analysis and prints
 metadata only. It does not save decoded firmware, execute firmware or rebuild
 an image. Private source firmware is not supplied to CI.
