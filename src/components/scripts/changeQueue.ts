@@ -81,7 +81,9 @@ export function setChangeQueueEntryEnabled<TPayload>(
   id: string,
   enabled: boolean,
 ) {
-  return entries.map((entry) => (entry.id === id ? { ...entry, enabled } : entry));
+  return entries.map((entry) =>
+    entry.id === id && entry.enabled !== enabled ? { ...entry, enabled } : entry,
+  );
 }
 
 export function analyzeChangeQueue<TPayload>(

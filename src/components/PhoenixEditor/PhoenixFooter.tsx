@@ -38,6 +38,11 @@ export default function PhoenixFooter({
   onMove,
   onClear,
   onApply,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  queueRevision,
   onClose,
 }: {
   fileName: string;
@@ -52,14 +57,26 @@ export default function PhoenixFooter({
   onMove: (id: string, direction: -1 | 1) => void;
   onClear: () => void;
   onApply: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  queueRevision: number;
   onClose: () => void;
 }) {
   const [queueOpened, setQueueOpened] = React.useState(false);
   const [reportOpened, setReportOpened] = React.useState(false);
   const isApplied = analysis.canApply && appliedFingerprint === analysis.fingerprint;
   const input = React.useMemo(
-    () => ({ fileName, sourceBytes, inventory, appliedItems, appliedFingerprint }),
-    [fileName, sourceBytes, inventory, appliedItems, appliedFingerprint],
+    () => ({
+      fileName,
+      sourceBytes,
+      inventory,
+      appliedItems,
+      appliedFingerprint,
+      queueRevision,
+    }),
+    [fileName, sourceBytes, inventory, appliedItems, appliedFingerprint, queueRevision],
   );
   const preflight = useVerifiedFirmwareBuild(
     input,
@@ -195,6 +212,10 @@ export default function PhoenixFooter({
         onMove={onMove}
         onClear={onClear}
         onApply={onApply}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={onUndo}
+        onRedo={onRedo}
       />
     </>
   );

@@ -183,6 +183,11 @@ export default function App({
               onMove={phoenixQueue.move}
               onClear={phoenixQueue.clear}
               onApply={phoenixQueue.apply}
+              canUndo={phoenixQueue.canUndo}
+              canRedo={phoenixQueue.canRedo}
+              onUndo={phoenixQueue.undo}
+              onRedo={phoenixQueue.redo}
+              queueRevision={phoenixQueue.revision}
               onClose={() => {
                 setPhoenixSession(null);
                 setCurrentPhoenixSection(-1);

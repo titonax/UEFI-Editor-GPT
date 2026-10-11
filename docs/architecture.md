@@ -84,6 +84,19 @@ investigation lead and cannot grant editing or reconstruction capability. See
 [Firmware knowledge foundation](knowledge/README.md) for contracts, migration
 and the read-only CorpusRunner integration.
 
+## Queue history
+
+The shared React queue controller keeps at most 50 previous entry lists for each
+opened source, retaining immutable entry/payload references rather than firmware
+copies or projected Data snapshots. Undo/redo covers queue mutations, including
+Clear; Apply and verified output are deliberately outside the history. A source
+replacement resets history before child rendering. Each actual mutation or
+restoration advances a revision and clears the applied fingerprint. All three
+full-image preflight contexts include that revision, so returning to identical
+entries cannot reuse cached bytes or accept an earlier asynchronous completion.
+New edits discard redo; no-op controls retain it. History is not persisted in
+`data.json` and does not change its schema.
+
 ## Safety invariants
 
 - A `SuppressIf` patch is rejected unless its expected `End` opcode is present.

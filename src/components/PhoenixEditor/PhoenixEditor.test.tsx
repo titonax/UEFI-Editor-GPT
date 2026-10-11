@@ -145,6 +145,11 @@ function Workspace() {
       </AppShell.Main>
       <AppShell.Footer>
         <PhoenixFooter
+          canUndo={false}
+          canRedo={false}
+          onUndo={() => undefined}
+          onRedo={() => undefined}
+          queueRevision={0}
           fileName="phoenix.bin"
           sourceBytes={new Uint8Array()}
           inventory={{ menu, templat }}

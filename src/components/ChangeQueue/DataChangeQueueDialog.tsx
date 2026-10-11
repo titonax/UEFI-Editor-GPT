@@ -22,6 +22,10 @@ export default function DataChangeQueueDialog({
       onMove={queue.move}
       onClear={queue.clear}
       onApply={queue.apply}
+      canUndo={queue.canUndo}
+      canRedo={queue.canRedo}
+      onUndo={queue.undo}
+      onRedo={queue.redo}
       metricLabels={{
         units: "net logical field(s)",
         spans: "optimized logical edit(s)",

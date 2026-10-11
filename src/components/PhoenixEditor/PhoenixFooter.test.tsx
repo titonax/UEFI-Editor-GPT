@@ -118,6 +118,11 @@ function Workspace() {
         onMove={queue.move}
         onClear={queue.clear}
         onApply={queue.apply}
+        canUndo={queue.canUndo}
+        canRedo={queue.canRedo}
+        onUndo={queue.undo}
+        onRedo={queue.redo}
+        queueRevision={queue.revision}
         onClose={vi.fn()}
       />
     </MantineProvider>
@@ -306,4 +311,47 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
       vi.mocked(rebuildPhoenixFirmware).mock.calls[1][2].map((item) => item.offset),
     ).toEqual([secondItem.offset, item.offset]);
   });
+  it.each(["ready", "building"])(
+    "requires a new check after undo/redo returns to the %s plan",
+    async (status) => {
+      const task = pending();
+      vi.mocked(rebuildPhoenixFirmware)
+        .mockReturnValueOnce(
+          status === "ready" ? Promise.resolve(output) : task.promise,
+        )
+        .mockResolvedValue(output);
+      render(<Workspace />);
+      await apply();
+      fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+      if (status === "ready")
+        await waitFor(() => {
+          expect(
+            screen.getByRole("button", { name: "Modified firmware image" }),
+          ).toBeEnabled();
+        });
+      fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Undo queue change" }));
+      expect(screen.getByRole("button", { name: "Apply selected" })).toBeDisabled();
+      fireEvent.click(screen.getByRole("button", { name: "Redo queue change" }));
+      expect(screen.getByRole("button", { name: "Apply selected" })).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      await act(async () => {
+        task.resolve(output);
+        await task.promise;
+      });
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Output details" })).toBeDisabled();
+      fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: "Modified firmware image" }),
+        ).toBeEnabled();
+      });
+      expect(rebuildPhoenixFirmware).toHaveBeenCalledTimes(2);
+      expect(saveAs).not.toHaveBeenCalled();
+    },
+  );
 });

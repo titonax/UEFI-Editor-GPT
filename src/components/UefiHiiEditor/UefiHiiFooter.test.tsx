@@ -165,6 +165,15 @@ function Workspace({ mixed = false }: { mixed?: boolean }) {
       >
         Replace workspace
       </button>
+      <button
+        onClick={() => {
+          queue.undo();
+          queue.redo();
+          queue.apply();
+        }}
+      >
+        Restore same queue
+      </button>
       <UefiHiiFooter
         fileName="synthetic.rom"
         sourceImage={sourceImage}
@@ -380,6 +389,36 @@ describe("generic HII complete-image frontend (synthetic orchestration)", () => 
       expect(
         screen.getByRole("button", { name: "Modified firmware image" }),
       ).toBeDisabled();
+      expect(saveAs).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["ready", "building"])(
+    "invalidates the %s output even when undo/redo and Apply are batched",
+    async (status) => {
+      const task = pending();
+      vi.mocked(buildUefiHiiFirmwareImage)
+        .mockReturnValueOnce(
+          status === "ready" ? Promise.resolve(output) : task.promise,
+        )
+        .mockResolvedValue(output);
+      render(<Workspace />);
+      apply();
+      if (status === "ready") await check();
+      else click("Check firmware output");
+      click("Restore same queue");
+      await act(async () => {
+        task.resolve(output);
+        await task.promise;
+      });
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Output details" })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "Check firmware output" }),
+      ).toBeEnabled();
+      await check();
+      expect(buildUefiHiiFirmwareImage).toHaveBeenCalledTimes(2);
       expect(saveAs).not.toHaveBeenCalled();
     },
   );
