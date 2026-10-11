@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-11
 
-PRs #119–#123 and #128 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#129 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -40,10 +40,13 @@ compatibility percentage.
 The immediate work stays in phase 8. The P53 browser handle array/count are now
 linked to Forms-package enumeration. The static database initialization chain
 and two GUID-presence branch bytes are now traced. The OEM list publication
-and LenovoSetupMainDxe consumer are now linked: a guarded callback copies its
-FormSet GUID over the first terminator. Conditional Ref construction and an HII
+and LenovoSetupMainDxe consumer are now linked: a guarded callback copies the
+Advanced-module FormSet GUID over the first terminator. Conditional Ref
+construction and an HII
 package-update path are corroborated. The next step establishes selection
-re-entry and the exact Forms/labels changed by that path. Runtime menu controls
+re-entry and full Ref/end-buffer semantics. The replacement target is now
+corroborated as SystemBiosSetupDxe Form 1 with labels 1001/1002; the consumer
+tail unregisters a keyboard notification. Runtime menu controls
 require evidence for the actual selected source and edit semantics, followed by output acceptance.
 
 Legacy structural editing and controlled execution remain tracked above; they
@@ -278,10 +281,14 @@ boundary verification for each supported compression/layout class.
   now has a PE-entry initialization trace, and the two branch bytes accumulate
   presence of two OEM GUIDs; neither is a per-root visibility flag.
   [Publication/consumer research](phoenix/p53-runtime-navigation-research.md)
-  links the OEM pointer interface to a guarded LenovoSetupMainDxe FormSet append
+  links the OEM pointer interface to a guarded LenovoSetupMainDxe append of the
+  SystemSetupAdvancedDxe FormSet (separate from the consumer's own FormSet)
   and corroborates conditional Ref construction followed by HII package update.
-  Selection re-entry, callback conditions and exact replacement Forms/labels
-  remain open before promoting runtime root registration or edits.
+  The replacement helper matches SystemBiosSetupDxe Form 1 and its label anchors
+  1001/1002. A keyboard callback sets the append gate, and the tail unregisters
+  that notification. Selection re-entry, other callback conditions, inserted Ref
+  destinations and end-buffer use remain open before promoting runtime root
+  registration or edits.
 - Prove runtime-visible roots separately from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
   controlled behavior layer.

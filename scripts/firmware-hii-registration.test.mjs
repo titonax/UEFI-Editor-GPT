@@ -458,6 +458,62 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
           assertAt(update, 14195, "call", "0x3400");
           assertRip(update, 14315, "mov", "rax, qword ptr [rip + 0xb6e]", 17248);
           assertAt(update, 14325, "call", "qword ptr [rax + 0x10]");
+          const replacement = traceRva(13312, 540);
+          const targetGuid = "1D81A238-03F1-4F4A-A413-CBBB008E1F0F";
+          const labelGuid = "0F0B1735-87A0-4193-B266-538C38AF48CE";
+          expect(readGuid(node.bytes, dataAtRva(15584, 16))).toBe(targetGuid);
+          expect(readGuid(node.bytes, dataAtRva(14576, 16))).toBe(labelGuid);
+          assertAt(replacement, 13353, "mov", "eax, 1");
+          assertAt(replacement, 13358, "mov", "word ptr [rbp - 0x10], ax");
+          assertAt(replacement, 13492, "cmp", "al, 0xe");
+          assertRip(replacement, 13496, "mov", "rax, qword ptr [rip + 0x821]", 15584);
+          assertAt(replacement, 13503, "cmp", "qword ptr [rbx + 2], rax");
+          assertRip(replacement, 13509, "mov", "rax, qword ptr [rip + 0x81c]", 15592);
+          assertAt(replacement, 13516, "cmp", "qword ptr [rbx + 0xa], rax");
+          assertAt(replacement, 13534, "cmp", "al, 1");
+          assertAt(replacement, 13538, "cmp", "al, 0x5d");
+          assertAt(replacement, 13542, "lea", "rcx, [rbx + 2]");
+          assertAt(replacement, 13561, "lea", "rdx, [rbp - 0x10]");
+          assertAt(replacement, 13565, "call", "0x2e0");
+          assertAt(replacement, 13630, "call", "0x2e0");
+          assertAt(replacement, 13682, "lea", "rdx, [rax + r14]");
+          assertAt(replacement, 13699, "call", "0x280");
+          assertAt(replacement, 13816, "movabs", "rax, 0x800000000000000e");
+          assertAt(selection, 4085, "mov", "ecx, 0x3e9");
+          assertAt(selection, 4090, "mov", "word ptr [rax + 0x13], cx");
+          assertAt(selection, 4123, "mov", "ecx, 0x3ea");
+          assertAt(selection, 4132, "mov", "word ptr [rax + 0x13], cx");
+          const ownedModule = inventory.modules.find(
+            (module) => module.bufferId === node.id && module.file.guid === file.guid,
+          );
+          expect(ownedModule?.formSetGuids).toEqual([targetGuid]);
+          const labels = ownedModule.packages
+            .flatMap((pkg) => pkg.opcodes)
+            .filter((opcode) => opcode.opcode === 0x5f)
+            .map((opcode) => {
+              expect(opcode.length).toBe(21);
+              expect(opcode.ownerFormSetGuid).toBe(targetGuid);
+              expect(opcode.ownerFormId).toBe(1);
+              expect(readGuid(ownedModule.bytes, opcode.offset + 2)).toBe(labelGuid);
+              expect(ownedModule.bytes[opcode.offset + 18]).toBe(0);
+              return {
+                bodyOffset: opcode.offset,
+                number: readUint16(ownedModule.bytes, opcode.offset + 19),
+              };
+            });
+          expect(labels).toEqual([
+            { bodyOffset: 15685, number: 1001 },
+            { bodyOffset: 15706, number: 1002 },
+          ]);
+          record.packageMutationTarget = {
+            formSetGuid: targetGuid,
+            formId: 1,
+            labelGuid,
+            labels,
+            replacementHelperRva: 13312,
+            interpretation:
+              "static FormSet/Form match and start-anchor insertion corroborated; end-buffer use and runtime effects unproven",
+          };
           record.guidListPublication = {
             guid: protocolGuids.guidList,
             guidBodyOffset: 14868,
@@ -535,6 +591,44 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
               (hit) => hit.guid === formSet && hit.offset - file.bodyStart === 38028,
             ),
           ).toBe(true);
+          // The appended target belongs to a different HII module, not this consumer.
+          const advanced = inventory.modules.find(
+            (module) => module.name === "SystemSetupAdvancedDxe",
+          );
+          const main = inventory.modules.find(
+            (module) => module.bufferId === node.id && module.file.guid === file.guid,
+          );
+          expect(advanced?.formSetGuids).toEqual([formSet]);
+          expect(main?.formSetGuids).toEqual(["1247C8E8-307C-4C6B-8812-CA054F9963F8"]);
+          const keyboard = traceRva(1524, 134);
+          const keyCallback = traceRva(1472, 51);
+          const textInputGuid = "DD9E7534-7762-4698-8C14-F58517A625AA";
+          expect(readGuid(node.bytes, dataAtRva(35280, 16))).toBe(textInputGuid);
+          assertRip(keyboard, 1545, "lea", "r8, [rip + 0xb4f0]", 47872);
+          assertRip(keyboard, 1559, "lea", "rdx, [rip + 0x83b2]", 35280);
+          assertAt(keyboard, 1566, "mov", "rcx, qword ptr [rcx + 0x28]");
+          assertAt(keyboard, 1570, "call", "qword ptr [rax + 0x98]");
+          assertRip(keyboard, 1606, "mov", "rax, qword ptr [rip + 0xb4b3]", 47872);
+          assertRip(keyboard, 1613, "lea", "r9, [rip + 0xb4b4]", 47880);
+          assertRip(keyboard, 1620, "lea", "r8, [rip - 0x9b]", 1472);
+          assertAt(keyboard, 1648, "call", "qword ptr [rax + 0x20]");
+          assertRip(keyCallback, 1483, "mov", "byte ptr [rip + 0xb526], 1", 47864);
+          assertAt(keyCallback, 1505, "call", "qword ptr [rax + 0x28]");
+          assertRip(callback, 1420, "mov", "rax, qword ptr [rip + 0xb56d]", 47872);
+          assertRip(callback, 1432, "mov", "rdx, qword ptr [rip + 0xb569]", 47880);
+          assertAt(callback, 1447, "call", "qword ptr [rax + 0x28]");
+          assertRip(callback, 1458, "mov", "byte ptr [rip + 0xb53f], 0", 47864);
+          record.keyboardGate = {
+            protocolGuid: textInputGuid,
+            interfaceGlobalRva: 47872,
+            notifyHandleGlobalRva: 47880,
+            gateByteRva: 47864,
+            registrationCallRva: 1648,
+            keyCallbackRva: 1472,
+            unregisterCallRvas: [1505, 1447],
+            interpretation:
+              "key callback sets the guarded append flag; tail +0x28 matches UnregisterKeyNotify, not selection re-entry",
+          };
           record.guidListConsumer = {
             publicationGuid: protocolGuids.guidList,
             publicationGuidBodyOffset: 43900,
@@ -543,6 +637,8 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             createEventCallRva: 2202,
             registerNotifyCallRva: 2229,
             formSetGuid: formSet,
+            targetModuleName: advanced.name,
+            consumerFormSetGuid: main.formSetGuids[0],
             copyCallRva: 1415,
             interpretation:
               "guarded notification callback locates and dereferences the published pointer, then copies a FormSet GUID into the sentinel slot; execution and re-entry unproven",

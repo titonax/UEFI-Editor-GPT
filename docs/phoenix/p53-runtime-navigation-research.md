@@ -41,9 +41,13 @@ zero-GUID terminator otherwise. The bounded copy helper corroborates source,
 destination and count with a memory-copy instruction path.
 
 The copied GUID is `821D8B77-246D-4E96-8E10-3467D56AB1BA`, a FormSet present
-in this exact LenovoSetupMainDxe module. The initial publishing allocation has
+in this exact source's SystemSetupAdvancedDxe module. LenovoSetupMainDxe's own
+parsed FormSet is `1247C8E8-307C-4C6B-8812-CA054F9963F8`. The GUID copied from
+its data section is a target identity, not proof of its own HII ownership.
+This corrects the earlier consumer-module attribution. The initial publishing
+allocation has
 six GUIDs, then a zero terminator, then the OEM marker F5261E19, then another
-zero. If the guarded callback copies this FormSet into the first zero slot,
+zero. If the guarded callback copies this target FormSet into the first zero slot,
 the later marker becomes reachable by the previously traced list scan.
 This is a conditional consequence of the source layout, not proof that the
 notification ran or that a menu appeared.
@@ -51,7 +55,8 @@ notification ran or that a menu appeared.
 The initial selection call precedes publication. A callback may alter the list
 after that call; the trace does not yet establish subsequent selection re-entry
 or a particular notification ordering. The consumer also reaches another
-indirect call and clears state near its tail; that interface remains unresolved.
+indirect call and clears state near its tail; the keyboard trace below identifies
+that interface without establishing selection re-entry.
 
 ## Conditional package mutation
 
@@ -66,21 +71,63 @@ The update helper loads the already traced HiiDatabase interface, exports the
 package list at RVAs 13934 and 14008, checks package type 2, calls a Forms
 replacement helper at 14195 and reaches interface slot +0x10 at 14325.
 That slot is UpdatePackageList. The export/Forms/replacement/update sequence is
-corroborated by EDK II HiiUpdateForm. The matched FormSet/Form, label anchors,
-complete argument provenance and successful execution remain unresolved.
+corroborated by EDK II HiiUpdateForm. The matched FormSet/Form and label anchors
+are corroborated below. Complete
+argument provenance, end-buffer use and successful execution remain unresolved.
 
 This creates a concrete lead for runtime-generated navigation: conditional Ref
 construction followed by an HII database update. It does not contradict the
 original static inventory's zero incoming Refs, and does not turn those static
 declarations into proven displayed roots. It is not a binary Show/Hide recipe.
 
+## Exact replacement target and labels
+
+The Forms replacement helper at RVA 13312 contains a fixed FormSet comparison
+against data GUID `1D81A238-03F1-4F4A-A413-CBBB008E1F0F` at RVA 15584.
+It compares both halves at RVAs 13503 and 13516 after recognizing opcode `0x0E`.
+It initializes the 16-bit Form selector to `1` at 13353/13358, recognizes Form
+`0x01` or FormMap `0x5D`, and compares the following ID at 13565.
+
+The original SystemBiosSetupDxe HII package independently contains that FormSet,
+Form 1 and two 21-byte Tiano GUID label opcodes:
+
+| Body offset | Owner Form | Extension | Label number   |
+| ----------- | ---------- | --------- | -------------- |
+| 15685       | 1          | 0 (label) | 1001 (`0x3E9`) |
+| 15706       | 1          | 0 (label) | 1002 (`0x3EA`) |
+
+Their GUID is `0F0B1735-87A0-4193-B266-538C38AF48CE`. The conditional builder
+writes these same numbers at 4090 and 4132. The replacement helper compares the
+start opcode by length and bytes at 13630, then copies data after the start
+anchor at 13682/13699. Its not-found return is `0x800000000000000E` at 13816.
+This ties the mutation lead to a concrete source Form and start anchor.
+The constructed second label does not alone prove that the update consumes an
+end buffer or replaces the entire region between the labels. Exact inserted Ref
+destinations and full caller argument provenance remain open.
+
+## Keyboard gate and cleanup
+
+The consumer's previously unresolved interface is corroborated as
+SimpleTextInputEx. Its GUID `DD9E7534-7762-4698-8C14-F58517A625AA` is at RVA 35280. The setup routine at 1524 passes that GUID and output global 47872 to a
++0x98 call, compatible with HandleProtocol on the console input handle.
+It supplies callback RVA 1472 and notify-handle output global 47880 to interface
+slot +0x20 at 1648, matching RegisterKeyNotify.
+
+The key callback sets global byte 47864 to one at 1483; the OEM list callback
+checks that same byte at 1320. The key callback and list callback both reach
+slot +0x28 using the same interface/notify handle, at 1505 and 1447 respectively.
+That slot is UnregisterKeyNotify. The list callback then clears the gate byte
+at 1458. Its tail is keyboard notification cleanup, so it supplies no evidence
+of selection re-entry. Keystroke delivery, full service-global initialization,
+actual callback ordering and the other protocol/output-byte guards remain open.
+
 ## Reproduction, sources and next gate
 
 Use the existing `hii-registration` opt-in scenario described in the
 [prior research record](p53-root-registration-research.md#reproduction-and-limits).
 It asserts publication/consumer GUID ownership, callback address, list-copy
-landmarks, Ref construction and database update, and retains immutable source
-and body hashes. Output remains metadata only; no firmware is supplied to CI.
+landmarks, Ref construction, database update, owned labels and keyboard gate,
+and retains immutable source and body hashes. Output remains metadata only; no firmware is supplied to CI.
 The scenario adds no frontend controls, parser rule or writer allowance.
 
 Primary layouts used for corroboration:
@@ -88,9 +135,12 @@ Primary layouts used for corroboration:
 - [EDK II Boot Services](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Uefi/UefiSpec.h)
 - [EDK II HiiDatabase](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/HiiDatabase.h)
 - [EDK II IFR Ref structures](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Uefi/UefiInternalFormRepresentation.h)
+- [EDK II Tiano label layout](https://github.com/tianocore/edk2/blob/master/MdeModulePkg/Include/Guid/MdeModuleHii.h)
+- [EDK II SimpleTextInputEx](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/SimpleTextInEx.h)
 - [EDK II HII library](https://github.com/tianocore/edk2/blob/master/MdeModulePkg/Library/UefiHiiLib/HiiLib.c)
 
-Next trace the consumer's additional interface and state, selection re-entry,
-and the exact Forms/labels changed by the package replacement helper. Only then
+Next trace selection re-entry, actual notification ordering and the remaining
+protocol/output-byte guards, plus inserted Ref destinations and end-buffer use.
+Only then
 can a controlled scenario explain a navigation outcome. Runtime registration,
 runtime visibility and physical flashing remain unproven.
