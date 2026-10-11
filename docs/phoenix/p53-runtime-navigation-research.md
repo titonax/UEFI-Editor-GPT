@@ -148,6 +148,43 @@ HiiUpdateForm insertion case with a null end buffer; this is an inference from
 compiled code, not proof of the original symbolic call arguments. The separately
 constructed 1002 buffer does not establish a two-anchor replacement operation.
 
+## Entry, browser return and reset request
+
+The bounded EFI entry window tail-jumps at RVA 790 to wrapper 5336. That wrapper
+calls browser routine 4516 at 5719. The browser routine calls selector 2844 at
+4640, publishes the OEM pointer interface at 4676, and calls SendForm at 4824.
+The two complete decoded routines end at 5824 and 4974 respectively.
+
+| Landmark                                                | SystemBiosSetupDxe RVA |
+| ------------------------------------------------------- | ---------------------- |
+| Entry tail-jump to wrapper                              | 790                    |
+| Wrapper initializes reset-output byte to zero           | 5369                   |
+| Wrapper passes that byte to browser routine             | 5715, 5719             |
+| Browser passes ActionRequest output address to SendForm | 4788, 4802, 4824       |
+| Browser compares request with 1 and sets caller byte    | 4826, 4833             |
+| Wrapper tests reset-output byte                         | 5744, 5748             |
+| Wrapper calls Runtime Services slot +0x68               | 5750, 5768             |
+
+The browser retains its incoming output pointer in RDI. After SendForm, request
+value 1 causes a byte store through that pointer. In the FormBrowser2 definition,
+1 is EFI_BROWSER_ACTION_REQUEST_RESET. On a successful browser return and a set
+byte, the wrapper loads global 17232 and calls slot +0x68 with reset type 1,
+status zero, data size zero and a null data pointer.
+
+The entry helper separately reads System Table RuntimeServices at +0x58 into
+RAX at 811 and stores it in global 17232 at 838. Its layout and method slot match
+ResetSystem. This is static pointer/ABI corroboration; no reset or firmware
+service is executed by the probe.
+
+Within these bounded routines, the browser has one direct selector call (4640),
+and the wrapper has one direct browser call (5719). The observed return route
+handles a reset request; it does not show a second direct selector call after
+publication. This is a local control-flow limit, not proof that indirect services,
+notifications or external callers cannot re-enter. Linear searches elsewhere in
+the image are discovery leads only and cannot prove absence of an invocation.
+The PE exception-directory fields do not provide usable function boundaries;
+these windows use the observed prologues, section bounds and final returns.
+
 ## Keyboard gate and cleanup
 
 The consumer's previously unresolved interface is corroborated as
@@ -170,12 +207,13 @@ Use the existing `hii-registration` opt-in scenario described in the
 [prior research record](p53-root-registration-research.md#reproduction-and-limits).
 It asserts publication/consumer GUID ownership, callback address, list-copy
 landmarks, Ref construction and field flow, database update, owned labels,
-insertion/remainder copies and keyboard gate,
+insertion/remainder copies, keyboard gate and bounded invocation/reset flow,
 and retains immutable source and body hashes. Output remains metadata only; no firmware is supplied to CI.
 The scenario adds no frontend controls, parser rule or writer allowance.
 
 Primary layouts used for corroboration:
 
+- [EDK II FormBrowser2](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/FormBrowser2.h)
 - [EDK II Boot Services](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Uefi/UefiSpec.h)
 - [EDK II HiiDatabase](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/HiiDatabase.h)
 - [EDK II IFR Ref structures](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Uefi/UefiInternalFormRepresentation.h)
@@ -183,7 +221,7 @@ Primary layouts used for corroboration:
 - [EDK II SimpleTextInputEx](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/SimpleTextInEx.h)
 - [EDK II HII library](https://github.com/tianocore/edk2/blob/master/MdeModulePkg/Library/UefiHiiLib/HiiLib.c)
 
-Next trace selection re-entry, actual notification ordering and the remaining
+Next trace indirect selection re-entry, actual notification ordering and the remaining
 protocol/output-byte guards, plus actual selected handles and resolved Ref
 strings/device paths.
 Only then

@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-11
 
-PRs #119–#123 and #128–#130 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#131 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -45,8 +45,11 @@ Advanced-module FormSet GUID over the first terminator. Conditional Ref
 construction and an HII package-update path are corroborated. The Ref fields
 now link to the inspected handle's GUID/Form, prompt and optional DevicePath
 outputs. The bounded helper inserts after the start label and preserves the
-original package remainder. The next step establishes selection re-entry, actual
-selected handles and resolved string/device-path outputs. The replacement target is now
+original package remainder. The entry/wrapper/browser chain and reset-request
+return route are now traced. Selection occurs before OEM publication; these
+wrappers show no second direct selector call. The next step establishes indirect
+re-entry, actual notification ordering/selected handles and resolved
+string/device-path outputs. The replacement target is now
 corroborated as SystemBiosSetupDxe Form 1 with labels 1001/1002; the consumer
 tail unregisters a keyboard notification. Runtime menu controls
 require evidence for the actual selected source and edit semantics, followed by output acceptance.
@@ -292,8 +295,11 @@ boundary verification for each supported compression/layout class.
   insertion after the start
   anchor and preservation of the original remainder. Actual selected handles,
   resolved strings/device paths, selection re-entry, other callback conditions and
-  runtime ordering remain open before promoting
-  runtime root registration or edits.
+  runtime ordering remain open before promoting runtime root registration or
+  edits. The entry tail-jump and wrapper/browser call chain now link the initial
+  selection-before-publication sequence to SendForm and its reset-request return
+  route. These wrappers contain no second direct selector call; indirect re-entry
+  remains unproven.
 - Prove runtime-visible roots separately from merely present HII FormSets.
 - Feed any discovered runtime navigation callbacks or variables into the
   controlled behavior layer.
