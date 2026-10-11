@@ -389,4 +389,46 @@ describe("AMI complete-image user flow (synthetic integration)", () => {
     });
     expect(buildAmiFirmwareImage).toHaveBeenCalledTimes(2);
   });
+  it("compares net selected values and permits read-only inspection of a verified plan", async () => {
+    vi.mocked(buildAmiFirmwareImage).mockResolvedValue(output);
+    render(<Workspace />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Unsuppress all Items in this Form" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Original / selected plan (1)" }),
+    );
+    const row = screen.getByText("suppressions.0.active").closest("tr");
+    if (!row) throw new Error("Expected comparison row");
+    expect(within(row).getByText("Yes")).toBeInTheDocument();
+    expect(within(row).getByText("No")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(
+      screen.getByRole("button", { name: "Original / selected plan (0)" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No net changes in the selected plan.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Undo queue change" }));
+    expect(
+      screen.getByRole("button", { name: "Original / selected plan (1)" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    expect(
+      await screen.findByRole("button", { name: "Original / selected plan (1)" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(
+      screen.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeEnabled();
+    expect(buildAmiFirmwareImage).toHaveBeenCalledTimes(1);
+    expect(saveAs).not.toHaveBeenCalled();
+  });
 });

@@ -19,23 +19,23 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-11
 
-PRs #119–#123 and #128–#137 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#138 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
-| Phase                            | Status                          | Completed scope / remaining gate                                                                                                                                        |
-| -------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0. Transactional queue           | Complete                        | Shared AMI, UEFI HII and Phoenix queue, apply/invalidation and verified download lifecycle                                                                              |
-| 1. Phoenix module editor         | Complete for verified callbacks | Fixed-size Show patches and source-preserving module export; unsupported callbacks stay disabled                                                                        |
-| 2. Phoenix LH5 / FFV writer      | Complete for fixed allocations  | Real Z03 full-image rebuild and independent reread; directory/allocation growth stays blocked                                                                           |
-| 3. Phoenix structural menus      | Pending                         | Reading roots/submenus is available; generic directory editing and the Advanced2 exit gate are not complete                                                             |
-| 4. Controlled callback execution | Partial                         | Bounded static tracing exists; deterministic 8086 execution with scenario inputs is pending                                                                             |
-| 5. Case generalization           | Partial                         | Reviewed knowledge/corpus/intake foundation exists; multi-image semantic callback rules remain pending                                                                  |
-| 6. Generic UEFI reconstruction   | Partial                         | Fixed uncompressed paths and exact accepted LZMA/Tiano sources work; EFI variant and real mixed compressed ancestry acceptance remain pending                           |
-| 7. Complete AMI output           | Partial                         | Exact accepted full-SPI edit combinations work; broader layout/compression acceptance and AMITSE edits remain blocked                                                   |
-| 8. Phoenix UEFI/HII output       | Active                          | P53 mirrored LZMA Setup Ref move passes full-SPI acceptance; Firefox verification and real mixed-source acceptance remain open; dynamic-root semantics are parked       |
-| 9. Broader corpus / 90%          | Deferred                        | Resume new BIOS cases after the current end-to-end editing/output circuit is closed; no new coverage percentage is claimed                                              |
-| 10. Product hardening            | Partial                         | Pre-save allocation/preservation reports exist; bounded queue undo/redo is implemented; comparison, portable sessions and release/recovery documentation remain pending |
+| Phase                            | Status                          | Completed scope / remaining gate                                                                                                                                                                                      |
+| -------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0. Transactional queue           | Complete                        | Shared AMI, UEFI HII and Phoenix queue, apply/invalidation and verified download lifecycle                                                                                                                            |
+| 1. Phoenix module editor         | Complete for verified callbacks | Fixed-size Show patches and source-preserving module export; unsupported callbacks stay disabled                                                                                                                      |
+| 2. Phoenix LH5 / FFV writer      | Complete for fixed allocations  | Real Z03 full-image rebuild and independent reread; directory/allocation growth stays blocked                                                                                                                         |
+| 3. Phoenix structural menus      | Pending                         | Reading roots/submenus is available; generic directory editing and the Advanced2 exit gate are not complete                                                                                                           |
+| 4. Controlled callback execution | Partial                         | Bounded static tracing exists; deterministic 8086 execution with scenario inputs is pending                                                                                                                           |
+| 5. Case generalization           | Partial                         | Reviewed knowledge/corpus/intake foundation exists; multi-image semantic callback rules remain pending                                                                                                                |
+| 6. Generic UEFI reconstruction   | Partial                         | Fixed uncompressed paths and exact accepted LZMA/Tiano sources work; EFI variant and real mixed compressed ancestry acceptance remain pending                                                                         |
+| 7. Complete AMI output           | Partial                         | Exact accepted full-SPI edit combinations work; broader layout/compression acceptance and AMITSE edits remain blocked                                                                                                 |
+| 8. Phoenix UEFI/HII output       | Active                          | P53 mirrored LZMA Setup Ref move passes full-SPI acceptance; Firefox verification and real mixed-source acceptance remain open; dynamic-root semantics are parked                                                     |
+| 9. Broader corpus / 90%          | Deferred                        | Resume new BIOS cases after the current end-to-end editing/output circuit is closed; no new coverage percentage is claimed                                                                                            |
+| 10. Product hardening            | Partial                         | Pre-save allocation/preservation reports exist; bounded queue undo/redo and selected-plan comparison are implemented; full-image byte comparison, portable sessions and release/recovery documentation remain pending |
 
 The immediate priority is the supported editing/output circuit, not exhaustive
 reverse engineering of one firmware. The accepted P53 Setup Ref move already
@@ -53,13 +53,13 @@ blocked; it does not invalidate the separately accepted static Ref output path.
 
 ## Functional closure and bounded research scope
 
-| Track                              | Evidence / open gate                                                                                                  | Priority                              |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Supported P53 editing/output       | Engine and real-source React/jsdom acceptance passed; real Firefox flow pending                                       | Finish browser acceptance             |
-| Mixed uncompressed carriers        | Synthetic reconstruction passed; no qualifying carrier in 31 inventoried local inputs; real-source acceptance pending | Retain missing-source gate            |
-| P53 dynamic roots                  | Substantial static trace; execution, ordering and edit semantics unproven                                             | Parked research backlog               |
-| Broader compression/layout support | EFI variant and compressed mixed ancestry remain unsupported                                                          | Separate bounded acceptance work      |
-| Product hardening                  | Queue undo/redo implemented; comparison, portable sessions and recovery documentation pending                         | Proceed with validation gates visible |
+| Track                              | Evidence / open gate                                                                                                     | Priority                              |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| Supported P53 editing/output       | Engine and real-source React/jsdom acceptance passed; real Firefox flow pending                                          | Finish browser acceptance             |
+| Mixed uncompressed carriers        | Synthetic reconstruction passed; no qualifying carrier in 31 inventoried local inputs; real-source acceptance pending    | Retain missing-source gate            |
+| P53 dynamic roots                  | Substantial static trace; execution, ordering and edit semantics unproven                                                | Parked research backlog               |
+| Broader compression/layout support | EFI variant and compressed mixed ancestry remain unsupported                                                             | Separate bounded acceptance work      |
+| Product hardening                  | Queue undo/redo and plan comparison implemented; full-image byte comparison, portable sessions and recovery docs pending | Proceed with validation gates visible |
 
 The next work order is:
 
@@ -108,7 +108,20 @@ consume history. Apply and output verification are not restored: every undo/redo
 invalidates the applied plan and verified download, including an identical restored
 queue and a late asynchronous build. These are synthetic React/hook regressions,
 not a new firmware format or real Firefox acceptance. History is held in memory;
-comparison, portable sessions and recovery documentation remain next.
+full-image byte comparison, portable sessions and recovery documentation remain next.
+
+The shared queue dialog now compares the original loaded editor state with the
+net selected plan for AMI/UEFI HII, and validated source/replacement patch spans
+for Phoenix. Paused changes are excluded; cancelling operations produce no net
+rows. Logical inconsistencies or invalid binary patches make the comparison
+unavailable rather than displaying a partially replayed result. Structured values
+are bounded summaries, at most 100 changed fields/spans are displayed, and
+omissions are explicit. This is a read-only plan preview before Apply, not a
+byte diff of the rebuilt full SPI or output acceptance. Opening the comparison
+preserves a verified output; changing the queue still invalidates it. Synthetic
+hook/UI regressions exercise net values, selection, undo, source/conflict errors,
+summary limits and read-only inspection. Portable session work can proceed;
+Firefox, mixed-source acceptance and full-image byte comparison remain open.
 
 ## 0. Transactional change queue
 
@@ -378,8 +391,8 @@ list the blocker for every unsupported case.
   checks the complete applied queue before download and reports verified packed
   sizes, section capacity, source allocation bounds and preserved non-BIOS bytes.
   Results are invalidated when the applied state or source changes.
-- Original/modified comparison (pending) and bounded queue undo/redo (implemented) above the
-  transactional queue.
+- Original/selected-plan comparison and bounded queue undo/redo are implemented
+  above the transactional queue. Full rebuilt-image byte comparison remains pending.
 - Portable project/session export with schema migration.
 - Recovery and flashing documentation per supported family.
 - Stable release only when each write path has an independent reconstruction

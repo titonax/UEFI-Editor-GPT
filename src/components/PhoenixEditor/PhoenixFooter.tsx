@@ -12,6 +12,7 @@ import {
 } from "../scripts/phoenixFirmwareRebuilder";
 import { useVerifiedFirmwareBuild } from "../Footer/useVerifiedFirmwareBuild";
 import ChangeQueueDialog from "../ChangeQueue/ChangeQueueDialog";
+import { binaryQueueComparison } from "../ChangeQueue/queueComparison";
 import s from "../Footer/Footer.module.css";
 
 interface BuildInput {
@@ -64,6 +65,7 @@ export default function PhoenixFooter({
   queueRevision: number;
   onClose: () => void;
 }) {
+  const comparison = React.useMemo(() => binaryQueueComparison(analysis), [analysis]);
   const [queueOpened, setQueueOpened] = React.useState(false);
   const [reportOpened, setReportOpened] = React.useState(false);
   const isApplied = analysis.canApply && appliedFingerprint === analysis.fingerprint;
@@ -202,6 +204,7 @@ export default function PhoenixFooter({
       <ChangeQueueDialog
         opened={queueOpened}
         entries={entries}
+        comparison={comparison}
         analysis={analysis}
         appliedFingerprint={appliedFingerprint}
         onClose={() => {

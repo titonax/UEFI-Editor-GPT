@@ -19,6 +19,9 @@ import {
 } from "@tabler/icons-react";
 import type { ChangeQueueAnalysis, ChangeQueueEntry } from "../scripts/changeQueue";
 
+import QueueComparisonView from "./QueueComparisonView";
+import type { QueueComparison } from "./queueComparison";
+
 const defaultMetricLabels = {
   units: "byte(s)",
   spans: "optimized patch span(s)",
@@ -39,6 +42,7 @@ export default function ChangeQueueDialog<TPayload>({
   canRedo,
   onUndo,
   onRedo,
+  comparison,
   metricLabels = defaultMetricLabels,
 }: {
   opened: boolean;
@@ -55,6 +59,7 @@ export default function ChangeQueueDialog<TPayload>({
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  comparison: QueueComparison;
   metricLabels?: { units: string; spans: string };
 }) {
   const isApplied = analysis.canApply && appliedFingerprint === analysis.fingerprint;
@@ -200,6 +205,8 @@ export default function ChangeQueueDialog<TPayload>({
             </Table>
           </ScrollArea>
         )}
+
+        <QueueComparisonView comparison={comparison} />
 
         <Group justify="space-between">
           <Button

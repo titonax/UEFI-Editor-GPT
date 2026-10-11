@@ -97,6 +97,15 @@ entries cannot reuse cached bytes or accept an earlier asynchronous completion.
 New edits discard redo; no-op controls retain it. History is not persisted in
 `data.json` and does not change its schema.
 
+The queue comparison is derived read-only from the same selected projection and
+validation issues. AMI/HII rows compare the loaded base Data with the net projected
+Data; Phoenix rows compare deduplicated validated module patch spans. Invalid
+queues expose no comparison rows, preventing a partial replay from appearing as
+a coherent plan. Display summaries are bounded in depth, items, string length and
+row count, with omissions labelled. They do not serialize complete Data or byte
+buffers. The comparison does not call a writer, set Apply, alter the revision,
+verify full-image bytes or persist session state.
+
 ## Safety invariants
 
 - A `SuppressIf` patch is rejected unless its expected `End` opcode is present.

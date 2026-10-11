@@ -70,9 +70,13 @@ function inventory(): PhoenixSetupInventory {
     },
   };
 }
-function Workspace() {
+function Workspace({ stale = false }: { stale?: boolean }) {
   const [source, setSource] = React.useState(() => new Uint8Array(3));
-  const [opened] = React.useState(inventory);
+  const [opened] = React.useState(() => {
+    const current = inventory();
+    if (stale) current.templat[49] = 0x14;
+    return current;
+  });
   const [navigation, setNavigation] = React.useState(0);
   const queue = usePhoenixChangeQueue(opened);
   return (
@@ -354,4 +358,37 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
       expect(saveAs).not.toHaveBeenCalled();
     },
   );
+  it("shows selected Phoenix source/replacement bytes before Apply", async () => {
+    render(<Workspace />);
+    fireEvent.click(screen.getByRole("button", { name: "Stage Show" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Original / selected plan (1)" }),
+    );
+    expect(screen.getByText("13 00")).toBeVisible();
+    expect(screen.getByText("00 00")).toBeVisible();
+    expect(screen.getByText("0x31 · 2 bytes")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Apply selected" })).toBeEnabled();
+    expect(rebuildPhoenixFirmware).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(
+      screen.getByRole("button", { name: "Original / selected plan (0)" }),
+    ).toBeInTheDocument();
+  });
+  it("withholds comparison rows and Apply for stale Phoenix source bytes", async () => {
+    render(<Workspace stale />);
+    fireEvent.click(screen.getByRole("button", { name: "Stage Show" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Original / selected plan (unavailable)",
+      }),
+    );
+    expect(
+      screen.getByText("Resolve the queue errors to compare a coherent plan."),
+    ).toBeVisible();
+    expect(screen.queryByText("13 00")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply selected" })).toBeDisabled();
+    expect(rebuildPhoenixFirmware).not.toHaveBeenCalled();
+  });
 });
