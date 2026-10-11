@@ -35,6 +35,10 @@ export default function ChangeQueueDialog<TPayload>({
   onMove,
   onClear,
   onApply,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
   metricLabels = defaultMetricLabels,
 }: {
   opened: boolean;
@@ -47,6 +51,10 @@ export default function ChangeQueueDialog<TPayload>({
   onMove: (id: string, direction: -1 | 1) => void;
   onClear: () => void;
   onApply: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
   metricLabels?: { units: string; spans: string };
 }) {
   const isApplied = analysis.canApply && appliedFingerprint === analysis.fingerprint;
@@ -75,6 +83,19 @@ export default function ChangeQueueDialog<TPayload>({
               Applied plan
             </Badge>
           )}
+        </Group>
+
+        <Group gap="xs">
+          <Button variant="default" disabled={!canUndo} onClick={onUndo}>
+            Undo queue change
+          </Button>
+          <Button variant="default" disabled={!canRedo} onClick={onRedo}>
+            Redo queue change
+          </Button>
+          <Text size="xs" c="dimmed">
+            Up to 50 queue changes for this source. Restored plans must be applied and
+            checked again.
+          </Text>
         </Group>
 
         {errors.map((issue) => (

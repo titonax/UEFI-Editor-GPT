@@ -158,4 +158,24 @@ describe("firmware output preflight (synthetic orchestration)", () => {
     expect(result.current.result).toBe(output);
     expect(result.current.error).toBeUndefined();
   });
+  it("invalidates cached output on a new queue revision with otherwise identical inputs", async () => {
+    vi.mocked(buildAmiFirmwareImage).mockResolvedValue(output);
+    const props = inputs();
+    const { result, rerender } = renderHook(
+      ({ revision }) =>
+        useFirmwareImagePreflight(props.data, props.files, true, revision),
+      { initialProps: { revision: 1 } },
+    );
+    await act(async () => {
+      await result.current.check();
+    });
+    expect(result.current.result).toBe(output);
+    rerender({ revision: 2 });
+    expect(result.current.result).toBeUndefined();
+    await act(async () => {
+      await result.current.check();
+    });
+    expect(result.current.result).toBe(output);
+    expect(buildAmiFirmwareImage).toHaveBeenCalledTimes(2);
+  });
 });

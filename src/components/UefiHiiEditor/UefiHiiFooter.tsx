@@ -75,8 +75,16 @@ export default function UefiHiiFooter({
       data: appliedData,
       workspace,
       appliedFingerprint: changeQueue.appliedFingerprint,
+      queueRevision: changeQueue.revision,
     }),
-    [fileName, sourceImage, appliedData, workspace, changeQueue.appliedFingerprint],
+    [
+      fileName,
+      sourceImage,
+      appliedData,
+      workspace,
+      changeQueue.appliedFingerprint,
+      changeQueue.revision,
+    ],
   );
   const preflight = useVerifiedFirmwareBuild(
     input,

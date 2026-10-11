@@ -4,7 +4,6 @@ import {
   moveChangeQueueEntry,
   setChangeQueueEntryEnabled,
   toggleChangeQueueEntry,
-  type ChangeQueueEntry,
 } from "../scripts/changeQueue";
 import {
   phoenixShowChange,
@@ -14,13 +13,16 @@ import {
 import type { PhoenixSetupInventory } from "../scripts/phoenixSetupMenu";
 import type { PhoenixSetupItem } from "../scripts/phoenixSetupTable";
 
+import { useChangeQueueHistory } from "../ChangeQueue/useChangeQueueHistory";
+
 export function usePhoenixChangeQueue(inventory: PhoenixSetupInventory | null) {
-  const [entries, setEntries] = React.useState<
-    ChangeQueueEntry<PhoenixVisibilityPayload>[]
-  >([]);
-  const [appliedFingerprint, setAppliedFingerprint] = React.useState<string | null>(
-    null,
-  );
+  const history = useChangeQueueHistory<PhoenixVisibilityPayload>(inventory);
+  const {
+    entries,
+    appliedFingerprint,
+    update: setEntries,
+    apply: markApplied,
+  } = history;
   const analysis = React.useMemo(
     () =>
       analyzeChangeQueue(entries, {
@@ -49,41 +51,33 @@ export function usePhoenixChangeQueue(inventory: PhoenixSetupInventory | null) {
     [planApplied, analysis.selectedEntries, itemsByOffset],
   );
 
-  const invalidate = React.useCallback(() => {
-    setAppliedFingerprint(null);
-  }, []);
   const toggleItem = React.useCallback(
     (item: PhoenixSetupItem) => {
       setEntries((current) => toggleChangeQueueEntry(current, phoenixShowChange(item)));
-      invalidate();
     },
-    [invalidate],
+    [setEntries],
   );
   const toggleEnabled = React.useCallback(
     (id: string, enabled: boolean) => {
       setEntries((current) => setChangeQueueEntryEnabled(current, id, enabled));
-      invalidate();
     },
-    [invalidate],
+    [setEntries],
   );
   const remove = React.useCallback(
     (id: string) => {
       setEntries((current) => current.filter((entry) => entry.id !== id));
-      invalidate();
     },
-    [invalidate],
+    [setEntries],
   );
-  const move = React.useCallback((id: string, direction: -1 | 1) => {
-    setEntries((current) => moveChangeQueueEntry(current, id, direction));
-    setAppliedFingerprint(null);
-  }, []);
-  const clear = React.useCallback(() => {
-    setEntries([]);
-    setAppliedFingerprint(null);
-  }, []);
+  const move = React.useCallback(
+    (id: string, direction: -1 | 1) => {
+      setEntries((current) => moveChangeQueueEntry(current, id, direction));
+    },
+    [setEntries],
+  );
   const apply = React.useCallback(() => {
-    if (analysis.canApply) setAppliedFingerprint(analysis.fingerprint);
-  }, [analysis]);
+    if (analysis.canApply) markApplied(analysis.fingerprint);
+  }, [analysis, markApplied]);
 
   return {
     entries,
@@ -94,7 +88,12 @@ export function usePhoenixChangeQueue(inventory: PhoenixSetupInventory | null) {
     toggleEnabled,
     remove,
     move,
-    clear,
+    clear: history.clear,
+    revision: history.revision,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
+    undo: history.undo,
+    redo: history.redo,
     apply,
   };
 }

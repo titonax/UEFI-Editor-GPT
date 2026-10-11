@@ -1,7 +1,11 @@
 import React from "react";
 import { produce, type Draft } from "immer";
 import type { Updater } from "use-immer";
-import { moveChangeQueueEntry, type ChangeQueueEntry } from "../scripts/changeQueue";
+import {
+  moveChangeQueueEntry,
+  setChangeQueueEntryEnabled,
+  type ChangeQueueEntry,
+} from "../scripts/changeQueue";
 import type { Data } from "../scripts/types";
 import {
   appendDataChangeEntry,
@@ -10,12 +14,19 @@ import {
   type DataChangePayload,
 } from "./dataChangeQueue";
 
+import { useChangeQueueHistory } from "./useChangeQueueHistory";
+
 export interface DataChangeQueueController {
   entries: ChangeQueueEntry<DataChangePayload>[];
   previewData: Data;
   appliedData: Data;
   analysis: ReturnType<typeof projectDataChangeQueue>["analysis"];
   appliedFingerprint: string | null;
+  revision: number;
+  canUndo: boolean;
+  canRedo: boolean;
+  undo: () => void;
+  redo: () => void;
   enqueueData: Updater<Data>;
   replaceBase: (data: Data) => void;
   toggleEnabled: (id: string, enabled: boolean) => void;
@@ -27,12 +38,13 @@ export interface DataChangeQueueController {
 
 export function useDataChangeQueue(initialData: Data): DataChangeQueueController {
   const [base, setBase] = React.useState(() => structuredClone(initialData));
-  const [entries, setEntries] = React.useState<ChangeQueueEntry<DataChangePayload>[]>(
-    [],
-  );
-  const [appliedFingerprint, setAppliedFingerprint] = React.useState<string | null>(
-    null,
-  );
+  const history = useChangeQueueHistory<DataChangePayload>(base);
+  const {
+    entries,
+    appliedFingerprint,
+    update: setEntries,
+    apply: markApplied,
+  } = history;
   const nextId = React.useRef(1);
   const projection = React.useMemo(
     () => projectDataChangeQueue(base, entries),
@@ -54,40 +66,35 @@ export function useDataChangeQueue(initialData: Data): DataChangeQueueController
       if (!entry) return;
       nextId.current += 1;
       setEntries((current) => appendDataChangeEntry(current, entry));
-      setAppliedFingerprint(null);
     },
-    [projection.data],
+    [projection.data, setEntries],
   );
 
   const replaceBase = React.useCallback((data: Data) => {
     setBase(structuredClone(data));
-    setEntries([]);
-    setAppliedFingerprint(null);
     nextId.current = 1;
   }, []);
-  const toggleEnabled = React.useCallback((id: string, enabled: boolean) => {
-    setEntries((current) =>
-      current.map((entry) => (entry.id === id ? { ...entry, enabled } : entry)),
-    );
-    setAppliedFingerprint(null);
-  }, []);
-  const remove = React.useCallback((id: string) => {
-    setEntries((current) => current.filter((entry) => entry.id !== id));
-    setAppliedFingerprint(null);
-  }, []);
-  const move = React.useCallback((id: string, direction: -1 | 1) => {
-    setEntries((current) => moveChangeQueueEntry(current, id, direction));
-    setAppliedFingerprint(null);
-  }, []);
-  const clear = React.useCallback(() => {
-    setEntries([]);
-    setAppliedFingerprint(null);
-  }, []);
+  const toggleEnabled = React.useCallback(
+    (id: string, enabled: boolean) => {
+      setEntries((current) => setChangeQueueEntryEnabled(current, id, enabled));
+    },
+    [setEntries],
+  );
+  const remove = React.useCallback(
+    (id: string) => {
+      setEntries((current) => current.filter((entry) => entry.id !== id));
+    },
+    [setEntries],
+  );
+  const move = React.useCallback(
+    (id: string, direction: -1 | 1) => {
+      setEntries((current) => moveChangeQueueEntry(current, id, direction));
+    },
+    [setEntries],
+  );
   const apply = React.useCallback(() => {
-    if (projection.analysis.canApply) {
-      setAppliedFingerprint(projection.analysis.fingerprint);
-    }
-  }, [projection.analysis]);
+    if (projection.analysis.canApply) markApplied(projection.analysis.fingerprint);
+  }, [projection.analysis, markApplied]);
   const applied =
     projection.analysis.canApply &&
     appliedFingerprint === projection.analysis.fingerprint;
@@ -103,7 +110,12 @@ export function useDataChangeQueue(initialData: Data): DataChangeQueueController
     toggleEnabled,
     remove,
     move,
-    clear,
+    clear: history.clear,
+    revision: history.revision,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
+    undo: history.undo,
+    redo: history.redo,
     apply,
   };
 }

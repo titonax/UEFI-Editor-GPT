@@ -70,6 +70,7 @@ export default function Footer({
       !!files.firmwareSource &&
       !!reconstruction?.writeEnabled &&
       !rootEditsBlocked,
+    changeQueue.revision,
   );
   const building = preflight.status === "building";
 

@@ -357,4 +357,36 @@ describe("AMI complete-image user flow (synthetic integration)", () => {
     });
     expect(buildAmiFirmwareImage).toHaveBeenCalledTimes(2);
   });
+  it("requires a new check after restoring the same AMI queue with undo/redo", async () => {
+    vi.mocked(buildAmiFirmwareImage).mockResolvedValue(output);
+    render(<Workspace />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Unsuppress all Items in this Form" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Apply selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo queue change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Redo queue change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(
+      screen.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Output details" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled();
+    });
+    expect(buildAmiFirmwareImage).toHaveBeenCalledTimes(2);
+  });
 });

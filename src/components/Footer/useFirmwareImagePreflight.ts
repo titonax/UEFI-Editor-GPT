@@ -12,7 +12,11 @@ export function useFirmwareImagePreflight(
   data: Data,
   files: PopulatedFiles,
   enabled: boolean,
+  queueRevision = 0,
 ) {
-  const input = React.useMemo(() => ({ data, files }), [data, files]);
+  const input = React.useMemo(
+    () => ({ data, files, queueRevision }),
+    [data, files, queueRevision],
+  );
   return useVerifiedFirmwareBuild(input, enabled, build);
 }
