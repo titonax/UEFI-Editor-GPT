@@ -294,12 +294,73 @@ value of global 5588 for nonzero. The byte-5 condition does not require exactly
 
 1. These facts describe output construction and the consumer's tests; they do
    not assign hardware, authentication or visibility meanings to the flags.
-   The flags' initialization/writes and effective runtime values remain open.
+   Concrete flag writers are corroborated below. Their complete initialization/write
+   inventory, effective runtime values and semantic names remain open.
 
 The search also found GUID references in LenovoVariableDxe. Its examined paths
 use LocateProtocol and a notification helper, so those references alone do not
 make it a provider. The discovery scan is not a whole-image absence proof or
 a complete inventory of protocol consumers.
+
+## Flag writers and media-dependent conditions
+
+PriorBootDxe's interface table at 5456 has method 2272 at +8 and method 4180
+at +16. These supply concrete writers for the previously opaque output flags.
+The read-only probe still decodes instructions only; it performs no block reads,
+protocol calls or device I/O.
+
+Method 2272 enumerates handles through Boot Services +0x138 with search type 2
+and Block I/O GUID `964E5B21-6459-11D2-8E39-00A0C969723B` at data RVA 5376.
+For each candidate it obtains that interface via HandleProtocol at 2382. Helper
+4916 separately obtains DevicePath GUID `09576E91-6D3F-11D2-8E39-00A0C969723B`
+at RVA 5248. A local path classifier at 2048 must return code 0x305 before the
+media path proceeds (2410–2420). The numeric result is not assigned a generic
+hardware or visibility meaning.
+
+The caller also inspects private offsets +0x9A and +0xA8 beyond the public
+Block I/O layout. A nonzero +0x9A byte reaches the comparison with 5; value 5
+skips that candidate. When +0x9A is zero, byte +6 of the pointed-to structure
+at +0xA8 must equal 4 to reach helper 1840. These private offsets are
+exact-source observations, not portable Block I/O fields.
+
+Helper 1840 reads the interface's Media pointer at +8, tests MediaPresent at
+Media +5, allocates Media.BlockSize bytes from +0xC, and passes MediaId,
+LBA zero, that block size and the allocated buffer to interface +0x18 at 1918.
+The GUID, public structure fields and argument layout match ReadBlocks in EDK II.
+A failed read exits without a classification result. Successful paths require
+the word 0xAA55 at buffer +0x1FE and byte 0x29 at +0x26 or +0x42.
+A private container signature check at interface -0x48 then separates branches:
+with value 0x4D627355, buffer byte +0xA of 0x79 yields 0xFE and 0x7A yields
+0xFC. The other signature branch can yield 0xFD. The probe records comparisons,
+not an actual storage block or current media state.
+
+The return code selects a fall-through sequence of flag stores:
+
+| Helper result | Branch target RVA | Globals set to 1 |
+| ------------- | ----------------- | ---------------- |
+| 0xFC          | 2487              | 5588, 5587, 5585 |
+| 0xFE          | 2494              | 5587, 5585       |
+| 0xFD          | 2501              | 5585             |
+
+Thus a reached 0xFC store path establishes both the copied byte-5 flag (5588)
+and one flag contributing to aggregate byte 0 (5587). The 0xFE path establishes
+that aggregate contributor but does not write 5588; the 0xFD path writes only
+the flag copied to byte 4. These local paths do not clear earlier state and do
+not establish the final runtime output or ordering relative to Setup's callback.
+After scanning, method 2272 calls helper 884, which packages the flags for
+another interface; that notification/update result is not yet resolved.
+
+Method 4180 supplies a different byte-0 contributor. After protocol lookups and
+indirect data retrieval, it requires at least 16 bytes at 4405/4410 and compares
+a 16-byte prefix with a locally constructed constant at 4435–4448. A complete
+match sets global 5584 to one at 4452, then tail-jumps to helper 884. Its input
+provider and meaning remain unresolved. The publisher callback also has stores
+to 5586 at 1677 and 5587 at 1685. These are corroborated write landmarks,
+not a claim that the linear discovery scan found every possible writer.
+
+The OEM gate therefore includes media/content-dependent results as well as the
+separate keyboard flag. It cannot be treated as a fixed hidden-menu bit from
+this evidence. No branch is patched and no unsupported runtime edit is enabled.
 
 ## Reproduction, sources and next gate
 
@@ -309,7 +370,7 @@ It asserts publication/consumer GUID ownership, callback address, list-copy
 landmarks, Ref construction and field flow, database update, owned labels,
 insertion/remainder copies, keyboard gate and bounded invocation/reset flow,
 consumer Boot Services provenance, explicit signal order, OEM output guards,
-and PriorBootDxe publication/first-method field flow,
+PriorBootDxe publication/first-method field flow, and bounded media/content flag writers,
 and retains immutable source and body hashes. Output remains metadata only; no firmware is supplied to CI.
 The scenario adds no frontend controls, parser rule or writer allowance.
 
@@ -321,10 +382,12 @@ Primary layouts used for corroboration:
 - [EDK II IFR Ref structures](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Uefi/UefiInternalFormRepresentation.h)
 - [EDK II Tiano label layout](https://github.com/tianocore/edk2/blob/master/MdeModulePkg/Include/Guid/MdeModuleHii.h)
 - [EDK II SimpleTextInputEx](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/SimpleTextInEx.h)
+- [EDK II Block I/O](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/BlockIo.h)
+- [EDK II DevicePath](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/DevicePath.h)
 - [EDK II HII library](https://github.com/tianocore/edk2/blob/master/MdeModulePkg/Library/UefiHiiLib/HiiLib.c)
 
 Next trace indirect selection re-entry, actual notification delivery/order and the
-OEM guard flag origins/effective values and semantics, plus actual selected handles and resolved Ref
+remaining OEM flag initialization/effective values and semantics, plus actual selected handles and resolved Ref
 strings/device paths.
 Only then
 can a controlled scenario explain a navigation outcome. Runtime registration,
