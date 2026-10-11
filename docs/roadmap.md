@@ -19,48 +19,69 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-11
 
-PRs #119–#123 and #128–#134 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#135 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
-| Phase                            | Status                          | Completed scope / remaining gate                                                                                                                                 |
-| -------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0. Transactional queue           | Complete                        | Shared AMI, UEFI HII and Phoenix queue, apply/invalidation and verified download lifecycle                                                                       |
-| 1. Phoenix module editor         | Complete for verified callbacks | Fixed-size Show patches and source-preserving module export; unsupported callbacks stay disabled                                                                 |
-| 2. Phoenix LH5 / FFV writer      | Complete for fixed allocations  | Real Z03 full-image rebuild and independent reread; directory/allocation growth stays blocked                                                                    |
-| 3. Phoenix structural menus      | Pending                         | Reading roots/submenus is available; generic directory editing and the Advanced2 exit gate are not complete                                                      |
-| 4. Controlled callback execution | Partial                         | Bounded static tracing exists; deterministic 8086 execution with scenario inputs is pending                                                                      |
-| 5. Case generalization           | Partial                         | Reviewed knowledge/corpus/intake foundation exists; multi-image semantic callback rules remain pending                                                           |
-| 6. Generic UEFI reconstruction   | Partial                         | Fixed uncompressed paths and exact accepted LZMA/Tiano sources work; EFI variant and real mixed compressed ancestry acceptance remain pending                    |
-| 7. Complete AMI output           | Partial                         | Exact accepted full-SPI edit combinations work; broader layout/compression acceptance and AMITSE edits remain blocked                                            |
-| 8. Phoenix UEFI/HII output       | Active                          | P53 mirrored LZMA Setup Ref move passes full-SPI acceptance; runtime root/condition semantics, real mixed-source acceptance and Firefox verification remain open |
-| 9. Broader corpus / 90%          | Deferred                        | Resume new BIOS cases after the current end-to-end editing/output circuit is closed; no new coverage percentage is claimed                                       |
-| 10. Product hardening            | Partial                         | Pre-save allocation/preservation reports exist; comparison, undo/redo, portable sessions and release/recovery documentation remain pending                       |
+| Phase                            | Status                          | Completed scope / remaining gate                                                                                                                                  |
+| -------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0. Transactional queue           | Complete                        | Shared AMI, UEFI HII and Phoenix queue, apply/invalidation and verified download lifecycle                                                                        |
+| 1. Phoenix module editor         | Complete for verified callbacks | Fixed-size Show patches and source-preserving module export; unsupported callbacks stay disabled                                                                  |
+| 2. Phoenix LH5 / FFV writer      | Complete for fixed allocations  | Real Z03 full-image rebuild and independent reread; directory/allocation growth stays blocked                                                                     |
+| 3. Phoenix structural menus      | Pending                         | Reading roots/submenus is available; generic directory editing and the Advanced2 exit gate are not complete                                                       |
+| 4. Controlled callback execution | Partial                         | Bounded static tracing exists; deterministic 8086 execution with scenario inputs is pending                                                                       |
+| 5. Case generalization           | Partial                         | Reviewed knowledge/corpus/intake foundation exists; multi-image semantic callback rules remain pending                                                            |
+| 6. Generic UEFI reconstruction   | Partial                         | Fixed uncompressed paths and exact accepted LZMA/Tiano sources work; EFI variant and real mixed compressed ancestry acceptance remain pending                     |
+| 7. Complete AMI output           | Partial                         | Exact accepted full-SPI edit combinations work; broader layout/compression acceptance and AMITSE edits remain blocked                                             |
+| 8. Phoenix UEFI/HII output       | Active                          | P53 mirrored LZMA Setup Ref move passes full-SPI acceptance; Firefox verification and real mixed-source acceptance remain open; dynamic-root semantics are parked |
+| 9. Broader corpus / 90%          | Deferred                        | Resume new BIOS cases after the current end-to-end editing/output circuit is closed; no new coverage percentage is claimed                                        |
+| 10. Product hardening            | Partial                         | Pre-save allocation/preservation reports exist; comparison, undo/redo, portable sessions and release/recovery documentation remain pending                        |
 
-The immediate work stays in phase 8. The P53 browser handle array/count are now
-linked to Forms-package enumeration. The static database initialization chain
-and two GUID-presence branch bytes are now traced. The OEM list publication
-and LenovoSetupMainDxe consumer are now linked: a guarded callback copies the
-Advanced-module FormSet GUID over the first terminator. Conditional Ref
-construction and an HII package-update path are corroborated. The Ref fields
-now link to the inspected handle's GUID/Form, prompt and optional DevicePath
-outputs. The bounded helper inserts after the start label and preserves the
-original package remainder. The entry/wrapper/browser chain and reset-request
-return route are now traced. Selection occurs before OEM publication; these
-wrappers show no second direct selector call. The consumer Boot Services chain
-and create/register/explicit initial signal sequence are now corroborated. Its
-second OEM lookup and two required nonzero output bytes are identified without
-assigning them visibility semantics. PriorBootDxe now supplies a corroborated
-conditional publisher and first-method output layout: byte 0 aggregates three
-flags equal to one, and byte 5 copies another internal flag. Concrete writers
-now link those flags to Block I/O media classification and a separate content-match
-path; code 0xFC sets both a byte-0 contributor and the byte-5 source. The next step establishes indirect
-re-entry, actual notification delivery/order, remaining OEM flag initialization/effective values and semantics,
-selected handles and resolved
-string/device-path outputs. The replacement target is now
-corroborated as SystemBiosSetupDxe Form 1 with labels 1001/1002; the consumer
-tail unregisters a keyboard notification. Runtime menu controls
-require evidence for the actual selected source and edit semantics, followed by output acceptance.
+The immediate priority is the supported editing/output circuit, not exhaustive
+reverse engineering of one firmware. The accepted P53 Setup Ref move already
+passes mirrored LZMA reconstruction, complete-SPI preservation, independent
+re-extraction and the actual React/queue/codec/download flow under jsdom.
+Real Firefox verification remains a separate open gate.
+
+The [P53 static research](phoenix/p53-runtime-navigation-research.md) links
+browser selection, OEM publication/consumer paths, conditional Ref insertion,
+reset return, keyboard gating and media/content-dependent flag writers.
+That investigation is now parked as runtime-navigation backlog. Notification
+execution/order, indirect selection re-entry, effective flag values and resolved
+runtime Ref strings remain unproven. Their absence keeps dynamic-root controls
+blocked; it does not invalidate the separately accepted static Ref output path.
+
+## Functional closure and bounded research scope
+
+| Track                              | Evidence / open gate                                                                  | Priority                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------- |
+| Supported P53 editing/output       | Engine and real-source React/jsdom acceptance passed; real Firefox flow pending       | Finish browser acceptance              |
+| Mixed uncompressed carriers        | Synthetic combined parent/child reconstruction passed; real-source acceptance pending | Assess existing supplied sources       |
+| P53 dynamic roots                  | Substantial static trace; execution, ordering and edit semantics unproven             | Parked research backlog                |
+| Broader compression/layout support | EFI variant and compressed mixed ancestry remain unsupported                          | Separate bounded acceptance work       |
+| Product hardening                  | Comparison, undo/redo, portable sessions and recovery documentation pending           | Resume after supported-circuit closure |
+
+The next work order is:
+
+1. Verify the deployed supported P53 user flow in Firefox using the existing
+   [checklist](phoenix/uefi-hii-output-user-flow.md#firefox-verification-after-deployment).
+   Record the browser/deployed revision and the result; jsdom or Chromium does
+   not substitute for Firefox. If Firefox is unavailable, retain that explicit
+   validation gate instead of extending the OEM investigation.
+2. Assess the already supplied images for a qualifying mixed uncompressed
+   carrier. If one exists, run a bounded real-source queue/reconstruction/re-read
+   acceptance. If none qualifies, record that missing acceptance source and
+   retain the blocker; do not expand the corpus or unlock a compressed path to
+   make the test pass.
+3. Report closure separately for each supported path, then advance the shared
+   product-hardening work. Unsupported codecs/layouts retain their own gates.
+   Additional BIOS cases remain deferred under phase 9.
+
+Resume P53 runtime research only for a concrete defect in the supported circuit
+or an explicit decision to implement dynamic-root behavior. The remaining
+research questions are not mandatory prerequisites for unrelated supported
+editing/output paths. No unsupported root control becomes available merely
+because research is parked.
 
 Legacy structural editing and controlled execution remain tracked above; they
 are not implicitly completed by progress in UEFI HII. Real Firefox interaction,
@@ -316,8 +337,9 @@ Exit gate: the exact Lenovo P53 sample now produces and re-reads a complete imag
 with one validated Ref move. The editor download lifecycle is integrated and covered
 by synthetic frontend tests plus opt-in real-source React/jsdom acceptance using
 the actual editor, queue, codecs, builder and captured download. Real Firefox
-user-flow verification remains pending;
-unresolved runtime root registration remains explicitly blocked.
+user-flow verification remains pending. Dynamic root registration/editing is a
+separate parked extension with its own evidence gate; it is not required to
+accept the already supported static Ref move and remains explicitly blocked.
 
 ## 9. Compatibility corpus and the 90% target
 
@@ -349,7 +371,9 @@ list the blocker for every unsupported case.
 
 The numbered phases describe dependencies, not a claim that all earlier exit
 gates have passed. The current priority is to finish the phase-8 UEFI HII
-editing/output circuit before adding more BIOS cases in phase 9. Unfinished
+editing/output circuit before adding more BIOS cases in phase 9. Follow the
+functional-closure order above; P53 runtime research must not become an unbounded
+serial prerequisite for the rest of the product. Unfinished
 legacy extensions remain explicit backlog. Cross-cutting refactors are accepted
 only when required by the active work and must retain the parser/editor/UI
 module boundaries documented in [architecture.md](architecture.md).
