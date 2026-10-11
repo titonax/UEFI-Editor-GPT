@@ -79,6 +79,13 @@ export function usePhoenixChangeQueue(inventory: PhoenixSetupInventory | null) {
     if (analysis.canApply) markApplied(analysis.fingerprint);
   }, [analysis, markApplied]);
 
+  const restoreEntries = React.useCallback(
+    (restored: typeof entries) => {
+      setEntries(() => restored);
+    },
+    [setEntries],
+  );
+
   return {
     entries,
     analysis,
@@ -95,5 +102,6 @@ export function usePhoenixChangeQueue(inventory: PhoenixSetupInventory | null) {
     undo: history.undo,
     redo: history.redo,
     apply,
+    restoreEntries,
   };
 }

@@ -13,6 +13,10 @@ import {
 import { useVerifiedFirmwareBuild } from "../Footer/useVerifiedFirmwareBuild";
 import ChangeQueueDialog from "../ChangeQueue/ChangeQueueDialog";
 import { binaryQueueComparison } from "../ChangeQueue/queueComparison";
+import {
+  loadPhoenixQueueSession,
+  savePhoenixQueueSession,
+} from "../scripts/phoenixQueueSession";
 import s from "../Footer/Footer.module.css";
 
 interface BuildInput {
@@ -44,6 +48,7 @@ export default function PhoenixFooter({
   onUndo,
   onRedo,
   queueRevision,
+  onRestoreEntries,
   onClose,
 }: {
   fileName: string;
@@ -63,6 +68,7 @@ export default function PhoenixFooter({
   onUndo: () => void;
   onRedo: () => void;
   queueRevision: number;
+  onRestoreEntries?: (entries: ChangeQueueEntry<PhoenixVisibilityPayload>[]) => void;
   onClose: () => void;
 }) {
   const comparison = React.useMemo(() => binaryQueueComparison(analysis), [analysis]);
@@ -80,6 +86,27 @@ export default function PhoenixFooter({
     }),
     [fileName, sourceBytes, inventory, appliedItems, appliedFingerprint, queueRevision],
   );
+  const sessionContext = React.useMemo(
+    () => ({ sourceBytes, inventory, entries, queueRevision }),
+    [sourceBytes, inventory, entries, queueRevision],
+  );
+  const session =
+    onRestoreEntries && sourceBytes.length > 0
+      ? {
+          context: sessionContext,
+          save: () => savePhoenixQueueSession(sourceBytes, inventory, entries),
+          load: async (text: string) => {
+            const restored = await loadPhoenixQueueSession(
+              text,
+              sourceBytes,
+              inventory,
+            );
+            return () => {
+              onRestoreEntries(restored);
+            };
+          },
+        }
+      : undefined;
   const preflight = useVerifiedFirmwareBuild(
     input,
     isApplied && appliedItems.length > 0,
@@ -205,6 +232,7 @@ export default function PhoenixFooter({
         opened={queueOpened}
         entries={entries}
         comparison={comparison}
+        session={session}
         analysis={analysis}
         appliedFingerprint={appliedFingerprint}
         onClose={() => {

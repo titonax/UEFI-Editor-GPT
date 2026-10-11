@@ -22,6 +22,8 @@ import type { ChangeQueueAnalysis, ChangeQueueEntry } from "../scripts/changeQue
 import QueueComparisonView from "./QueueComparisonView";
 import type { QueueComparison } from "./queueComparison";
 
+import QueueSessionControls, { type QueueSessionAdapter } from "./QueueSessionControls";
+
 const defaultMetricLabels = {
   units: "byte(s)",
   spans: "optimized patch span(s)",
@@ -43,6 +45,7 @@ export default function ChangeQueueDialog<TPayload>({
   onUndo,
   onRedo,
   comparison,
+  session,
   metricLabels = defaultMetricLabels,
 }: {
   opened: boolean;
@@ -60,6 +63,7 @@ export default function ChangeQueueDialog<TPayload>({
   onUndo: () => void;
   onRedo: () => void;
   comparison: QueueComparison;
+  session?: QueueSessionAdapter;
   metricLabels?: { units: string; spans: string };
 }) {
   const isApplied = analysis.canApply && appliedFingerprint === analysis.fingerprint;
@@ -207,6 +211,7 @@ export default function ChangeQueueDialog<TPayload>({
         )}
 
         <QueueComparisonView comparison={comparison} />
+        {session && <QueueSessionControls session={session} active={opened} />}
 
         <Group justify="space-between">
           <Button

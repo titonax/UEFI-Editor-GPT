@@ -188,6 +188,7 @@ export default function App({
               onUndo={phoenixQueue.undo}
               onRedo={phoenixQueue.redo}
               queueRevision={phoenixQueue.revision}
+              onRestoreEntries={phoenixQueue.restoreEntries}
               onClose={() => {
                 setPhoenixSession(null);
                 setCurrentPhoenixSection(-1);
