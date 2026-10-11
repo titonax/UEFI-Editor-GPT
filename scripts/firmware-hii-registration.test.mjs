@@ -623,6 +623,62 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             interpretation:
               "conditional Ref construction and HiiDatabase package-update path; matched form and executed effects unresolved",
           };
+          // EFI entry tail-jumps to the wrapper; its browser call returns a reset flag.
+          const invocation = traceRva(5336, 489);
+          assertAt(initialization, 790, "jmp", "0x14d8");
+          assertAt(initialization, 811, "mov", "rax, qword ptr [rdx + 0x58]");
+          assertRip(initialization, 838, "mov", "qword ptr [rip + 0x4003], rax", 17232);
+          assertAt(invocation, 5336, "mov", "qword ptr [rsp + 8], rbx");
+          assertAt(invocation, 5369, "mov", "byte ptr [rbp + 0x18], 0");
+          assertAt(invocation, 5715, "lea", "rcx, [rbp + 0x18]");
+          assertAt(invocation, 5719, "call", "0x11a4");
+          assertAt(invocation, 5730, "js", "0x16b3");
+          assertAt(invocation, 5744, "cmp", "byte ptr [rbp + 0x18], 0");
+          assertAt(invocation, 5748, "je", "0x168b");
+          assertRip(invocation, 5750, "mov", "rax, qword ptr [rip + 0x2cd3]", 17232);
+          assertAt(invocation, 5757, "xor", "edx, edx");
+          assertAt(invocation, 5759, "xor", "r9d, r9d");
+          assertAt(invocation, 5762, "xor", "r8d, r8d");
+          assertAt(invocation, 5765, "lea", "ecx, [rdx + 1]");
+          assertAt(invocation, 5768, "call", "qword ptr [rax + 0x68]");
+          assertAt(invocation, 5824, "ret", "");
+          assertAt(browserRoutine, 4542, "mov", "rdi, rcx");
+          assertAt(browserRoutine, 4640, "call", "0xb1c");
+          assertAt(browserRoutine, 4788, "lea", "rax, [rbp - 8]");
+          assertAt(browserRoutine, 4802, "mov", "qword ptr [rsp + 0x30], rax");
+          assertAt(browserRoutine, 4826, "cmp", "qword ptr [rbp - 8], 1");
+          assertAt(browserRoutine, 4831, "jne", "0x12e4");
+          assertAt(browserRoutine, 4833, "mov", "byte ptr [rdi], 1");
+          assertAt(browserRoutine, 4974, "ret", "");
+          expect(Number(invocation.at(-1)?.address)).toBe(5824);
+          expect(Number(browserRoutine.at(-1)?.address)).toBe(4974);
+          const directCalls = (instructions, target) =>
+            instructions
+              .filter(
+                (instruction) =>
+                  instruction.mnemonic === "call" && instruction.op_str === target,
+              )
+              .map((instruction) => Number(instruction.address));
+          expect(directCalls(invocation, "0x11a4")).toEqual([5719]);
+          expect(directCalls(invocation, "0xb1c")).toEqual([]);
+          expect(directCalls(browserRoutine, "0xb1c")).toEqual([4640]);
+          expect(directCalls(browserRoutine, "0x11a4")).toEqual([]);
+          record.invocationFlow = {
+            entryTailJumpRva: 790,
+            wrapperRva: 5336,
+            browserRoutineRva: 4516,
+            browserCallRva: 5719,
+            selectionCallRva: 4640,
+            publicationCallRva: 4676,
+            sendFormCallRva: 4824,
+            resetRequestValue: 1,
+            resetFlagWriteRva: 4833,
+            runtimeServicesGlobalRva: 17232,
+            resetSystemCallRva: 5768,
+            resetType: 1,
+            interpretation:
+              "bounded entry/wrapper/browser chain selects before publication, then propagates browser reset request to ResetSystem; no second direct selector call in these wrappers, indirect re-entry unproven",
+          };
           record.browserPath = {
             browserGuidBodyOffset: browser.offset - file.bodyStart,
             candidateCodeBodyOffset: 4557,

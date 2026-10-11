@@ -59,8 +59,9 @@ ScreenDimensions is null at the later stack argument stores.
 
 This is compatible with a LocateProtocol/SendForm path. It is an inference from
 instruction and ABI shape. The extended window links the LocateProtocol stack
-output to the interface used by the first-slot call; upstream control flow,
-lookup success and runtime conditions have not been proven. The array/count
+output to the interface used by the first-slot call. The follow-up corroborates
+the static entry/wrapper/browser chain and reset-request return route; lookup
+success, indirect re-entry and runtime conditions remain unproven. The array/count
 globals are linked to the enumeration routine below; its database-interface output now has
 a separate static initialization trace. No root is classified as
 registered or runtime-visible by this sequence. The
