@@ -12,6 +12,8 @@ import { saveAs } from "file-saver";
 import { buildUefiHiiFirmwareImage } from "../scripts/uefiHiiFirmwareRebuilder";
 import { useVerifiedFirmwareBuild } from "../Footer/useVerifiedFirmwareBuild";
 import FirmwareOutputReport from "../Footer/FirmwareOutputReport";
+import { useHiiQueueSession } from "../ChangeQueue/useHiiQueueSession";
+import { bytesToHex } from "../scripts/hex";
 
 interface BuildInput {
   fileName: string;
@@ -56,6 +58,17 @@ export default function UefiHiiFooter({
   const [error, setError] = React.useState("");
   const [queueOpened, setQueueOpened] = React.useState(false);
   const [reportOpened, setReportOpened] = React.useState(false);
+  const originalSetupSct = React.useMemo(
+    () => bytesToHex(workspace.editorBytes ?? workspace.sourceBytes),
+    [workspace.editorBytes, workspace.sourceBytes],
+  );
+  const session = useHiiQueueSession(
+    changeQueue,
+    sourceImage,
+    originalSetupSct,
+    JSON.stringify(workspace.modules),
+    workspace,
+  );
   const editCount =
     (data.ifrEdits?.length ?? 0) +
     data.suppressions.filter(
@@ -216,6 +229,7 @@ export default function UefiHiiFooter({
         </Group>
       </Group>
       <DataChangeQueueDialog
+        session={session}
         opened={queueOpened}
         queue={changeQueue}
         onClose={() => {

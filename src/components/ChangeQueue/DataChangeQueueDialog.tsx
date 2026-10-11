@@ -1,18 +1,22 @@
 import ChangeQueueDialog from "./ChangeQueueDialog";
 import type { DataChangeQueueController } from "./useDataChangeQueue";
+import type { QueueSessionAdapter } from "./QueueSessionControls";
 
 export default function DataChangeQueueDialog({
   opened,
   queue,
   onClose,
+  session,
 }: {
   opened: boolean;
   queue: DataChangeQueueController;
   onClose: () => void;
+  session?: QueueSessionAdapter;
 }) {
   return (
     <ChangeQueueDialog
       opened={opened}
+      session={session}
       entries={queue.entries}
       comparison={queue.comparison}
       analysis={queue.analysis}

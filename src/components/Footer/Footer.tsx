@@ -22,6 +22,7 @@ import FirmwareOutputReport from "./FirmwareOutputReport";
 import { useFirmwareImagePreflight } from "./useFirmwareImagePreflight";
 import { hasAcceptedRootVisibilitySource } from "../scripts/firmwareAcceptance";
 import { assessFirmwareReconstruction } from "../scripts/firmwareProvenance";
+import { useHiiQueueSession } from "../ChangeQueue/useHiiQueueSession";
 
 interface FooterProps {
   files: PopulatedFiles;
@@ -46,6 +47,14 @@ export default function Footer({
   const [input, setInput] = React.useState("05");
   const [queueOpened, setQueueOpened] = React.useState(false);
   const [reportOpened, setReportOpened] = React.useState(false);
+  const session = useHiiQueueSession(
+    changeQueue,
+    files.firmwareSource?.artifacts.provenance.buffers.find((node) => node.id === 0)
+      ?.bytes,
+    files.setupSctContainer.textContent,
+    JSON.stringify(files.firmwareSource?.artifacts.provenance.artifacts),
+    files.firmwareSource ?? files,
+  );
   const queueApplied =
     changeQueue.analysis.canApply &&
     changeQueue.appliedFingerprint === changeQueue.analysis.fingerprint;
@@ -306,6 +315,7 @@ export default function Footer({
         )}
       </Group>
       <DataChangeQueueDialog
+        session={session}
         opened={queueOpened}
         queue={changeQueue}
         onClose={() => {

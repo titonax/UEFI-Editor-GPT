@@ -19,6 +19,7 @@ import { useChangeQueueHistory } from "./useChangeQueueHistory";
 import { dataQueueComparison, type QueueComparison } from "./queueComparison";
 
 export interface DataChangeQueueController {
+  baseData: Data;
   entries: ChangeQueueEntry<DataChangePayload>[];
   previewData: Data;
   comparison: QueueComparison;
@@ -32,6 +33,7 @@ export interface DataChangeQueueController {
   redo: () => void;
   enqueueData: Updater<Data>;
   replaceBase: (data: Data) => void;
+  restoreEntries: (entries: ChangeQueueEntry<DataChangePayload>[]) => void;
   toggleEnabled: (id: string, enabled: boolean) => void;
   remove: (id: string) => void;
   move: (id: string, direction: -1 | 1) => void;
@@ -82,6 +84,12 @@ export function useDataChangeQueue(initialData: Data): DataChangeQueueController
     setBase(structuredClone(data));
     nextId.current = 1;
   }, []);
+  const restoreEntries = React.useCallback(
+    (restored: ChangeQueueEntry<DataChangePayload>[]) => {
+      setEntries(() => restored);
+    },
+    [setEntries],
+  );
   const toggleEnabled = React.useCallback(
     (id: string, enabled: boolean) => {
       setEntries((current) => setChangeQueueEntryEnabled(current, id, enabled));
@@ -108,6 +116,7 @@ export function useDataChangeQueue(initialData: Data): DataChangeQueueController
     appliedFingerprint === projection.analysis.fingerprint;
 
   return {
+    baseData: base,
     entries,
     previewData: projection.data,
     comparison,
@@ -116,6 +125,7 @@ export function useDataChangeQueue(initialData: Data): DataChangeQueueController
     appliedFingerprint,
     enqueueData,
     replaceBase,
+    restoreEntries,
     toggleEnabled,
     remove,
     move,

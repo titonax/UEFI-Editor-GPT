@@ -6,6 +6,7 @@ import { queueSessionTextLimit } from "../scripts/phoenixQueueSession";
 
 export interface QueueSessionAdapter {
   context: object;
+  description?: string;
   save: () => Promise<string>;
   // Validation returns a commit action; the controls run it only if the queue
   // and source still match the operation's initial context.
@@ -55,8 +56,9 @@ export default function QueueSessionControls({
   return (
     <Stack gap="xs">
       <Text size="xs" c="dimmed">
-        Phoenix queue session · order and selection only. Load replaces this queue; Undo
-        can restore it. Apply and verified output are not restored.
+        {session.description ?? "Phoenix queue session · order and selection only."}{" "}
+        Load replaces this queue; Undo can restore it. Apply and verified output are not
+        restored.
       </Text>
       <Group gap="xs">
         <Button
