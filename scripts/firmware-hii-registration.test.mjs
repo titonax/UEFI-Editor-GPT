@@ -695,7 +695,95 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             [1406, 2426],
           );
           const callback = traceRva(1184, 286);
-          const notification = traceRva(2168, 67);
+          const notification = traceRva(2108, 142);
+          const entry = traceRva(980, 199);
+          expect(
+            readUint32(
+              node.bytes,
+              executable.start +
+                executable.headerSize +
+                readUint32(
+                  node.bytes,
+                  executable.start + executable.headerSize + 0x3c,
+                ) +
+                40,
+            ),
+          ).toBe(980);
+          assertAt(entry, 984, "call", "0x3e8");
+          assertAt(entry, 989, "call", "0x688");
+          assertAt(entry, 1006, "mov", "rbx, qword ptr [rdx + 0x60]");
+          assertRip(entry, 1014, "mov", "qword ptr [rip + 0xb0c3], rbx", 46272);
+          assertRip(entry, 1028, "mov", "qword ptr [rip + 0xb0ad], rdx", 46264);
+          for (const [rva, displacement] of [
+            [1188, "0xb015"],
+            [1224, "0xaff1"],
+          ])
+            assertRip(
+              callback,
+              rva,
+              "mov",
+              `rax, qword ptr [rip + ${displacement}]`,
+              46272,
+            );
+          const guardGuid = "B68D09CD-E5D8-49B4-AF9F-419F7A3B5B10";
+          expect(readGuid(node.bytes, dataAtRva(35264, 16))).toBe(guardGuid);
+          assertAt(callback, 1231, "lea", "r8, [rsp + 0x50]");
+          assertAt(callback, 1236, "xor", "edx, edx");
+          assertRip(callback, 1238, "lea", "rcx, [rip + 0x84e3]", 35264);
+          assertAt(callback, 1245, "call", "qword ptr [rax + 0x140]");
+          assertAt(callback, 1254, "js", "0x5b9");
+          assertAt(callback, 1260, "xor", "r8d, r8d");
+          assertAt(callback, 1263, "lea", "rcx, [rsp + 0x20]");
+          assertAt(callback, 1268, "lea", "edx, [r8 + 0xf]");
+          assertAt(callback, 1272, "call", "0x2e0");
+          const zeroBuffer = traceRva(736, 17);
+          assertAt(zeroBuffer, 737, "mov", "rax, r8");
+          assertAt(zeroBuffer, 740, "mov", "rdi, rcx");
+          assertAt(zeroBuffer, 743, "xchg", "rdx, rcx");
+          assertAt(zeroBuffer, 746, "rep stosb", "byte ptr [rdi], al");
+          assertAt(callback, 1277, "mov", "rax, qword ptr [rsp + 0x50]");
+          assertAt(callback, 1282, "lea", "rcx, [rsp + 0x20]");
+          assertAt(callback, 1287, "call", "qword ptr [rax]");
+          assertAt(callback, 1292, "js", "0x5b9");
+          assertAt(callback, 1298, "cmp", "byte ptr [rsp + 0x20], 0");
+          assertAt(callback, 1309, "cmp", "byte ptr [rsp + 0x25], 0");
+          assertRip(callback, 1320, "cmp", "byte ptr [rip + 0xb5c9], 0", 47864);
+          assertAt(notification, 2117, "mov", "ebx, 8");
+          assertAt(notification, 2195, "mov", "edx, ebx");
+          assertAt(notification, 2173, "xor", "r9d, r9d");
+          assertAt(notification, 2168, "lea", "rax, [rsp + 0x48]");
+          assertAt(notification, 2176, "mov", "qword ptr [rsp + 0x20], rax");
+          assertAt(notification, 2212, "lea", "r8, [rsp + 0x40]");
+          assertAt(notification, 2217, "mov", "rdx, qword ptr [rsp + 0x48]");
+          assertAt(notification, 2242, "mov", "rcx, qword ptr [rsp + 0x48]");
+          assertAt(notification, 2247, "call", "qword ptr [rax + 0x68]");
+          for (const [rva, displacement] of [
+            [2188, "0xac2d"],
+            [2205, "0xac1c"],
+            [2235, "0xabfe"],
+          ])
+            assertRip(
+              notification,
+              rva,
+              "mov",
+              `rax, qword ptr [rip + ${displacement}]`,
+              46272,
+            );
+          record.notificationGuards = {
+            bootServicesGlobalRva: 46272,
+            systemTableGlobalRva: 46264,
+            guardProtocolGuid: guardGuid,
+            guardProtocolGuidRva: 35264,
+            guardLocateCallRva: 1245,
+            guardMethodCallRva: 1287,
+            initializedOutputBytes: 15,
+            requiredNonzeroByteOffsets: [0, 5],
+            eventType: 0x200,
+            notifyTpl: 8,
+            initialSignalCallRva: 2247,
+            interpretation:
+              "Boot Services initialization and create/register/explicit signal order corroborated; OEM output semantics, callback delivery and selector re-entry unproven",
+          };
           assertAt(callback, 1195, "lea", "r8, [rsp + 0x58]");
           assertAt(callback, 1200, "xor", "edx, edx");
           assertRip(callback, 1202, "lea", "rcx, [rip + 0xa5f7]", 43696);
