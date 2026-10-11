@@ -937,6 +937,115 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
           assertAt(method, 1197, "mov", "byte ptr [rbx], al");
           assertAt(method, 1199, "xor", "eax, eax");
           assertAt(method, 1206, "ret", "");
+          // Additional protocol methods supply internal flags; no device is read here.
+          const tableMethod = (offset) =>
+            new DataView(
+              node.bytes.buffer,
+              node.bytes.byteOffset + dataAtRva(5456 + offset, 8),
+              8,
+            ).getBigUint64(0, true);
+          expect(tableMethod(8)).toBe(2272n);
+          expect(tableMethod(16)).toBe(4180n);
+          const mediaScan = traceRva(2272, 262);
+          const mediaKind = traceRva(1840, 206);
+          const contentMatch = traceRva(4180, 293);
+          const pathLookup = traceRva(4916, 52);
+          expect(readGuid(node.bytes, dataAtRva(5376, 16))).toBe(
+            "964E5B21-6459-11D2-8E39-00A0C969723B",
+          );
+          expect(readGuid(node.bytes, dataAtRva(5248, 16))).toBe(
+            "09576E91-6D3F-11D2-8E39-00A0C969723B",
+          );
+          assertRip(mediaScan, 2296, "mov", "rax, qword ptr [rip + 0xd19]", 5656);
+          assertRip(mediaScan, 2303, "lea", "rdx, [rip + 0xbfa]", 5376);
+          assertAt(mediaScan, 2310, "lea", "ecx, [r8 + 2]");
+          assertAt(mediaScan, 2314, "call", "qword ptr [rax + 0x138]");
+          assertRip(mediaScan, 2371, "lea", "rdx, [rip + 0xbb6]", 5376);
+          assertAt(mediaScan, 2382, "call", "qword ptr [rax + 0x98]");
+          assertAt(mediaScan, 2402, "call", "0x1334");
+          assertRip(pathLookup, 4932, "lea", "rdx, [rip + 0x135]", 5248);
+          assertAt(pathLookup, 4939, "call", "qword ptr [rax + 0x98]");
+          assertAt(mediaScan, 2410, "call", "0x800");
+          assertAt(mediaScan, 2415, "cmp", "eax, 0x305");
+          assertAt(mediaScan, 2420, "jne", "0x9a8");
+          assertAt(mediaScan, 2422, "mov", "rcx, qword ptr [rsp + 0x50]");
+          assertAt(mediaScan, 2427, "mov", "dl, byte ptr [rcx + 0x9a]");
+          assertAt(mediaScan, 2435, "jne", "0x992");
+          assertAt(mediaScan, 2437, "mov", "rax, qword ptr [rcx + 0xa8]");
+          assertAt(mediaScan, 2444, "cmp", "byte ptr [rax + 6], 4");
+          assertAt(mediaScan, 2448, "je", "0x997");
+          assertAt(mediaScan, 2450, "cmp", "dl, 5");
+          assertAt(mediaScan, 2453, "je", "0x9a8");
+          assertAt(mediaScan, 2455, "call", "0x730");
+          for (const [rva, operands] of [
+            [2460, "al, 0xfe"],
+            [2464, "al, 0xfd"],
+            [2468, "al, 0xfc"],
+          ])
+            assertAt(mediaScan, rva, "cmp", operands);
+          assertAt(mediaScan, 2462, "je", "0x9be");
+          assertAt(mediaScan, 2466, "je", "0x9c5");
+          assertAt(mediaScan, 2470, "je", "0x9b7");
+          assertRip(mediaScan, 2487, "mov", "byte ptr [rip + 0xc16], 1", 5588);
+          assertRip(mediaScan, 2494, "mov", "byte ptr [rip + 0xc0e], 1", 5587);
+          assertRip(mediaScan, 2501, "mov", "byte ptr [rip + 0xc05], 1", 5585);
+          assertAt(mediaScan, 2523, "call", "0x374");
+          assertAt(mediaScan, 2533, "ret", "");
+          assertAt(mediaKind, 1860, "mov", "rbp, qword ptr [rcx + 8]");
+          assertAt(mediaKind, 1869, "cmp", "byte ptr [rbp + 5], bl");
+          assertAt(mediaKind, 1881, "mov", "ecx, dword ptr [rbp + 0xc]");
+          assertAt(mediaKind, 1897, "mov", "rax, qword ptr [rsi + 8]");
+          assertAt(mediaKind, 1901, "xor", "r8d, r8d");
+          assertAt(mediaKind, 1904, "mov", "r9d, dword ptr [rbp + 0xc]");
+          assertAt(mediaKind, 1908, "mov", "rcx, rsi");
+          assertAt(mediaKind, 1911, "mov", "qword ptr [rsp + 0x20], rdi");
+          assertAt(mediaKind, 1916, "mov", "edx, dword ptr [rax]");
+          assertAt(mediaKind, 1918, "call", "qword ptr [rsi + 0x18]");
+          assertAt(mediaKind, 1924, "js", "0x7da");
+          assertAt(mediaKind, 1926, "mov", "eax, 0xaa55");
+          assertAt(mediaKind, 1931, "cmp", "word ptr [rdi + 0x1fe], ax");
+          assertAt(mediaKind, 1940, "cmp", "byte ptr [rdi + 0x26], 0x29");
+          assertAt(mediaKind, 1944, "je", "0x7a0");
+          assertAt(mediaKind, 1946, "cmp", "byte ptr [rdi + 0x42], 0x29");
+          assertAt(mediaKind, 1950, "jne", "0x7da");
+          assertAt(mediaKind, 1952, "cmp", "dword ptr [rsi - 0x48], 0x4d627355");
+          assertAt(mediaKind, 1959, "jne", "0x7bc");
+          assertAt(mediaKind, 1961, "mov", "al, byte ptr [rdi + 0xa]");
+          assertAt(mediaKind, 1964, "cmp", "al, 0x79");
+          assertAt(mediaKind, 1968, "mov", "bl, 0xfe");
+          assertAt(mediaKind, 1972, "cmp", "al, 0x7a");
+          assertAt(mediaKind, 1976, "mov", "bl, 0xfc");
+          assertAt(mediaKind, 2023, "mov", "al, bl");
+          assertAt(mediaKind, 2045, "ret", "");
+          assertAt(contentMatch, 4405, "cmp", "qword ptr [rbp + 0x10], 0x10");
+          assertAt(contentMatch, 4410, "jb", "0x1164");
+          assertAt(contentMatch, 4435, "cmp", "byte ptr [r8 + rcx], al");
+          assertAt(contentMatch, 4439, "jne", "0x1164");
+          assertAt(contentMatch, 4444, "cmp", "rdx, 0x10");
+          assertAt(contentMatch, 4448, "jb", "0x114a");
+          assertAt(contentMatch, 4450, "mov", "bl, 1");
+          assertRip(contentMatch, 4452, "mov", "byte ptr [rip + 0x466], bl", 5584);
+          assertAt(contentMatch, 4468, "jmp", "0x374");
+          assertRip(publisher, 1677, "mov", "byte ptr [rip + 0xf3f], cl", 5586);
+          assertRip(publisher, 1685, "mov", "byte ptr [rip + 0xf37], 1", 5587);
+          record.guardFlagOrigins = {
+            blockIoGuidRva: 5376,
+            devicePathGuidRva: 5248,
+            mediaScanMethodRva: 2272,
+            contentMatchMethodRva: 4180,
+            firstBlockReadCallRva: 1918,
+            mediaClassifierRva: 1840,
+            callerClassificationRequired: 0x305,
+            mediaResultWrites: [
+              { result: 0xfc, globalRvas: [5588, 5587, 5585] },
+              { result: 0xfe, globalRvas: [5587, 5585] },
+              { result: 0xfd, globalRvas: [5585] },
+            ],
+            contentMatch: { requiredBytes: 16, setGlobalRva: 5584, storeRva: 4452 },
+            publisherStoreRvas: [1677, 1685],
+            interpretation:
+              "concrete media/content-dependent flag writers; private context offsets, effective inputs, complete write inventory and callback ordering remain unresolved; no runtime visibility rule",
+          };
           record.guardProvider = {
             protocolGuid: guardGuid,
             protocolGuidRva: 5296,
