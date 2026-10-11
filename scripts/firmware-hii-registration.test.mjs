@@ -24,6 +24,7 @@ const protocolGuids = {
   browser: "B9D4C360-BCFB-4F9B-9298-53C136982258",
   database: "EF9FC172-A1B2-4693-B327-6D32FC416042",
   configAccess: "330D4706-F2A0-4E4F-A369-B66FA8D54385",
+  guidList: "F5261E18-F373-40BA-87FD-7F1C300CBBFF",
 };
 const driverGuids = {
   Setup: "E6A7A1CE-5881-4B49-80BE-69C91811685C",
@@ -113,6 +114,42 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             node.bytes.slice(at, at + count),
             code.rva + at - code.start,
           );
+        };
+        const traceRva = (rva, count) => {
+          const owner = sections.find(
+            (section) =>
+              section.executable &&
+              rva >= section.rva &&
+              rva + count <= section.rva + section.end - section.start,
+          );
+          expect(owner).toBeDefined();
+          return trace(owner.start + rva - owner.rva - file.bodyStart, count);
+        };
+        const assertAt = (instructions, rva, mnemonic, operands) => {
+          const instruction = instructions.find((item) => Number(item.address) === rva);
+          expect(instruction?.mnemonic).toBe(mnemonic);
+          expect(instruction?.op_str).toBe(operands);
+          return instruction;
+        };
+        const assertRip = (instructions, rva, mnemonic, operands, target) => {
+          const instruction = assertAt(instructions, rva, mnemonic, operands);
+          const displacement = /\[rip ([-+]) (0x[0-9a-f]+)\]/.exec(instruction.op_str);
+          expect(displacement).not.toBeNull();
+          expect(
+            rva +
+              instruction.size +
+              (displacement[1] === "+" ? 1 : -1) * Number(displacement[2]),
+          ).toBe(target);
+        };
+        const dataAtRva = (rva, size) => {
+          const owner = sections.find(
+            (section) =>
+              !section.executable &&
+              rva >= section.rva &&
+              rva + size <= section.rva + section.end - section.start,
+          );
+          expect(owner).toBeDefined();
+          return owner.start + rva - owner.rva;
         };
         const record = {
           name,
@@ -217,48 +254,14 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
                 instruction.mnemonic === "call" && instruction.op_str === "0xb1c",
             ),
           ).toBe(true);
-          const traceRva = (rva, count) => {
-            const owner = sections.find(
-              (section) =>
-                section.executable &&
-                rva >= section.rva &&
-                rva + count <= section.rva + section.end - section.start,
-            );
-            expect(owner).toBeDefined();
-            return trace(owner.start + rva - owner.rva - file.bodyStart, count);
-          };
           const peStart = executable.start + executable.headerSize;
           const peHeader = peStart + readUint32(node.bytes, peStart + 0x3c);
           const entryRva = readUint32(node.bytes, peHeader + 0x28);
           expect(entryRva).toBe(768);
           const initialization = traceRva(entryRva, 113);
-          const dataAtRva = (rva, size) => {
-            const owner = sections.find(
-              (section) =>
-                !section.executable &&
-                rva >= section.rva &&
-                rva + size <= section.rva + section.end - section.start,
-            );
-            expect(owner).toBeDefined();
-            return owner.start + rva - owner.rva;
-          };
           const list = traceRva(976, 187);
           const inspect = traceRva(1840, 749);
           const selection = traceRva(2844, 1652);
-          const assertAt = (instructions, rva, mnemonic, operands) => {
-            const instruction = instructions.find(
-              (item) => Number(item.address) === rva,
-            );
-            expect(instruction?.mnemonic).toBe(mnemonic);
-            expect(instruction?.op_str).toBe(operands);
-            return instruction;
-          };
-          const assertRip = (instructions, rva, mnemonic, operands, target) => {
-            const instruction = assertAt(instructions, rva, mnemonic, operands);
-            const displacement = /\[rip \+ (0x[0-9a-f]+)\]/.exec(instruction.op_str);
-            expect(displacement).not.toBeNull();
-            expect(rva + instruction.size + Number(displacement[1])).toBe(target);
-          };
           // EFI entry RDX reaches the initialization call unchanged. The x64
           // System Table's BootServices field is retained in the service global.
           assertAt(initialization, 777, "call", "0x31c");
@@ -411,6 +414,70 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             interpretation:
               "candidate forms-package enumeration feeds SendForm; temporary filtering and conditional mutations precede re-enumeration",
           };
+          const browserRoutine = traceRva(4516, 459);
+          const published = hits.find((hit) => hit.guid === protocolGuids.guidList);
+          expect(published?.offset - file.bodyStart).toBe(14868);
+          expect(published?.leaByteCandidates.map((at) => at - file.bodyStart)).toEqual(
+            [4666, 4924],
+          );
+          assertRip(
+            browserRoutine,
+            4531,
+            "mov",
+            "rax, qword ptr [rip + 0x318e]",
+            17224,
+          );
+          assertAt(browserRoutine, 4538, "lea", "r8, [rbp - 0x18]");
+          assertAt(browserRoutine, 4545, "xor", "esi, esi");
+          assertAt(browserRoutine, 4547, "xor", "edx, edx");
+          assertAt(browserRoutine, 4569, "js", "0x135f");
+          assertAt(browserRoutine, 4811, "mov", "qword ptr [rsp + 0x28], rsi");
+          assertAt(browserRoutine, 4819, "mov", "word ptr [rsp + 0x20], si");
+          assertRip(code, 4645, "mov", "rax, qword ptr [rip + 0x311c]", 17224);
+          assertRip(code, 4652, "lea", "r9, [rip + 0x30f5]", 17192);
+          assertAt(code, 4659, "xor", "r8d, r8d");
+          assertRip(code, 4662, "lea", "rdx, [rip + 0x27d3]", 14864);
+          assertRip(code, 4669, "lea", "rcx, [rip + 0x30dc]", 17184);
+          assertAt(code, 4676, "call", "qword ptr [rax + 0x80]");
+          assertRip(browserRoutine, 4906, "lea", "r8, [rip + 0x2ff7]", 17192);
+          assertRip(browserRoutine, 4920, "lea", "rdx, [rip + 0x26d1]", 14864);
+          assertAt(browserRoutine, 4927, "call", "qword ptr [rax + 0x90]");
+          // Conditional Ref construction leads to an export/Forms/update path.
+          const refBuilder = traceRva(13092, 219);
+          const update = traceRva(13852, 505);
+          assertAt(selection, 4173, "call", "0x3324");
+          assertAt(selection, 4181, "call", "0x361c");
+          assertAt(refBuilder, 13123, "mov", "esi, 0x23");
+          assertAt(refBuilder, 13236, "call", "0x280");
+          assertAt(refBuilder, 13268, "mov", "r8b, 0xf");
+          assertAt(refBuilder, 13279, "call", "0x327c");
+          assertRip(update, 13902, "mov", "rax, qword ptr [rip + 0xd0b]", 17248);
+          assertAt(update, 13934, "call", "qword ptr [rax + 0x20]");
+          assertAt(update, 14008, "call", "qword ptr [rax + 0x20]");
+          assertAt(update, 14178, "cmp", "byte ptr [rbx + 3], 2");
+          assertAt(update, 14195, "call", "0x3400");
+          assertRip(update, 14315, "mov", "rax, qword ptr [rip + 0xb6e]", 17248);
+          assertAt(update, 14325, "call", "qword ptr [rax + 0x10]");
+          record.guidListPublication = {
+            guid: protocolGuids.guidList,
+            guidBodyOffset: 14868,
+            listPointerGlobalRva: 17192,
+            installCallRva: 4676,
+            uninstallCallRva: 4927,
+            selectionCallBeforePublicationRva: 4640,
+            interpretation:
+              "static publication/unpublication of the list-pointer address; notification execution and selection re-entry unproven",
+          };
+          record.conditionalPackageUpdate = {
+            refBuilderRva: 13092,
+            refOpcode: 15,
+            updateRoutineRva: 13852,
+            exportCallRvas: [13934, 14008],
+            formsReplacementCallRva: 14195,
+            databaseUpdateCallRva: 14325,
+            interpretation:
+              "conditional Ref construction and HiiDatabase package-update path; matched form and executed effects unresolved",
+          };
           record.browserPath = {
             browserGuidBodyOffset: browser.offset - file.bodyStart,
             candidateCodeBodyOffset: 4557,
@@ -418,6 +485,67 @@ it("reproduces bounded P53 browser landmarks without granting root registration"
             handlePreparationCallTargetRva: 2844,
             interpretation:
               "candidate LocateProtocol/SendForm sequence; array/count globals linked to enumeration, database lookup output linked; lookup success, callbacks and runtime conditions unresolved",
+          };
+        }
+        if (name === "LenovoSetupMainDxe") {
+          const published = hits.find((hit) => hit.guid === protocolGuids.guidList);
+          expect(published?.offset - file.bodyStart).toBe(43900);
+          expect(published?.leaByteCandidates.map((at) => at - file.bodyStart)).toEqual(
+            [1406, 2426],
+          );
+          const callback = traceRva(1184, 286);
+          const notification = traceRva(2168, 67);
+          assertAt(callback, 1195, "lea", "r8, [rsp + 0x58]");
+          assertAt(callback, 1200, "xor", "edx, edx");
+          assertRip(callback, 1202, "lea", "rcx, [rip + 0xa5f7]", 43696);
+          assertAt(callback, 1209, "call", "qword ptr [rax + 0x140]");
+          assertAt(callback, 1218, "js", "0x5b9");
+          assertAt(callback, 1303, "je", "0x5b9");
+          assertAt(callback, 1314, "je", "0x5b9");
+          assertAt(callback, 1327, "je", "0x5b9");
+          assertAt(callback, 1333, "mov", "rax, qword ptr [rsp + 0x58]");
+          assertAt(callback, 1359, "mov", "rcx, qword ptr [rax]");
+          assertRip(callback, 1338, "mov", "rdx, qword ptr [rip + 0x8e87]", 37832);
+          assertRip(callback, 1345, "mov", "r8, qword ptr [rip + 0x8e78]", 37824);
+          assertRip(callback, 1352, "mov", "r9, qword ptr [rip + 0xaf11]", 46176);
+          assertRip(callback, 1362, "mov", "rax, qword ptr [rip + 0xaf0f]", 46184);
+          assertAt(callback, 1378, "je", "0x58c");
+          assertAt(callback, 1385, "cmp", "qword ptr [rcx + 8], rax");
+          assertAt(callback, 1389, "je", "0x575");
+          expect(readGuid(node.bytes, dataAtRva(46176, 16))).toBe(
+            "00000000-0000-0000-0000-000000000000",
+          );
+          const copy = traceRva(640, 60);
+          assertAt(copy, 642, "mov", "rsi, rdx");
+          assertAt(copy, 645, "mov", "rdi, rcx");
+          assertAt(copy, 677, "rep movsq", "qword ptr [rdi], qword ptr [rsi]");
+          assertAt(callback, 1391, "add", "rcx, 0x10");
+          assertRip(callback, 1397, "lea", "rdx, [rip + 0x8e44]", 37824);
+          assertAt(callback, 1409, "mov", "r8d, 0x10");
+          assertAt(callback, 1415, "call", "0x280");
+          assertAt(notification, 2197, "mov", "ecx, 0x200");
+          assertRip(notification, 2181, "lea", "r8, [rip - 0x3ec]", 1184);
+          assertAt(notification, 2202, "call", "qword ptr [rax + 0x50]");
+          assertRip(notification, 2222, "lea", "rcx, [rip + 0xa1fb]", 43696);
+          assertAt(notification, 2229, "call", "qword ptr [rax + 0xa8]");
+          const formSet = "821D8B77-246D-4E96-8E10-3467D56AB1BA";
+          expect(readGuid(node.bytes, dataAtRva(37824, 16))).toBe(formSet);
+          expect(
+            hits.some(
+              (hit) => hit.guid === formSet && hit.offset - file.bodyStart === 38028,
+            ),
+          ).toBe(true);
+          record.guidListConsumer = {
+            publicationGuid: protocolGuids.guidList,
+            publicationGuidBodyOffset: 43900,
+            callbackRva: 1184,
+            locateCallRva: 1209,
+            createEventCallRva: 2202,
+            registerNotifyCallRva: 2229,
+            formSetGuid: formSet,
+            copyCallRva: 1415,
+            interpretation:
+              "guarded notification callback locates and dereferences the published pointer, then copies a FormSet GUID into the sentinel slot; execution and re-entry unproven",
           };
         }
         records.push(record);
