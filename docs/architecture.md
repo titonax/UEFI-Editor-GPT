@@ -138,6 +138,13 @@ End and coherent FormSet ownership. A disposable disabled-scope replay checks
 bounds and structure even for paused/restore actions. AMI keeps its direct state
 assignment; HII regenerates the normal checksum. Runtime/HW classifications and
 expressions remain source evidence, separate from explicit visibility overrides.
+The `ami-roots` action contains root indices and desired visibility only. Its
+adapter uses the currently opened provenance, matches complete input bytes/size,
+requires unique buffers/Setup ownership and re-runs the PE code/vector inspector
+against original FormSet declarations. Fresh and base/prefix reports must match.
+Root toggles and the existing patch planner regenerate byte plans and retain the
+last-enabled-root guard, including paused entries. This is queue planning, not
+accepted-source promotion or verified full-image reconstruction.
 Trusted module ownership is hashed, never imported. Other AMI/HII adapters and
 schema migration remain pending. See [Queue sessions](queue-sessions.md).
 

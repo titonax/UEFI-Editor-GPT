@@ -2,7 +2,7 @@
 
 Phoenix Setup and full-image AMI/vendor-neutral HII editors can save/load
 `firmware-session.json` from the Change queue dialog. AMI/HII currently support
-queues of individual Ref moves and supported menu Hide/Show actions, suppression overrides and mapped AMI values; other
+queues of individual Ref moves and supported menu Hide/Show actions, suppression overrides, mapped AMI values and proven AMI roots; other
 operations reject export explicitly.
 The user first opens and analyses the original firmware normally, then loads the
 session. Renaming the original file is fine; changing any image byte, image size
@@ -73,8 +73,7 @@ reject the entire load without replacing any entries or touching the source.
 Export proves that each queued entry is exactly one regenerated supported action by
 comparing its complete projected state with the normal editor's result. Stale
 entries, dependent operations whose prerequisites were paused/removed/reordered,
-compound unrecognized changes, AMI root-vector visibility or
-menu-retargeting operations reject export, including paused entries. A locally
+compound unrecognized changes and menu-retargeting operations reject export, including paused entries. A locally
 stored move description only selects the replay adapter; full-state equality is
 still required, so a forged label cannot turn another change into a visibility action. Nothing is silently omitted.
 An AMI workspace opened from extracted artefacts alone has no full-image identity
@@ -133,6 +132,36 @@ The existing reconstruction path, compression/allocation checks and complete-ima
 re-read remain required; this adapter does not expand supported write layouts.
 Synthetic tests cover both families, disable/restore, batches, paused dependencies,
 remapped Ref/condition positions, invalid scopes/ownership and atomic rejection.
+
+### Proven AMI root visibility
+
+The version-1 `hii-menu-actions` contract accepts `ami-roots`: boolean `enabled`
+and up to 1000 distinct `{rootIndex, visible}` selectors. Source buffer IDs,
+byte offsets, original/replacement bytes, GUIDs, labels and detector reports are
+not imported. A batch preserves one original queue entry; the original ordered
+FormSet declarations remain the basis for root identity.
+
+The AMI footer supplies only the currently opened provenance graph. Restore
+requires a unique root buffer matching the complete source bytes/size, unique
+buffer IDs and exactly one selected Setup HII artifact. It runs the existing
+Setup PE code/vector inspector again on the immutable graph and original
+FormSet declarations. The fresh report must match both the base and selected
+prefix evidence exactly. Unknown/HII families, absent/ambiguous vectors, stale
+reports and missing roots reject atomically, including paused operations.
+
+Desired states are regenerated with the existing AMI root toggle. The original
+byte/ownership checks and last-enabled-root guard then run through the existing
+root patch planner. Whole-state export comparison rejects forged plans and
+compound changes; original evidence and source bytes stay untouched.
+The session does not grant full-image write acceptance: the existing accepted
+source gate, compression/allocation checks and independent reconstruction/re-read
+remain required. A synthetically proven vector can be planned without becoming
+an accepted real-image write path.
+
+Synthetic PE-loop regressions cover all AMI profiles, batches, paused/restore
+states, immutable original bytes, fresh code/vector inspection, contradictory
+source provenance, malformed selectors, the last-root guard and atomic failure.
+No new real-source root session or physical flash validation is claimed.
 
 Shared load behavior is the same as Phoenix: one undoable queue replacement,
 fresh revision, unapplied state and no restored verified output. Queue/source or

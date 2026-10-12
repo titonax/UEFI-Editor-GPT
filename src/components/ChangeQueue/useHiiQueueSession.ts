@@ -2,6 +2,7 @@ import React from "react";
 import { loadHiiQueueSession, saveHiiQueueSession } from "../scripts/hiiQueueSession";
 import type { DataChangeQueueController } from "./useDataChangeQueue";
 import type { QueueSessionAdapter } from "./QueueSessionControls";
+import type { FirmwareProvenanceGraph } from "../scripts/firmwareProvenance";
 
 export function useHiiQueueSession(
   queue: DataChangeQueueController,
@@ -10,11 +11,13 @@ export function useHiiQueueSession(
   ownershipKey: string,
   owner: object,
   originalSetupData?: string,
+  provenance?: FirmwareProvenanceGraph,
 ): QueueSessionAdapter | undefined {
   const context = React.useMemo(
     () => ({
       owner,
       originalSetupData,
+      provenance,
       sourceBytes,
       originalSetupSct,
       ownershipKey,
@@ -28,6 +31,7 @@ export function useHiiQueueSession(
       ownershipKey,
       owner,
       originalSetupData,
+      provenance,
       queue.baseData,
       queue.entries,
       queue.revision,
@@ -38,7 +42,7 @@ export function useHiiQueueSession(
   return {
     context,
     description:
-      "Queue session · Ref moves, supported menu Hide/Show, suppression overrides and mapped AMI values.",
+      "Queue session · Ref moves, supported menu Hide/Show, suppression overrides, mapped AMI values and proven AMI roots.",
     save: () => saveHiiQueueSession(input, context.entries),
     load: async (text) => {
       const restored = await loadHiiQueueSession(text, input);
