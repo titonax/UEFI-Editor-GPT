@@ -54,6 +54,7 @@ export default function Footer({
     files.setupSctContainer.textContent,
     JSON.stringify(files.firmwareSource?.artifacts.provenance.artifacts),
     files.firmwareSource ?? files,
+    files.setupdataBinContainer.textContent,
   );
   const queueApplied =
     changeQueue.analysis.canApply &&

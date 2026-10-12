@@ -289,7 +289,9 @@ describe("generic HII complete-image frontend (synthetic orchestration)", () => 
     ).toBeEnabled();
     click("Save queue session");
     expect(
-      await screen.findByText(/supports individual Ref moves and menu visibility only/),
+      await screen.findByText(
+        /supports individual Ref moves, menu visibility and mapped AMI values only/,
+      ),
     ).toBeInTheDocument();
     expect(saveAs).not.toHaveBeenCalled();
     upload(text);
