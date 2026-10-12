@@ -182,6 +182,9 @@ the hub/tab/registration invariants,
 [full-image reconstruction](docs/ami/full-image-reconstruction.md) for the
 read/write safety boundary, and
 [contributing](CONTRIBUTING.md) for the module boundaries and review checklist.
+See [recovery and release readiness](docs/recovery-and-release.md) for original
+backup handling, family-specific output boundaries and the evidence required
+before advertising a stable write path.
 
 ## Credits
 
