@@ -125,6 +125,13 @@ anchors. Ref-only sessions retain their original format and remain readable.
 Export requires each complete logical entry to equal one regenerated supported
 action; stale, compound and other edit types reject rather than losing changes.
 Local descriptions only route replay, never establish editing capability.
+The `ami-values` action stages whitelisted flags/failsafe/optimal assignments as
+one batch. Restore binds the opened SetupData hash, requires complete mapped
+fields, bounds and a unique matching original byte owner, and rejects HII-family
+use. Original values, offsets and record payloads are never imported. Ref moves
+retain SetupData offsets; these are separate from remapped IFR positions. These
+checks also apply to paused batches; the normal full-image writer remains the
+only path to verified firmware output.
 Trusted module ownership is hashed, never imported. Other AMI/HII adapters and
 schema migration remain pending. See [Queue sessions](queue-sessions.md).
 

@@ -2,7 +2,7 @@
 
 Phoenix Setup and full-image AMI/vendor-neutral HII editors can save/load
 `firmware-session.json` from the Change queue dialog. AMI/HII currently support
-queues of individual Ref moves and supported menu Hide/Show actions; other
+queues of individual Ref moves and supported menu Hide/Show actions and mapped AMI values; other
 operations reject export explicitly.
 The user first opens and analyses the original firmware normally, then loads the
 session. Renaming the original file is fine; changing any image byte, image size
@@ -73,12 +73,38 @@ reject the entire load without replacing any entries or touching the source.
 Export proves that each queued entry is exactly one regenerated supported action by
 comparing its complete projected state with the normal editor's result. Stale
 entries, dependent operations whose prerequisites were paused/removed/reordered,
-compound changes and scalar, condition suppression, AMI root-vector visibility or
+compound unrecognized changes, condition suppression, AMI root-vector visibility or
 menu-retargeting operations reject export, including paused entries. A locally
 stored move description only selects the replay adapter; full-state equality is
 still required, so a forged label cannot turn another change into a visibility action. Nothing is silently omitted.
 An AMI workspace opened from extracted artefacts alone has no full-image identity
 and does not expose these session controls. Existing AMI `data.json` is unchanged.
+
+### Mapped AMI values
+
+The `hii-menu-actions` format also accepts `ami-values`: boolean `enabled` and
+an ordered `changes` array of existing `formIndex`/`childIndex` selectors, a
+whitelisted `field` (`accessLevel`, `failsafe`, `optimal`) and uppercase one/two
+hexadecimal digit `value`. Each batch preserves one original queue entry,
+including bulk edits. Empty/incomplete values, duplicate targets, unknown fields
+and batches above 1000 changes reject. This is an AMI-only adapter; HII workspaces
+cannot acquire scalar editing through a JSON file.
+
+Restore uses the currently opened SetupData and requires its SHA-256 to match
+the logical base source hash. Every target must have all three complete scalar
+fields and a valid in-bounds mapping, one unique original byte owner and a base
+value matching that original byte. Ref moves retain these SetupData mappings;
+they are not IFR offsets and are never imported. Only the same scalar assignment
+exposed by the AMI controls is staged, with labels and patches generated locally.
+Whole-state export equality rejects unrecognized compound mutations. Paused
+batches receive all the same checks; later failures discard the whole session.
+
+The raw `accessLevel` byte is displayed as SetupData flags; its bit meanings are
+not inferred and changing it does not reclassify navigation or visibility.
+Sessions contain desired scalar values, not original bytes or record payloads.
+The existing writer and full-image allocation/re-read checks remain required
+before download. The tests use synthetic SetupData mappings and verify the
+three requested byte values with the existing patch builder, not physical flash.
 
 Shared load behavior is the same as Phoenix: one undoable queue replacement,
 fresh revision, unapplied state and no restored verified output. Queue/source or

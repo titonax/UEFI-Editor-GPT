@@ -9,10 +9,12 @@ export function useHiiQueueSession(
   originalSetupSct: string,
   ownershipKey: string,
   owner: object,
+  originalSetupData?: string,
 ): QueueSessionAdapter | undefined {
   const context = React.useMemo(
     () => ({
       owner,
+      originalSetupData,
       sourceBytes,
       originalSetupSct,
       ownershipKey,
@@ -25,6 +27,7 @@ export function useHiiQueueSession(
       originalSetupSct,
       ownershipKey,
       owner,
+      originalSetupData,
       queue.baseData,
       queue.entries,
       queue.revision,
@@ -34,7 +37,8 @@ export function useHiiQueueSession(
   const input = { ...context, sourceBytes: context.sourceBytes };
   return {
     context,
-    description: "AMI/HII queue session · Ref moves and supported menu Hide/Show.",
+    description:
+      "Queue session · Ref moves, supported menu Hide/Show and mapped AMI values.",
     save: () => saveHiiQueueSession(input, context.entries),
     load: async (text) => {
       const restored = await loadHiiQueueSession(text, input);
