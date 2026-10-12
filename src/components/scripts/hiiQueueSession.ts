@@ -15,6 +15,10 @@ import {
   type DataChangePayload,
 } from "../ChangeQueue/dataChangeQueue";
 import { queueSessionTextLimit } from "./phoenixQueueSession";
+import {
+  regenerateSessionSuppressions,
+  type SuppressionSessionChange,
+} from "./suppressionSessionEditing";
 
 export interface HiiQueueSessionContext {
   sourceBytes: Uint8Array;
@@ -48,7 +52,13 @@ interface AmiValuesOperation {
   changes: AmiValueChange[];
   enabled: boolean;
 }
-type Operation = MoveOperation | VisibilityOperation | AmiValuesOperation;
+interface SuppressionsOperation {
+  action: "suppressions";
+  changes: SuppressionSessionChange[];
+  enabled: boolean;
+}
+type Operation =
+  MoveOperation | VisibilityOperation | AmiValuesOperation | SuppressionsOperation;
 interface Session {
   format: "uefi-editor-queue-session";
   version: 1;
@@ -108,6 +118,32 @@ function parse(text: string): Session {
     invalid("has too many or invalid operations");
   const operations = value.operations.map((op: unknown): Operation => {
     if (value.kind === "hii-menu-actions") {
+      if (
+        record(op, ["action", "changes", "enabled"]) &&
+        op.action === "suppressions"
+      ) {
+        if (
+          !Array.isArray(op.changes) ||
+          !op.changes.length ||
+          op.changes.length > 1000 ||
+          typeof op.enabled !== "boolean"
+        )
+          invalid("has an invalid suppression batch");
+        const targets = new Set<number>();
+        const changes = op.changes.map((change: unknown): SuppressionSessionChange => {
+          if (
+            !record(change, ["conditionIndex", "active"]) ||
+            !index(change.conditionIndex) ||
+            typeof change.active !== "boolean"
+          )
+            invalid("has an invalid suppression change");
+          if (targets.has(change.conditionIndex))
+            invalid("contains a duplicate condition target");
+          targets.add(change.conditionIndex);
+          return { conditionIndex: change.conditionIndex, active: change.active };
+        });
+        return { action: "suppressions", changes, enabled: op.enabled };
+      }
       if (record(op, ["action", "changes", "enabled"]) && op.action === "ami-values") {
         if (
           !Array.isArray(op.changes) ||
@@ -283,23 +319,29 @@ async function regenerate(
   // Select only existing Forms/Ref children; the normal editor proves opcodes,
   // scope, ownership, graph compatibility and fresh expected source bytes.
   const after =
-    operation.action === "ami-values"
-      ? await regenerateAmiValues(before, context, operation)
-      : operation.action === "move-ref"
-        ? await moveMenuReference(before, context.originalSetupSct, operation)
-        : before.firmwareFamily === "uefi-hii"
-          ? await toggleUefiHiiMenuVisibility(
-              before,
-              context.originalSetupSct,
-              operation.sourceFormIndex,
-              operation.referenceChildIndex,
-              operation.visible,
-            )
-          : await toggleTopLevelTabVisibility(
-              before,
-              context.originalSetupSct,
-              operation,
-            );
+    operation.action === "suppressions"
+      ? await regenerateSessionSuppressions(
+          before,
+          context.originalSetupSct,
+          operation.changes,
+        )
+      : operation.action === "ami-values"
+        ? await regenerateAmiValues(before, context, operation)
+        : operation.action === "move-ref"
+          ? await moveMenuReference(before, context.originalSetupSct, operation)
+          : before.firmwareFamily === "uefi-hii"
+            ? await toggleUefiHiiMenuVisibility(
+                before,
+                context.originalSetupSct,
+                operation.sourceFormIndex,
+                operation.referenceChildIndex,
+                operation.visible,
+              )
+            : await toggleTopLevelTabVisibility(
+                before,
+                context.originalSetupSct,
+                operation,
+              );
   const entry = createDataChangeEntry(before, after, id);
   if (!entry) invalid("contains a menu action with no change");
   return { after, entry: { ...entry, enabled: operation.enabled } };
@@ -318,6 +360,33 @@ export async function saveHiiQueueSession(
     if (projected.analysis.issues.some((issue) => issue.severity === "error"))
       invalid("contains a stale operation");
     const after = projected.data;
+    const suppressionChanges = entry.payload.patches.flatMap(
+      (patch): SuppressionSessionChange[] => {
+        const [root, conditionIndex, field] = patch.path;
+        return patch.path.length === 3 &&
+          root === "suppressions" &&
+          index(conditionIndex) &&
+          field === "active" &&
+          patch.expectedExists &&
+          patch.replacementExists &&
+          typeof patch.replacement === "boolean"
+          ? [{ conditionIndex, active: patch.replacement }]
+          : [];
+      },
+    );
+    if (suppressionChanges.length) {
+      const operation: SuppressionsOperation = {
+        action: "suppressions",
+        changes: suppressionChanges,
+        enabled: entry.enabled,
+      };
+      const regenerated = await regenerate(before, context, operation, entry.id);
+      if (diffData(after, regenerated.after).length)
+        invalid("contains other changes in a suppression batch");
+      operations.push(operation);
+      if (entry.enabled) before = regenerated.after;
+      continue;
+    }
     const scalarChanges = entry.payload.patches.map((patch): AmiValueChange | null => {
       const [root, formIndex, children, childIndex, field] = patch.path;
       return patch.path.length === 5 &&
@@ -349,7 +418,7 @@ export async function saveHiiQueueSession(
     const move = after.ifrEdits?.[priorCount];
     if (!move || after.ifrEdits?.length !== priorCount + 1)
       invalid(
-        "supports individual Ref moves, menu visibility and mapped AMI values only; this queue contains another operation",
+        "supports individual Ref moves, menu visibility, suppression overrides and mapped AMI values only; this queue contains another operation",
       );
     const sources = before.forms.flatMap((form, sourceFormIndex) =>
       form.children.flatMap((child, referenceChildIndex) =>
@@ -367,7 +436,7 @@ export async function saveHiiQueueSession(
     );
     if (sources.length !== 1)
       invalid(
-        "supports individual Ref moves, menu visibility and mapped AMI values only; the operation is ambiguous or unsupported",
+        "supports individual Ref moves, menu visibility, suppression overrides and mapped AMI values only; the operation is ambiguous or unsupported",
       );
     // Local descriptions are only a routing hint. The complete regenerated
     // state must match below, so changing a label cannot promote an operation.
@@ -390,7 +459,7 @@ export async function saveHiiQueueSession(
     const regenerated = await regenerate(before, context, operation, entry.id);
     if (diffData(after, regenerated.after).length)
       invalid(
-        "supports individual Ref moves, menu visibility and mapped AMI values only; the operation includes other changes",
+        "supports individual Ref moves, menu visibility, suppression overrides and mapped AMI values only; the operation includes other changes",
       );
     operations.push(operation);
     if (entry.enabled) before = regenerated.after;

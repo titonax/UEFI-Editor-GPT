@@ -38,7 +38,7 @@ export function useHiiQueueSession(
   return {
     context,
     description:
-      "Queue session · Ref moves, supported menu Hide/Show and mapped AMI values.",
+      "Queue session · Ref moves, supported menu Hide/Show, suppression overrides and mapped AMI values.",
     save: () => saveHiiQueueSession(input, context.entries),
     load: async (text) => {
       const restored = await loadHiiQueueSession(text, input);

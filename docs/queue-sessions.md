@@ -2,7 +2,7 @@
 
 Phoenix Setup and full-image AMI/vendor-neutral HII editors can save/load
 `firmware-session.json` from the Change queue dialog. AMI/HII currently support
-queues of individual Ref moves and supported menu Hide/Show actions and mapped AMI values; other
+queues of individual Ref moves and supported menu Hide/Show actions, suppression overrides and mapped AMI values; other
 operations reject export explicitly.
 The user first opens and analyses the original firmware normally, then loads the
 session. Renaming the original file is fine; changing any image byte, image size
@@ -73,7 +73,7 @@ reject the entire load without replacing any entries or touching the source.
 Export proves that each queued entry is exactly one regenerated supported action by
 comparing its complete projected state with the normal editor's result. Stale
 entries, dependent operations whose prerequisites were paused/removed/reordered,
-compound unrecognized changes, condition suppression, AMI root-vector visibility or
+compound unrecognized changes, AMI root-vector visibility or
 menu-retargeting operations reject export, including paused entries. A locally
 stored move description only selects the replay adapter; full-state equality is
 still required, so a forged label cannot turn another change into a visibility action. Nothing is silently omitted.
@@ -105,6 +105,34 @@ Sessions contain desired scalar values, not original bytes or record payloads.
 The existing writer and full-image allocation/re-read checks remain required
 before download. The tests use synthetic SetupData mappings and verify the
 three requested byte values with the existing patch builder, not physical flash.
+
+### Suppression overrides
+
+The version-1 `hii-menu-actions` contract also supports `suppressions`: boolean
+`enabled` and a non-empty batch of `{conditionIndex, active}` selectors. Up to
+1000 distinct existing conditions can be changed in one original queue entry.
+Unknown fields, offsets, expressions, classifications, non-boolean states,
+duplicate selectors and malformed/missing indices reject.
+
+Restore resolves the conditions from the current selected prefix. It proves a
+unique mapped SuppressIf opcode, scope, body boundary, matching closing End and
+consistent FormSet ownership against the original editing stream after regenerated
+Ref moves. GrayOutIf and other read-only condition kinds remain rejected.
+Every selected scope is also validated with suppression disabled on a disposable
+clone using the existing bounded End relocation and structural re-read, including
+paused operations and requests to restore a scope. Unproven/ambiguous conditions
+reject the entire session before queue replacement.
+
+AMI replays the same active-state assignment as its Force visible control; HII
+uses the existing suppression editor and recomputes the logical checksum.
+Whole-state export comparison rejects additional mutations, and source/input
+buffers stay untouched. A runtime/HW condition retains its original classification
+and expression: an explicit suppression override does not establish that the
+condition is false or that the page is reachable on physical hardware.
+The existing reconstruction path, compression/allocation checks and complete-image
+re-read remain required; this adapter does not expand supported write layouts.
+Synthetic tests cover both families, disable/restore, batches, paused dependencies,
+remapped Ref/condition positions, invalid scopes/ownership and atomic rejection.
 
 Shared load behavior is the same as Phoenix: one undoable queue replacement,
 fresh revision, unapplied state and no restored verified output. Queue/source or

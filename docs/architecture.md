@@ -132,6 +132,12 @@ use. Original values, offsets and record payloads are never imported. Ref moves
 retain SetupData offsets; these are separate from remapped IFR positions. These
 checks also apply to paused batches; the normal full-image writer remains the
 only path to verified firmware output.
+The `suppressions` action batches existing condition indices and active flags.
+Fresh stream analysis proves a unique SuppressIf scope, body boundary, closing
+End and coherent FormSet ownership. A disposable disabled-scope replay checks
+bounds and structure even for paused/restore actions. AMI keeps its direct state
+assignment; HII regenerates the normal checksum. Runtime/HW classifications and
+expressions remain source evidence, separate from explicit visibility overrides.
 Trusted module ownership is hashed, never imported. Other AMI/HII adapters and
 schema migration remain pending. See [Queue sessions](queue-sessions.md).
 

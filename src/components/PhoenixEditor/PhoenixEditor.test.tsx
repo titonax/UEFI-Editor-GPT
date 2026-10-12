@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { AppShell, MantineProvider } from "@mantine/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
@@ -218,7 +218,7 @@ describe("Phoenix full editor workspace", () => {
 
   it("uses the Aptio-style shell and navigates from the tree to screen details", async () => {
     render(
-      <MantineProvider>
+      <MantineProvider env="test">
         <Workspace />
       </MantineProvider>,
     );
@@ -247,17 +247,18 @@ describe("Phoenix full editor workspace", () => {
       screen.getByRole("button", { name: "Modified firmware image" }),
     ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
-    expect(await screen.findByText("2 byte(s)")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select Boot mode" }));
-    expect(screen.getByRole("button", { name: "Apply selected" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select Boot mode" }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
+    const queueDialog = within(screen.getByRole("dialog"));
+    expect(await queueDialog.findByText("2 byte(s)")).toBeInTheDocument();
+    fireEvent.click(queueDialog.getByRole("checkbox", { name: "Select Boot mode" }));
+    expect(queueDialog.getByRole("button", { name: "Apply selected" })).toBeDisabled();
+    fireEvent.click(queueDialog.getByRole("checkbox", { name: "Select Boot mode" }));
+    fireEvent.click(queueDialog.getByRole("button", { name: "Apply selected" }));
     expect(screen.getByText("Plan applied")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check firmware output" })).toBeEnabled();
     expect(
       screen.getByRole("button", { name: "Modified firmware image" }),
     ).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(queueDialog.getByRole("button", { name: "Close" }));
     expect(screen.getByText("Shown · applied plan")).toBeInTheDocument();
     const sataNavigation = screen
       .getAllByRole("button", { name: /SATA Port/ })
@@ -267,7 +268,9 @@ describe("Phoenix full editor workspace", () => {
     expect(screen.getByText("Drive type")).toBeInTheDocument();
     expect(screen.getByText("Verified submenu link")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
-    fireEvent.click(screen.getByRole("button", { name: "Clear queue" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Clear queue" }),
+    );
     expect(
       screen.getByText("Phoenix Setup editor · 0 queued · 0 applied"),
     ).toBeInTheDocument();
