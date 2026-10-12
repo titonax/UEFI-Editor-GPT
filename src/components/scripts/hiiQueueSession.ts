@@ -1,3 +1,7 @@
+import {
+  regenerateSessionAmiMenu,
+  type AmiMenuSessionChange,
+} from "./amiMenuSessionEditing";
 import { sha256Hex } from "./checksum";
 import { hexToBytes } from "./hex";
 import {
@@ -33,6 +37,7 @@ export interface HiiQueueSessionContext {
   // Trusted opened module locations/ownership, hashed but never exported.
   ownershipKey: string;
   originalSetupData?: string;
+  originalAmitse?: string;
   provenance?: FirmwareProvenanceGraph;
 }
 interface MoveOperation extends MenuReferenceMoveRequest {
@@ -69,7 +74,13 @@ interface AmiRootsOperation {
   changes: AmiRootSessionChange[];
   enabled: boolean;
 }
+interface AmiMenuOperation {
+  action: "ami-menu";
+  changes: AmiMenuSessionChange[];
+  enabled: boolean;
+}
 type Operation =
+  | AmiMenuOperation
   | AmiRootsOperation
   | MoveOperation
   | VisibilityOperation
@@ -134,6 +145,33 @@ function parse(text: string): Session {
     invalid("has too many or invalid operations");
   const operations = value.operations.map((op: unknown): Operation => {
     if (value.kind === "hii-menu-actions") {
+      if (record(op, ["action", "changes", "enabled"]) && op.action === "ami-menu") {
+        if (
+          !Array.isArray(op.changes) ||
+          !op.changes.length ||
+          op.changes.length > 1000 ||
+          typeof op.enabled !== "boolean"
+        )
+          invalid("has an invalid AMI menu batch");
+        const targets = new Set<number>();
+        const changes = op.changes.map((change: unknown): AmiMenuSessionChange => {
+          if (
+            !record(change, ["menuIndex", "targetFormIndex"]) ||
+            !index(change.menuIndex) ||
+            !index(change.targetFormIndex)
+          )
+            invalid("has an invalid AMI menu selector");
+          if (targets.has(change.menuIndex))
+            invalid("contains a duplicate menu target");
+          targets.add(change.menuIndex);
+          return {
+            menuIndex: change.menuIndex,
+            targetFormIndex: change.targetFormIndex,
+          };
+        });
+        return { action: "ami-menu", changes, enabled: op.enabled };
+      }
+
       if (record(op, ["action", "changes", "enabled"]) && op.action === "ami-roots") {
         if (
           !Array.isArray(op.changes) ||
@@ -358,37 +396,44 @@ async function regenerate(
   // Select only existing Forms/Ref children; the normal editor proves opcodes,
   // scope, ownership, graph compatibility and fresh expected source bytes.
   const after =
-    operation.action === "ami-roots"
-      ? regenerateSessionAmiRoots(
+    operation.action === "ami-menu"
+      ? await regenerateSessionAmiMenu(
           before,
           context.base,
-          context.sourceBytes,
-          context.provenance,
+          context.originalAmitse,
           operation.changes,
         )
-      : operation.action === "suppressions"
-        ? await regenerateSessionSuppressions(
+      : operation.action === "ami-roots"
+        ? regenerateSessionAmiRoots(
             before,
-            context.originalSetupSct,
+            context.base,
+            context.sourceBytes,
+            context.provenance,
             operation.changes,
           )
-        : operation.action === "ami-values"
-          ? await regenerateAmiValues(before, context, operation)
-          : operation.action === "move-ref"
-            ? await moveMenuReference(before, context.originalSetupSct, operation)
-            : before.firmwareFamily === "uefi-hii"
-              ? await toggleUefiHiiMenuVisibility(
-                  before,
-                  context.originalSetupSct,
-                  operation.sourceFormIndex,
-                  operation.referenceChildIndex,
-                  operation.visible,
-                )
-              : await toggleTopLevelTabVisibility(
-                  before,
-                  context.originalSetupSct,
-                  operation,
-                );
+        : operation.action === "suppressions"
+          ? await regenerateSessionSuppressions(
+              before,
+              context.originalSetupSct,
+              operation.changes,
+            )
+          : operation.action === "ami-values"
+            ? await regenerateAmiValues(before, context, operation)
+            : operation.action === "move-ref"
+              ? await moveMenuReference(before, context.originalSetupSct, operation)
+              : before.firmwareFamily === "uefi-hii"
+                ? await toggleUefiHiiMenuVisibility(
+                    before,
+                    context.originalSetupSct,
+                    operation.sourceFormIndex,
+                    operation.referenceChildIndex,
+                    operation.visible,
+                  )
+                : await toggleTopLevelTabVisibility(
+                    before,
+                    context.originalSetupSct,
+                    operation,
+                  );
   const entry = createDataChangeEntry(before, after, id);
   if (!entry) invalid("contains a menu action with no change");
   return { after, entry: { ...entry, enabled: operation.enabled } };
@@ -407,6 +452,32 @@ export async function saveHiiQueueSession(
     if (projected.analysis.issues.some((issue) => issue.severity === "error"))
       invalid("contains a stale operation");
     const after = projected.data;
+    if (entry.payload.patches.some((patch) => patch.path[0] === "menu")) {
+      const changes = before.menu.flatMap((menu, menuIndex): AmiMenuSessionChange[] => {
+        const target = after.menu[menuIndex];
+        if (!target || menu.formId === target.formId) return [];
+        const candidates = before.forms.flatMap((form, targetFormIndex) =>
+          form.formSetGuid === menu.formSetGuid && form.formId === target.formId
+            ? [targetFormIndex]
+            : [],
+        );
+        if (candidates.length !== 1) invalid("contains an ambiguous menu destination");
+        return [{ menuIndex, targetFormIndex: candidates[0] }];
+      });
+      if (!changes.length) invalid("contains an invalid menu reassignment");
+      const operation: AmiMenuOperation = {
+        action: "ami-menu",
+        changes,
+        enabled: entry.enabled,
+      };
+      const regenerated = await regenerate(before, context, operation, entry.id);
+      if (diffData(after, regenerated.after).length)
+        invalid("contains other changes in a menu batch");
+      operations.push(operation);
+      if (entry.enabled) before = regenerated.after;
+      continue;
+    }
+
     if (
       entry.payload.patches.some((patch) => patch.path[0] === "rootVisibilityEdits")
     ) {
@@ -493,7 +564,7 @@ export async function saveHiiQueueSession(
     const move = after.ifrEdits?.[priorCount];
     if (!move || after.ifrEdits?.length !== priorCount + 1)
       invalid(
-        "supports individual Ref moves, menu visibility, suppression overrides, mapped AMI values and proven AMI roots only; this queue contains another operation",
+        "supports individual Ref moves, menu visibility, suppression overrides, mapped AMI values, proven AMI roots and AMITSE menu reassignment only; this queue contains another operation",
       );
     const sources = before.forms.flatMap((form, sourceFormIndex) =>
       form.children.flatMap((child, referenceChildIndex) =>
@@ -511,7 +582,7 @@ export async function saveHiiQueueSession(
     );
     if (sources.length !== 1)
       invalid(
-        "supports individual Ref moves, menu visibility, suppression overrides, mapped AMI values and proven AMI roots only; the operation is ambiguous or unsupported",
+        "supports individual Ref moves, menu visibility, suppression overrides, mapped AMI values, proven AMI roots and AMITSE menu reassignment only; the operation is ambiguous or unsupported",
       );
     // Local descriptions are only a routing hint. The complete regenerated
     // state must match below, so changing a label cannot promote an operation.
@@ -534,7 +605,7 @@ export async function saveHiiQueueSession(
     const regenerated = await regenerate(before, context, operation, entry.id);
     if (diffData(after, regenerated.after).length)
       invalid(
-        "supports individual Ref moves, menu visibility, suppression overrides, mapped AMI values and proven AMI roots only; the operation includes other changes",
+        "supports individual Ref moves, menu visibility, suppression overrides, mapped AMI values, proven AMI roots and AMITSE menu reassignment only; the operation includes other changes",
       );
     operations.push(operation);
     if (entry.enabled) before = regenerated.after;

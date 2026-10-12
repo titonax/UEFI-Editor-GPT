@@ -12,12 +12,14 @@ export function useHiiQueueSession(
   owner: object,
   originalSetupData?: string,
   provenance?: FirmwareProvenanceGraph,
+  originalAmitse?: string,
 ): QueueSessionAdapter | undefined {
   const context = React.useMemo(
     () => ({
       owner,
       originalSetupData,
       provenance,
+      originalAmitse,
       sourceBytes,
       originalSetupSct,
       ownershipKey,
@@ -32,6 +34,7 @@ export function useHiiQueueSession(
       owner,
       originalSetupData,
       provenance,
+      originalAmitse,
       queue.baseData,
       queue.entries,
       queue.revision,
@@ -42,7 +45,7 @@ export function useHiiQueueSession(
   return {
     context,
     description:
-      "Queue session · Ref moves, supported menu Hide/Show, suppression overrides, mapped AMI values and proven AMI roots.",
+      "Queue session · Ref moves, supported menu Hide/Show, suppression overrides, mapped AMI values, proven AMI roots and AMITSE menu reassignment.",
     save: () => saveHiiQueueSession(input, context.entries),
     load: async (text) => {
       const restored = await loadHiiQueueSession(text, input);

@@ -2,7 +2,7 @@
 
 Phoenix Setup and full-image AMI/vendor-neutral HII editors can save/load
 `firmware-session.json` from the Change queue dialog. AMI/HII currently support
-queues of individual Ref moves and supported menu Hide/Show actions, suppression overrides, mapped AMI values and proven AMI roots; other
+queues of individual Ref moves and supported menu Hide/Show actions, suppression overrides, mapped AMI values, proven AMI roots and AMITSE menu reassignment; other
 operations reject export explicitly.
 The user first opens and analyses the original firmware normally, then loads the
 session. Renaming the original file is fine; changing any image byte, image size
@@ -73,7 +73,7 @@ reject the entire load without replacing any entries or touching the source.
 Export proves that each queued entry is exactly one regenerated supported action by
 comparing its complete projected state with the normal editor's result. Stale
 entries, dependent operations whose prerequisites were paused/removed/reordered,
-compound unrecognized changes and menu-retargeting operations reject export, including paused entries. A locally
+compound unrecognized changes reject export, including paused entries. A locally
 stored move description only selects the replay adapter; full-state equality is
 still required, so a forged label cannot turn another change into a visibility action. Nothing is silently omitted.
 An AMI workspace opened from extracted artefacts alone has no full-image identity
@@ -181,3 +181,22 @@ queue history and React
 output invalidation. No new real-source session round-trip, Firefox acceptance or
 physical flash test is claimed. Existing compression/reconstruction restrictions
 are unchanged.
+
+## AMITSE menu reassignment
+
+The `ami-menu` action contains a batch of `{ menuIndex, targetFormIndex }`
+selectors and an enabled flag. The opened AMITSE hash must match the base
+context; each original registration needs a unique bounded two-byte mapping,
+matching original FormId and the preceding 16-byte FormSet GUID. SetupData roots
+with a matching AMITSE mapping use the same proof. Destinations
+are unique existing Forms in the same FormSet. The adapter regenerates only
+the normal menu FormId/name assignment, preserving physical order, root evidence
+and classification. Offsets, names, GUIDs and replacement bytes are never imported.
+Paused entries undergo the same validation. Entire-state equality rejects
+compound metadata changes; all operations validate before queue replacement.
+
+Synthetic regressions cover the three AMI family identifiers, exact AMITSE
+patch bytes, restore/paused actions, bounds, stale/hash/overlapping ownership,
+cross-FormSet and ambiguous destinations, strict selectors and atomic rejection.
+This does not change full-image writer acceptance or claim new real-source or
+physical flash validation. Version-1 Ref-only sessions remain compatible.
