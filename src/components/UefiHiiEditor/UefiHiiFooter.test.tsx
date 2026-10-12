@@ -231,6 +231,25 @@ function readBlob(blob: Blob) {
   });
 }
 
+async function emptySessionText() {
+  return saveHiiQueueSession(
+    {
+      sourceBytes: Uint8Array.of(1, 2, 3),
+      originalSetupSct: "0405",
+      base: workspaceBase(),
+      ownershipKey: "[]",
+    },
+    [],
+  );
+}
+function uploadSession(content: string) {
+  const file = new File([content], "session.json");
+  Object.defineProperty(file, "text", { value: () => Promise.resolve(content) });
+  fireEvent.change(screen.getByLabelText("Load queue session file"), {
+    target: { files: [file] },
+  });
+}
+
 describe("generic HII complete-image frontend (synthetic orchestration)", () => {
   beforeEach(async () => {
     const { webcrypto } = await vi.importActual<{ webcrypto: Crypto }>("node:crypto");
@@ -259,28 +278,13 @@ describe("generic HII complete-image frontend (synthetic orchestration)", () => 
     vi.unstubAllGlobals();
   });
 
-  it("loads a source-bound empty session, rejects mismatches, and invalidates verified output through Undo", async () => {
+  it("rejects mismatched imports and unsupported saves without invalidating verified output", async () => {
     render(<Workspace />);
     apply();
     await check();
     click("Change queue (1)");
-    const text = await saveHiiQueueSession(
-      {
-        sourceBytes: Uint8Array.of(1, 2, 3),
-        originalSetupSct: "0405",
-        base: workspaceBase(),
-        ownershipKey: "[]",
-      },
-      [],
-    );
-    const upload = (content: string) => {
-      const file = new File([content], "session.json");
-      Object.defineProperty(file, "text", { value: () => Promise.resolve(content) });
-      fireEvent.change(screen.getByLabelText("Load queue session file"), {
-        target: { files: [file] },
-      });
-    };
-    upload(text.replace('"size": 3', '"size": 4'));
+    const text = await emptySessionText();
+    uploadSession(text.replace('"size": 3', '"size": 4'));
     expect(
       await screen.findByText(/belongs to a different firmware/),
     ).toBeInTheDocument();
@@ -292,7 +296,14 @@ describe("generic HII complete-image frontend (synthetic orchestration)", () => 
       await screen.findByText(/proven SuppressIf scope and closing End/),
     ).toBeInTheDocument();
     expect(saveAs).not.toHaveBeenCalled();
-    upload(text);
+  });
+  it("loads an empty session and requires re-verification after Undo", async () => {
+    render(<Workspace />);
+    apply();
+    await check();
+    click("Change queue (1)");
+    const text = await emptySessionText();
+    uploadSession(text);
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Change queue (0)" }),
@@ -367,6 +378,7 @@ describe("generic HII complete-image frontend (synthetic orchestration)", () => 
       screen.getByText(/1 bytes outside BIOS preserved exactly/),
     ).toBeInTheDocument();
     expect(screen.getAllByText("10")).toHaveLength(2);
+    expect(screen.getByText(/3 of 3 bytes changed; 0 unchanged/)).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

@@ -216,7 +216,7 @@ describe("Phoenix full editor workspace", () => {
     );
   });
 
-  it("uses the Aptio-style shell and navigates from the tree to screen details", async () => {
+  it("uses the Aptio-style shell and follows root/submenu navigation", () => {
     render(
       <MantineProvider env="test">
         <Workspace />
@@ -234,40 +234,93 @@ describe("Phoenix full editor workspace", () => {
     expect(screen.getByText("Submenu")).toBeInTheDocument();
     expect(screen.getByText("Registered root screen")).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: "Queue Show for Boot mode Phoenix item" }),
+      within(screen.getByRole("tree", { name: "Phoenix Setup screens" })).getByRole(
+        "button",
+        { name: /SATA Port/ },
+      ),
+    );
+    expect(screen.getByText("Drive type")).toBeInTheDocument();
+    expect(screen.getByText("Verified submenu link")).toBeInTheDocument();
+  });
+  it("allows Apply only while the valid visibility entry is selected", async () => {
+    render(
+      <MantineProvider env="test">
+        <Workspace />
+      </MantineProvider>,
+    );
+    const navigation = within(
+      screen.getByRole("tree", { name: "Phoenix Setup screens" }),
+    );
+    const editor = within(screen.getByRole("main"));
+    const footer = within(screen.getByRole("contentinfo"));
+    fireEvent.click(navigation.getByRole("button", { name: /Main/ }));
+    fireEvent.click(
+      editor.getByRole("button", { name: "Queue Show for Boot mode Phoenix item" }),
     );
     expect(
-      screen.getByRole("button", { name: "Remove Boot mode from change queue" }),
+      editor.getByRole("button", { name: "Remove Boot mode from change queue" }),
     ).toBeEnabled();
     expect(screen.getByText("Queued: Show")).toBeInTheDocument();
     expect(
       screen.getByText("Phoenix Setup editor · 1 queued · 0 applied"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Modified firmware image" }),
+      footer.getByRole("button", { name: "Modified firmware image" }),
     ).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    fireEvent.click(footer.getByRole("button", { name: "Change queue (1)" }));
     const queueDialog = within(screen.getByRole("dialog"));
     expect(await queueDialog.findByText("2 byte(s)")).toBeInTheDocument();
     fireEvent.click(queueDialog.getByRole("checkbox", { name: "Select Boot mode" }));
     expect(queueDialog.getByRole("button", { name: "Apply selected" })).toBeDisabled();
     fireEvent.click(queueDialog.getByRole("checkbox", { name: "Select Boot mode" }));
+    expect(queueDialog.getByRole("button", { name: "Apply selected" })).toBeEnabled();
     fireEvent.click(queueDialog.getByRole("button", { name: "Apply selected" }));
     expect(screen.getByText("Plan applied")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Check firmware output" })).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: "Modified firmware image" }),
+      footer.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeDisabled();
+  });
+  it("applies visibility, preserves it during navigation and clears the queue", async () => {
+    render(
+      <MantineProvider env="test">
+        <Workspace />
+      </MantineProvider>,
+    );
+    const navigation = within(
+      screen.getByRole("tree", { name: "Phoenix Setup screens" }),
+    );
+    const editor = within(screen.getByRole("main"));
+    const footer = within(screen.getByRole("contentinfo"));
+    fireEvent.click(navigation.getByRole("button", { name: /Main/ }));
+    fireEvent.click(
+      editor.getByRole("button", { name: "Queue Show for Boot mode Phoenix item" }),
+    );
+    expect(
+      editor.getByRole("button", { name: "Remove Boot mode from change queue" }),
+    ).toBeEnabled();
+    expect(screen.getByText("Queued: Show")).toBeInTheDocument();
+    expect(
+      screen.getByText("Phoenix Setup editor · 1 queued · 0 applied"),
+    ).toBeInTheDocument();
+    expect(
+      footer.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeDisabled();
+    fireEvent.click(footer.getByRole("button", { name: "Change queue (1)" }));
+    const queueDialog = within(screen.getByRole("dialog"));
+    expect(await queueDialog.findByText("2 byte(s)")).toBeInTheDocument();
+    fireEvent.click(queueDialog.getByRole("button", { name: "Apply selected" }));
+    expect(screen.getByText("Plan applied")).toBeInTheDocument();
+    expect(footer.getByRole("button", { name: "Check firmware output" })).toBeEnabled();
+    expect(
+      footer.getByRole("button", { name: "Modified firmware image" }),
     ).toBeDisabled();
     fireEvent.click(queueDialog.getByRole("button", { name: "Close" }));
     expect(screen.getByText("Shown · applied plan")).toBeInTheDocument();
-    const sataNavigation = screen
-      .getAllByRole("button", { name: /SATA Port/ })
-      .find((button) => !button.hasAttribute("aria-label"));
-    if (!sataNavigation) throw new Error("Expected the SATA Port navigation node.");
-    fireEvent.click(sataNavigation);
-    expect(screen.getByText("Drive type")).toBeInTheDocument();
-    expect(screen.getByText("Verified submenu link")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    fireEvent.click(navigation.getByRole("button", { name: /SATA Port/ }));
+    expect(
+      screen.getByText("Phoenix Setup editor · 1 queued · 1 applied"),
+    ).toBeInTheDocument();
+    fireEvent.click(footer.getByRole("button", { name: "Change queue (1)" }));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: "Clear queue" }),
     );

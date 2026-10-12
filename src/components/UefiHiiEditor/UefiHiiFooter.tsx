@@ -1,3 +1,4 @@
+import { compareFirmwareImages } from "../scripts/firmwareImageComparison";
 import { Button, Group, Loader, Text } from "@mantine/core";
 import { IconArrowBackUp, IconDownload, IconListCheck } from "@tabler/icons-react";
 import type { Data } from "../scripts/types";
@@ -24,6 +25,7 @@ interface BuildInput {
 }
 
 async function build(input: BuildInput) {
+  const original = input.sourceImage.slice();
   const result = await buildUefiHiiFirmwareImage(
     input.data,
     input.workspace,
@@ -31,7 +33,11 @@ async function build(input: BuildInput) {
   );
   const dot = input.fileName.lastIndexOf(".");
   const base = dot > 0 ? input.fileName.slice(0, dot) : input.fileName;
-  return { ...result, fileName: `${base}-modified.bin` };
+  return {
+    ...result,
+    fileName: `${base}-modified.bin`,
+    binaryComparison: compareFirmwareImages(original, result.image),
+  };
 }
 
 export default function UefiHiiFooter({

@@ -61,3 +61,15 @@ Its space-report assertions independently derive packed sizes from rebuilt
 section headers. Exact LZMA acceptance remains HII-only. EFI, mixed compressed
 ancestors and further source/layout classes remain blocked until their own
 acceptance gates pass. Reopening is not a physical flashing test.
+
+## Complete-image comparison
+
+After Apply and a successful Check, Output details includes a complete physical
+image comparison against the opened source snapshot. Exact totals include every
+byte, including compression/checksum/padding differences. The table shows the
+first 64 contiguous changed ranges, with exclusive ends and at most 16 original/
+rebuilt byte pairs per range. The display limit does not limit the comparison.
+AMI, vendor-neutral HII and Phoenix use the same view. Source/queue changes,
+Undo/Redo and session restore invalidate it with the verified downloadable result.
+No comparison appears before successful verification. This view explains the
+verified output; it does not prove physical flashing or enable unsupported writers.

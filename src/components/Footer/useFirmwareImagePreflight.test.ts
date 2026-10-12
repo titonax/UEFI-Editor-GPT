@@ -36,6 +36,23 @@ function inputs() {
     isWrongFile: false,
   };
   const files: PopulatedFiles = {
+    firmwareSource: {
+      fileName: "synthetic.bin",
+      artifacts: {
+        hii: new Uint8Array(),
+        ifrText: "",
+        formPackageCount: 0,
+        extractionDepth: 0,
+        artifactSets: [],
+        selectedArtifactSetId: "synthetic",
+        provenance: {
+          rootBufferId: 0,
+          sourceSize: 3,
+          buffers: [{ id: 0, bytes: Uint8Array.of(1, 0, 3), depth: 0 }],
+          artifacts: [],
+        },
+      },
+    },
     setupSctContainer: container,
     setupTxtContainer: container,
     amitseSctContainer: container,
@@ -77,7 +94,14 @@ describe("firmware output preflight (synthetic orchestration)", () => {
       await check;
     });
     expect(result.current.status).toBe("ready");
-    expect(result.current.result).toBe(output);
+    expect(result.current.result?.image).toBe(output.image);
+    expect(result.current.result?.binaryComparison).toMatchObject({
+      imageSize: 3,
+      changedByteCount: 1,
+      unchangedByteCount: 2,
+      ranges: [{ start: 1, end: 2, original: [0], rebuilt: [2] }],
+    });
+    expect(result.current.result).toMatchObject(output);
     expect(buildAmiFirmwareImage).toHaveBeenCalledWith(props.data, props.files);
   });
 
@@ -127,7 +151,7 @@ describe("firmware output preflight (synthetic orchestration)", () => {
       old.resolve({ ...output, fileName: "stale.bin" });
       await check;
     });
-    expect(result.current.result).toBe(output);
+    expect(result.current.result).toMatchObject(output);
   });
 
   it("keeps allocation failure blocked, permits retry, and ignores disabled checks", async () => {
@@ -155,7 +179,7 @@ describe("firmware output preflight (synthetic orchestration)", () => {
     await act(async () => {
       await result.current.check();
     });
-    expect(result.current.result).toBe(output);
+    expect(result.current.result).toMatchObject(output);
     expect(result.current.error).toBeUndefined();
   });
   it("invalidates cached output on a new queue revision with otherwise identical inputs", async () => {
@@ -169,13 +193,59 @@ describe("firmware output preflight (synthetic orchestration)", () => {
     await act(async () => {
       await result.current.check();
     });
-    expect(result.current.result).toBe(output);
+    expect(result.current.result).toMatchObject(output);
     rerender({ revision: 2 });
     expect(result.current.result).toBeUndefined();
     await act(async () => {
       await result.current.check();
     });
-    expect(result.current.result).toBe(output);
+    expect(result.current.result).toMatchObject(output);
     expect(buildAmiFirmwareImage).toHaveBeenCalledTimes(2);
+  });
+  it("rejects a verified result with a different complete image size", async () => {
+    vi.mocked(buildAmiFirmwareImage).mockResolvedValue({
+      ...output,
+      image: new Uint8Array(2),
+    });
+    const props = inputs();
+    const { result } = renderHook(() =>
+      useFirmwareImagePreflight(props.data, props.files, true),
+    );
+    await act(async () => {
+      await result.current.check();
+    });
+    expect(result.current.status).toBe("failed");
+    expect(result.current.result).toBeUndefined();
+    expect(result.current.error).toMatch(/equal original and rebuilt sizes/);
+  });
+  it("compares against the source snapshot captured before asynchronous rebuilding", async () => {
+    const task = pending();
+    vi.mocked(buildAmiFirmwareImage).mockReturnValue(task.promise);
+    const props = inputs();
+    const { result } = renderHook(() =>
+      useFirmwareImagePreflight(props.data, props.files, true),
+    );
+    let check!: Promise<void>;
+    act(() => {
+      check = result.current.check();
+    });
+    props.files.firmwareSource?.artifacts.provenance.buffers[0].bytes.fill(99);
+    await act(async () => {
+      task.resolve(output);
+      await check;
+    });
+    expect(result.current.result?.binaryComparison.changedByteCount).toBe(1);
+  });
+  it("rejects a missing opened source before calling the builder", async () => {
+    const props = inputs();
+    delete props.files.firmwareSource;
+    const { result } = renderHook(() =>
+      useFirmwareImagePreflight(props.data, props.files, true),
+    );
+    await act(async () => {
+      await result.current.check();
+    });
+    expect(result.current.status).toBe("failed");
+    expect(buildAmiFirmwareImage).not.toHaveBeenCalled();
   });
 });
