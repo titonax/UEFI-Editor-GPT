@@ -145,8 +145,12 @@ against original FormSet declarations. Fresh and base/prefix reports must match.
 Root toggles and the existing patch planner regenerate byte plans and retain the
 last-enabled-root guard, including paused entries. This is queue planning, not
 accepted-source promotion or verified full-image reconstruction.
-Trusted module ownership is hashed, never imported. Other AMI/HII adapters and
-schema migration remain pending. See [Queue sessions](queue-sessions.md).
+The `ami-menu` action regenerates existing AMITSE menu FormId/name assignments
+from menu/Form indices. Opened AMITSE hash, bounded unique field ownership,
+original FormId and preceding FormSet GUID bytes must match. Destinations must
+be unique existing Forms in the same FormSet. Physical order and root evidence
+remain intact; paused operations validate too. Trusted module ownership is
+hashed, never imported. Schema migration remains pending. See [Queue sessions](queue-sessions.md).
 
 ## Safety invariants
 
