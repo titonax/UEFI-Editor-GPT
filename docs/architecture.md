@@ -152,6 +152,17 @@ be unique existing Forms in the same FormSet. Physical order and root evidence
 remain intact; paused operations validate too. Trusted module ownership is
 hashed, never imported. Schema migration remains pending. See [Queue sessions](queue-sessions.md).
 
+Complete-image byte comparison runs after successful independent reconstruction
+verification and before caching the downloadable result in each AMI, HII and
+Phoenix preflight adapter. It scans the original physical source snapshot and
+exact returned image; unequal sizes fail preflight. Exact changed/unchanged
+byte totals and contiguous range counts cover the entire image. Display data
+is bounded to the first 64 changed ranges and the first 16 byte pairs in each.
+Offsets are physical image offsets, not decoded module positions. Compression,
+padding and checksum repairs may produce differences beyond semantic patches.
+The comparison travels with the verified result and the same source/queue
+revision invalidation; it cannot unlock a writer or survive a stale completion.
+
 ## Safety invariants
 
 - A `SuppressIf` patch is rejected unless its expected `End` opcode is present.

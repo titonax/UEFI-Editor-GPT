@@ -1,3 +1,5 @@
+import FirmwareImageComparisonView from "./FirmwareImageComparisonView";
+import type { FirmwareImageComparison } from "../scripts/firmwareImageComparison";
 import { Modal, Stack, Table, Text } from "@mantine/core";
 import type { UefiImageBuildResult } from "../scripts/uefiImageRebuilder";
 import type { UefiHiiFirmwareBuildResult } from "../scripts/uefiHiiFirmwareRebuilder";
@@ -11,6 +13,7 @@ export default function FirmwareOutputReport({
 }: {
   result: UefiImageBuildResult & {
     fileName: string;
+    binaryComparison?: FirmwareImageComparison;
     verifiedModules?: UefiHiiFirmwareBuildResult["verifiedModules"];
   };
   opened: boolean;
@@ -20,6 +23,9 @@ export default function FirmwareOutputReport({
   return (
     <Modal opened={opened} onClose={onClose} title="Verified firmware output" size="xl">
       <Stack gap="sm">
+        {result.binaryComparison && (
+          <FirmwareImageComparisonView comparison={result.binaryComparison} />
+        )}
         <Text size="sm">
           {result.fileName}: {result.image.length} bytes, {result.changedByteCount}{" "}
           changed bytes. Complete image reopened and requested edits verified.

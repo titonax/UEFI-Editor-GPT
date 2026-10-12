@@ -27,17 +27,17 @@ vi.mock("../scripts/amiFirmwareRebuilder", () => ({ buildAmiFirmwareImage: vi.fn
 vi.mock("file-saver", () => ({ saveAs: vi.fn() }));
 
 const output: AmiFirmwareBuildResult = {
-  image: new Uint8Array([0x10, 0x20, 0x30]),
+  image: Uint8Array.from({ length: 256 }, (_, index) => [0x10, 0x20, 0x30][index] ?? 0),
   fileName: "verified.bin",
   changeLog: "Unsuppressed 0x0",
   containerKind: "bios-image",
   replacedArtifacts: ["setup-hii"],
-  changedByteCount: 1,
-  changedStart: 1,
-  changedEnd: 2,
+  changedByteCount: 3,
+  changedStart: 0,
+  changedEnd: 3,
   spaceReport: {
     biosStart: 0,
-    biosEnd: 3,
+    biosEnd: 256,
     preservedOutsideBiosBytes: 0,
     affectedRanges: [{ start: 0, end: 3 }],
     compressedSections: [],
@@ -142,8 +142,9 @@ async function applyQueue() {
   );
   expect(screen.getByRole("button", { name: "Check firmware output" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Apply selected" }));
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  const queueDialog = within(await screen.findByRole("dialog"));
+  fireEvent.click(queueDialog.getByRole("button", { name: "Apply selected" }));
+  fireEvent.click(queueDialog.getByRole("button", { name: "Close" }));
 }
 function readBlob(blob: Blob) {
   return new Promise<Uint8Array>((resolve, reject) => {
@@ -215,6 +216,9 @@ describe("AMI complete-image user flow (synthetic integration)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Output details" }));
     expect(
       await screen.findByText("No compressed sections required rebuilding."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/3 of 256 bytes changed; 253 unchanged/),
     ).toBeInTheDocument();
     // Close the report through Escape, as a user would.
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });

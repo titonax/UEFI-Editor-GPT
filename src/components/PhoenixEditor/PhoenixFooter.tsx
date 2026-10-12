@@ -1,3 +1,5 @@
+import FirmwareImageComparisonView from "../Footer/FirmwareImageComparisonView";
+import { compareFirmwareImages } from "../scripts/firmwareImageComparison";
 import React from "react";
 import { Button, Group, Loader, Modal, Stack, Text } from "@mantine/core";
 import { IconArrowBackUp, IconDownload, IconListCheck } from "@tabler/icons-react";
@@ -26,8 +28,14 @@ interface BuildInput {
   appliedItems: PhoenixSetupItem[];
   appliedFingerprint: string | null;
 }
-function build(input: BuildInput) {
-  return rebuildPhoenixFirmware(input.sourceBytes, input.inventory, input.appliedItems);
+async function build(input: BuildInput) {
+  const original = input.sourceBytes.slice();
+  const result = await rebuildPhoenixFirmware(
+    input.sourceBytes,
+    input.inventory,
+    input.appliedItems,
+  );
+  return { ...result, binaryComparison: compareFirmwareImages(original, result.image) };
 }
 
 export default function PhoenixFooter({
@@ -121,9 +129,13 @@ export default function PhoenixFooter({
           setReportOpened(false);
         }}
         title="Verified Phoenix output"
+        size="xl"
       >
         {preflight.result && (
           <Stack gap="sm">
+            <FirmwareImageComparisonView
+              comparison={preflight.result.binaryComparison}
+            />
             <Text>
               {phoenixModifiedFileName(fileName)}: {preflight.result.image.length}{" "}
               bytes.

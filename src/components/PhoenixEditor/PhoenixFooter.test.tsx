@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveAs } from "file-saver";
@@ -145,8 +146,9 @@ function pending() {
 async function apply() {
   fireEvent.click(screen.getByRole("button", { name: "Stage Show" }));
   fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Apply selected" }));
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  const queueDialog = within(await screen.findByRole("dialog"));
+  fireEvent.click(queueDialog.getByRole("button", { name: "Apply selected" }));
+  fireEvent.click(queueDialog.getByRole("button", { name: "Close" }));
 }
 function downloadedBytes(blob: Blob) {
   return new Promise<Uint8Array>((resolve, reject) => {
@@ -191,7 +193,7 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
     cleanup();
     vi.unstubAllGlobals();
   });
-  it("checks without downloading, reports fit, retains results during navigation and downloads exact bytes once", async () => {
+  it("requires Check and downloads the exact cached image once", async () => {
     vi.mocked(rebuildPhoenixFirmware).mockResolvedValue(output);
     render(<Workspace />);
     expect(
@@ -208,6 +210,23 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
       ).toBeEnabled();
     });
     expect(saveAs).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Modified firmware image" }));
+    expect(rebuildPhoenixFirmware).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(saveAs).mock.calls[0][1]).toBe("synthetic-modified.bin");
+    const blob = vi.mocked(saveAs).mock.calls[0][0];
+    if (!(blob instanceof Blob)) throw new Error("Expected a binary download.");
+    expect(await downloadedBytes(blob)).toEqual(output.image);
+  });
+  it("retains verified output during navigation and reports allocation and complete-image bytes", async () => {
+    vi.mocked(rebuildPhoenixFirmware).mockResolvedValue(output);
+    render(<Workspace />);
+    await apply();
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeEnabled(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Navigate 0" }));
     expect(
       screen.getByRole("button", { name: "Modified firmware image" }),
@@ -216,16 +235,13 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
     expect(
       await screen.findByText(/LH5 payload: 1 \/ 2 bytes; 1 bytes remaining/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/3 of 3 bytes changed; 0 unchanged/)).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole("button", { name: "Modified firmware image" }));
     expect(rebuildPhoenixFirmware).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(saveAs).mock.calls[0][1]).toBe("synthetic-modified.bin");
-    const blob = vi.mocked(saveAs).mock.calls[0][0];
-    if (!(blob instanceof Blob)) throw new Error("Expected a binary download.");
-    expect(await downloadedBytes(blob)).toEqual(output.image);
+    expect(saveAs).not.toHaveBeenCalled();
   });
   it.each(["queue", "source"] as const)(
     "rejects late completion after changing %s",
@@ -287,8 +303,9 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Stage Show" }));
     fireEvent.click(screen.getByRole("button", { name: "Stage second Show" }));
     fireEvent.click(screen.getByRole("button", { name: "Change queue (2)" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Apply selected" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    let queueDialog = within(await screen.findByRole("dialog"));
+    fireEvent.click(queueDialog.getByRole("button", { name: "Apply selected" }));
+    fireEvent.click(queueDialog.getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
     await waitFor(() => {
       expect(
@@ -296,14 +313,15 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
       ).toBeEnabled();
     });
     fireEvent.click(screen.getByRole("button", { name: "Change queue (2)" }));
+    queueDialog = within(await screen.findByRole("dialog"));
     fireEvent.click(
-      await screen.findByRole("button", {
+      queueDialog.getByRole("button", {
         name: "Move Second option earlier in change queue",
       }),
     );
-    expect(screen.getByRole("button", { name: "Apply selected" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(queueDialog.getByRole("button", { name: "Apply selected" })).toBeEnabled();
+    fireEvent.click(queueDialog.getByRole("button", { name: "Apply selected" }));
+    fireEvent.click(queueDialog.getByRole("button", { name: "Close" }));
     expect(
       screen.getByRole("button", { name: "Modified firmware image" }),
     ).toBeDisabled();
@@ -339,12 +357,15 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
           ).toBeEnabled();
         });
       fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
-      fireEvent.click(await screen.findByRole("button", { name: "Undo queue change" }));
-      expect(screen.getByRole("button", { name: "Apply selected" })).toBeDisabled();
-      fireEvent.click(screen.getByRole("button", { name: "Redo queue change" }));
-      expect(screen.getByRole("button", { name: "Apply selected" })).toBeEnabled();
-      fireEvent.click(screen.getByRole("button", { name: "Apply selected" }));
-      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      const queueDialog = within(await screen.findByRole("dialog"));
+      fireEvent.click(queueDialog.getByRole("button", { name: "Undo queue change" }));
+      expect(
+        queueDialog.getByRole("button", { name: "Apply selected" }),
+      ).toBeDisabled();
+      fireEvent.click(queueDialog.getByRole("button", { name: "Redo queue change" }));
+      expect(queueDialog.getByRole("button", { name: "Apply selected" })).toBeEnabled();
+      fireEvent.click(queueDialog.getByRole("button", { name: "Apply selected" }));
+      fireEvent.click(queueDialog.getByRole("button", { name: "Close" }));
       await act(async () => {
         task.resolve(output);
         await task.promise;
@@ -367,17 +388,18 @@ describe("Phoenix verified output (synthetic UI integration)", () => {
     render(<Workspace />);
     fireEvent.click(screen.getByRole("button", { name: "Stage Show" }));
     fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    const queueDialog = within(await screen.findByRole("dialog"));
     fireEvent.click(
-      await screen.findByRole("button", { name: "Original / selected plan (1)" }),
+      queueDialog.getByRole("button", { name: "Original / selected plan (1)" }),
     );
     expect(screen.getByText("13 00")).toBeVisible();
     expect(screen.getByText("00 00")).toBeVisible();
     expect(screen.getByText("0x31 · 2 bytes")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Apply selected" })).toBeEnabled();
+    expect(queueDialog.getByRole("button", { name: "Apply selected" })).toBeEnabled();
     expect(rebuildPhoenixFirmware).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(queueDialog.getByRole("checkbox"));
     expect(
-      screen.getByRole("button", { name: "Original / selected plan (0)" }),
+      queueDialog.getByRole("button", { name: "Original / selected plan (0)" }),
     ).toBeInTheDocument();
   });
   it("withholds comparison rows and Apply for stale Phoenix source bytes", async () => {
