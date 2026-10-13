@@ -83,3 +83,26 @@ omissions as removals. This run displayed 4,520 logical fields despite the four
 requested operations. Reconstruction still produced the exact accepted bytes.
 Keep that concrete product-hardening follow-up separate from binary acceptance;
 defined values and stale-operation guards must remain meaningful when fixing it.
+
+## Local production-build regression after queue import correction
+
+On 2026-10-13, Firefox 153.0 exercised the corrected production bundle
+`assets/index-ChSfR2sA.js` served locally, with the same source and unmodified
+deployed Tiano/IFRExtractor assets. This is a local production-build check,
+separate from the deployed revision recorded above.
+
+- Exporting and importing the unchanged editor JSON left **Change queue (0)**.
+- Importing only the `0x8B359` suppression override produced one operation and
+  exactly one net logical field, without optional-property removals.
+- The opened source's negative single-FormSet navigation report was restored
+  after imported analysis was discarded. It did not become a queued removal.
+- Adding the same Ref move, Security flags and Boot toggle produced four selected
+  operations. Apply, Check and explicit download again returned the accepted
+  8 MiB output hash above; every byte outside the two FFS allocations remained
+  identical.
+
+The combined projection still reported 4,339 fields, including the many derived
+IFR positions changed by the structural move. The correction removes JSON-only
+absence and lost source-analysis noise; it does not turn a structural move into
+four scalar patches or discard its ownership/offset metadata. Defined value
+changes and exact replay preconditions retain their own regression checks.

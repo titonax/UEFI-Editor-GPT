@@ -4,11 +4,124 @@ import { condition, firmwareData, form, prompt } from "../../test/fixtures";
 import {
   appendDataChangeEntry,
   createDataChangeEntry,
+  diffData,
   projectDataChangeQueue,
 } from "./dataChangeQueue";
 import { useDataChangeQueue } from "./useDataChangeQueue";
 
 describe("firmware data change queue", () => {
+  it("does not queue optional undefined fields lost in an editor JSON round trip", () => {
+    const base = firmwareData({
+      forms: [
+        form({
+          sourceModuleId: undefined,
+          children: [prompt({ varStoreName: undefined })],
+        }),
+      ],
+      suppressions: [condition({ expression: undefined })],
+    });
+    const reopened = JSON.parse(JSON.stringify(base)) as typeof base;
+    expect(diffData(base, reopened)).toEqual([]);
+    expect(diffData(reopened, base)).toEqual([]);
+    expect(createDataChangeEntry(base, reopened, "round-trip")).toBeNull();
+    expect(
+      Object.prototype.hasOwnProperty.call(base.forms[0].children[0], "varStoreName"),
+    ).toBe(true);
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        reopened.forms[0].children[0],
+        "varStoreName",
+      ),
+    ).toBe(false);
+  });
+
+  it("queues only the requested suppression override after JSON serialization", () => {
+    const base = firmwareData({
+      forms: [form({ children: [prompt({ varStoreName: undefined })] })],
+      suppressions: [condition({ expression: undefined })],
+    });
+    const reopened = JSON.parse(JSON.stringify(base)) as typeof base;
+    reopened.suppressions[0].active = false;
+    const entry = createDataChangeEntry(base, reopened, "imported-suppression");
+    if (!entry) throw new Error("Expected the real suppression edit.");
+    expect(entry.payload.patches).toEqual([
+      {
+        path: ["suppressions", 0, "active"],
+        expectedExists: true,
+        expected: true,
+        replacementExists: true,
+        replacement: false,
+      },
+    ]);
+    const projected = projectDataChangeQueue(base, [entry]);
+    expect(projected.analysis.canApply).toBe(true);
+    expect(projected.netPatches).toEqual(entry.payload.patches);
+    expect(projected.data.suppressions[0].active).toBe(false);
+    expect(base.suppressions[0].active).toBe(true);
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        projected.data.forms[0].children[0],
+        "varStoreName",
+      ),
+    ).toBe(true);
+    const stale = structuredClone(base);
+    stale.suppressions[0].active = false;
+    expect(projectDataChangeQueue(stale, [entry]).analysis.issues).toContainEqual(
+      expect.objectContaining({ code: "stale-logical-state", severity: "error" }),
+    );
+  });
+
+  it.each(["active", "constant", "expression"] as const)(
+    "retains a defined falsy %s removal and rejects changed replay preconditions",
+    (field) => {
+      const base = firmwareData({
+        suppressions: [condition({ active: false, constant: null, expression: "" })],
+      });
+      const removed = structuredClone(base);
+      Reflect.deleteProperty(removed.suppressions[0], field);
+      const entry = createDataChangeEntry(base, removed, `remove-${field}`);
+      if (!entry) throw new Error("Expected a defined field removal.");
+      expect(entry.payload.patches).toEqual([
+        {
+          path: ["suppressions", 0, field],
+          expectedExists: true,
+          expected: base.suppressions[0][field],
+          replacementExists: false,
+          replacement: undefined,
+        },
+      ]);
+      const changed = structuredClone(base);
+      Reflect.set(changed.suppressions[0], field, "changed");
+      expect(projectDataChangeQueue(changed, [entry]).analysis.issues).toContainEqual(
+        expect.objectContaining({ code: "stale-logical-state", severity: "error" }),
+      );
+    },
+  );
+
+  it("retains a defined optional-field addition and strict existence guards", () => {
+    const base = firmwareData({
+      forms: [form({ children: [prompt({ varStoreName: undefined })] })],
+    });
+    const reopened = JSON.parse(JSON.stringify(base)) as typeof base;
+    const changed = structuredClone(reopened);
+    changed.forms[0].children[0].varStoreName = "Setup";
+    const entry = createDataChangeEntry(reopened, changed, "set-owner-name");
+    if (!entry) throw new Error("Expected a defined optional-field addition.");
+    expect(entry.payload.patches).toEqual([
+      {
+        path: ["forms", 0, "children", 0, "varStoreName"],
+        expectedExists: false,
+        expected: undefined,
+        replacementExists: true,
+        replacement: "Setup",
+      },
+    ]);
+    // Even an existing undefined property still violates this expected absence.
+    expect(projectDataChangeQueue(base, [entry]).analysis.issues).toContainEqual(
+      expect.objectContaining({ code: "stale-logical-state", severity: "error" }),
+    );
+  });
+
   it("combines independent edits and permits either one to be paused", () => {
     const base = firmwareData({
       suppressions: [condition()],

@@ -401,7 +401,13 @@ export function refreshSingleFormSetNavigation(
   data: Data,
   evidence: AmiSingleFormSetNavigationReport | undefined = data.singleFormSetNavigation,
 ) {
-  if (!evidence || evidence.status === "not-applicable") return;
+  if (!evidence) return;
+  if (evidence.status === "not-applicable") {
+    // Import discards stored analysis; retain the opened source's negative
+    // result too, without trusting an imported report or inventing navigation.
+    data.singleFormSetNavigation = structuredClone(evidence);
+    return;
+  }
   const formSetRoots =
     data.formSetRoots ??
     (evidence.formSetGuid && evidence.hubFormId

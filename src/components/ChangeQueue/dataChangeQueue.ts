@@ -82,6 +82,14 @@ function diffValues(
     for (const key of [...keys].sort()) {
       const beforeExists = hasOwn(before, key);
       const afterExists = hasOwn(after, key);
+      // JSON omits undefined object fields. Their absence is not an editor edit;
+      // defined values and replay's property-existence checks remain strict.
+      if (
+        (beforeExists ? before[key] : undefined) === undefined &&
+        (afterExists ? after[key] : undefined) === undefined
+      ) {
+        continue;
+      }
       if (!beforeExists || !afterExists) {
         patches.push({
           path: [...path, key],
