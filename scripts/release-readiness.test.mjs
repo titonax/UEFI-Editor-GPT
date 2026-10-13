@@ -39,6 +39,10 @@ test("current reviewed inventory is complete but blocked, with hardware kept sep
     [],
   );
   assert.deepEqual(
+    report.paths.find((path) => path.id === "ami-tiano-exact").missing,
+    [],
+  );
+  assert.deepEqual(
     report.paths.find((path) => path.id === "hii-mixed-uncompressed").missing,
     ["realSource", "browser"],
   );

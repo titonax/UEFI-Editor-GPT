@@ -79,3 +79,11 @@ Use the deployed `firmware-decompress.wasm`, `tiano-decompress.wasm` and
 `ifrextractor.wasm`. The explicit scenario writes no firmware and prints
 metadata and queue titles only. The existing `hii`, `setupdata`, `refmove` and
 `rootvisibility` scenarios remain available through the same command.
+
+## Deployed Firefox evidence
+
+The [exact Firefox acceptance record](tiano-firefox-output-acceptance.md) exercises
+the actual deployed editor, including source-bound `data.json` import for the
+unassociated suppression scope, and reproduces this combined output hash through
+a browser download. It separately records invalidation, reload and the observed
+optional-field queue comparison defect.

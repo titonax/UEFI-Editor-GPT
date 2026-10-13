@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-13
 
-PRs #119–#123 and #128–#149 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#150 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -65,10 +65,11 @@ blocked; it does not invalidate the separately accepted static Ref output path.
 
 The next work order is:
 
-1. Continue deployed-browser acceptance for the other supported paths using
-   existing accepted sources. The exact P53 static Ref circuit has passed on
-   revision `e487b7e`; retain its bounded record without extending runtime-root
-   research.
+1. Fix the observed editor-JSON queue comparison noise: omitted optional
+   `undefined` fields must not become phantom removals; defined values and stale
+   replay guards remain strict. The exact Tiano combined browser flow passed
+   despite that metadata noise. Then continue remaining deployed-browser gates
+   using existing accepted sources; P53 runtime-root research stays parked.
 2. Retain the missing qualifying mixed uncompressed source gate from the completed
    31-image inventory. Run bounded real-source acceptance only if an already
    supplied qualifying carrier becomes available; do not repeat that inventory,
@@ -182,10 +183,19 @@ validation and regression tests run in normal checks/CI without treating pending
 evidence as invalid metadata. The inventory cannot enable a writer and does not
 rerun real firmware, establish current-commit acceptance or replace manual
 Firefox/hardware results. The exact P53 static Ref browser scope now links its
-deployed Firefox record; the other six deployed-browser scopes remain pending;
+deployed Firefox record; the exact Tiano combined queue now also has a
+[deployed Firefox record](ami/tiano-firefox-output-acceptance.md). The other five
+deployed-browser scopes remain pending;
 uncompressed AMI and mixed uncompressed HII also retain missing real-source
 records. No new source intake, physical flashing or P53 dynamic-root work is
 claimed. See [the executable inventory](recovery-and-release.md#executable-evidence-inventory).
+
+The Tiano browser run exercised move, SetupData flags, source-bound `data.json`
+suppression import and a proven Boot root toggle. Its complete download matched
+the accepted hash and re-opened correctly. Import also revealed 4,520 logical
+comparison fields caused in part by omitted optional `undefined` properties;
+that concrete queue-hardening defect is next. Direct control of an unassociated
+suppression scope and portable session acceptance are not claimed by this record.
 
 ## 0. Transactional change queue
 
