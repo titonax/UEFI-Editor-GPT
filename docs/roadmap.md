@@ -17,9 +17,9 @@ producing a flashable image are separate capabilities.
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
 | Full-image writing        | Phoenix legacy, fixed-size uncompressed UEFI paths and exact accepted LZMA/Tiano sources            |
 
-## Progress at 2026-10-12
+## Progress at 2026-10-13
 
-PRs #119–#123 and #128–#147 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#148 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -172,6 +172,17 @@ remains pending. Recovery and release guidance is now documented in
 engine, real-source, browser and physical-flash evidence levels. Existing AMI
 `data.json` is unchanged. This work advances phase 10 without extending P53
 runtime-root research or claiming Firefox/real-source session acceptance.
+
+The phase-10 release criteria now have an executable reviewed evidence inventory.
+`release:report` lists seven tracked writer scopes and eight exclusions;
+`release:check` remains blocked while required records are pending. Structural
+validation and regression tests run in normal checks/CI without treating pending
+evidence as invalid metadata. The inventory cannot enable a writer and does not
+rerun real firmware, establish current-commit acceptance or replace manual
+Firefox/hardware results. All deployed-browser scopes are initially pending;
+uncompressed AMI and mixed uncompressed HII also retain missing real-source
+records. No new source intake, physical flashing or P53 dynamic-root work is
+claimed. See [the executable inventory](recovery-and-release.md#executable-evidence-inventory).
 
 ## 0. Transactional change queue
 
@@ -451,6 +462,8 @@ list the blocker for every unsupported case.
   backup handling, verified-output review, supported-family boundaries and
   device-specific recovery preparation. It supplies no universal flash command
   and does not establish physical hardware acceptance.
+- The reviewed release evidence inventory is checked in CI; `release:check`
+  remains blocked on pending evidence and cannot hide a path by omission.
 - Stable release only when each write path has an independent reconstruction
   test and a real-sample acceptance record.
 

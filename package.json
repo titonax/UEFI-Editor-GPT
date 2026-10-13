@@ -16,10 +16,13 @@
     "test:coverage": "vitest run --coverage",
     "case:add": "node scripts/case-review.mjs add",
     "case:check": "node scripts/case-review.mjs check && node scripts/case-review.test.mjs",
-    "check": "npm run format:check && npm run lint && npm run case:check && npm run test:coverage && npm run build",
+    "check": "npm run format:check && npm run lint && npm run case:check && npm run release:validate && npm run test:coverage && npm run build",
     "preview": "vite preview",
     "firmware:acceptance": "vitest run --config scripts/firmware-acceptance.config.mjs",
-    "firmware:codec-integration": "vitest run --config scripts/firmware-codec-integration.config.mjs"
+    "firmware:codec-integration": "vitest run --config scripts/firmware-codec-integration.config.mjs",
+    "release:report": "node scripts/release-readiness.mjs report",
+    "release:check": "node scripts/release-readiness.mjs check",
+    "release:validate": "node scripts/release-readiness.mjs validate && node --test scripts/release-readiness.test.mjs"
   },
   "engines": {
     "node": ">=20",

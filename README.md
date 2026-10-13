@@ -184,7 +184,9 @@ read/write safety boundary, and
 [contributing](CONTRIBUTING.md) for the module boundaries and review checklist.
 See [recovery and release readiness](docs/recovery-and-release.md) for original
 backup handling, family-specific output boundaries and the evidence required
-before advertising a stable write path.
+before advertising a stable write path. `npm run release:report` lists the
+reviewed evidence and pending gates; `npm run release:check` fails while the
+tracked release evidence is incomplete.
 
 ## Credits
 
