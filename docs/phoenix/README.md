@@ -97,3 +97,9 @@ to the source image.
 
 The local corpus exports these observations in JSON schema `0.7.0` and CSV;
 neither format contains BIOS or decompressed module bytes.
+
+The [deployed Firefox Z03 acceptance](z03-firefox-output-acceptance.md) now
+records real source selection, callback Show, Apply/Check/report, explicit browser
+download, navigation preservation, removal invalidation and reload. Its output
+reproduces the same LH5 packed size and requested callback result; screen root
+registration and physical flash remain separate.

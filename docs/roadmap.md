@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-13
 
-PRs #119–#123 and #128–#151 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#152 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -27,7 +27,7 @@ compatibility percentage.
 | -------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 0. Transactional queue           | Complete                        | Shared AMI, UEFI HII and Phoenix queue, apply/invalidation and verified download lifecycle                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 1. Phoenix module editor         | Complete for verified callbacks | Fixed-size Show patches and source-preserving module export; unsupported callbacks stay disabled                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| 2. Phoenix LH5 / FFV writer      | Complete for fixed allocations  | Real Z03 full-image rebuild and independent reread; directory/allocation growth stays blocked                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 2. Phoenix LH5 / FFV writer      | Complete for fixed allocations  | Real Z03 full-image rebuild, independent reread and deployed Firefox Show/download/reload passed; directory/allocation growth stays blocked                                                                                                                                                                                                                                                                                                                                                                              |
 | 3. Phoenix structural menus      | Pending                         | Reading roots/submenus is available; generic directory editing and the Advanced2 exit gate are not complete                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 4. Controlled callback execution | Partial                         | Bounded static tracing exists; deterministic 8086 execution with scenario inputs is pending                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 5. Case generalization           | Partial                         | Reviewed knowledge/corpus/intake foundation exists; multi-image semantic callback rules remain pending                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -183,8 +183,9 @@ evidence as invalid metadata. The inventory cannot enable a writer and does not
 rerun real firmware, establish current-commit acceptance or replace manual
 Firefox/hardware results. The exact P53 static Ref browser scope now links its
 deployed Firefox record; the exact Tiano combined queue now also has a
-[deployed Firefox record](ami/tiano-firefox-output-acceptance.md). The other five
-deployed-browser scopes remain pending;
+[deployed Firefox record](ami/tiano-firefox-output-acceptance.md). The exact Z03
+LH5 Show path also has a [deployed Firefox record](phoenix/z03-firefox-output-acceptance.md).
+The other four deployed-browser scopes remain pending;
 uncompressed AMI and mixed uncompressed HII also retain missing real-source
 records. No new source intake, physical flashing or P53 dynamic-root work is
 claimed. See [the executable inventory](recovery-and-release.md#executable-evidence-inventory).
@@ -269,6 +270,13 @@ path.
 Verified: the 1 MiB Z03 result re-opened with 34 modules, no inventory warnings,
 24 Setup screens and the requested `Cache Ram` visibility immediate set to zero;
 all bytes outside the 13,112-byte compressed allocation remained identical.
+
+Deployed Firefox on revision `2073432d` now passes the same exact Show operation,
+Apply/Check, allocation/comparison review and explicit download. Navigation alone
+preserves the checked output; removing the operation invalidates it. The downloaded
+1 MiB image preserves every byte outside the existing allocation and reopens with
+34 modules, 24 screens and an ungated Cache Ram item callback. This does not
+register the unlinked screen as a root or complete phase-3 structural editing.
 
 ## 3. Phoenix structural menu editing
 
