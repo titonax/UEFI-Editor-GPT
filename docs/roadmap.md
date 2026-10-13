@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-13
 
-PRs #119–#123 and #128–#152 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#153 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -66,6 +66,12 @@ blocked; it does not invalidate the separately accepted static Ref output path.
 The next work order is:
 
 1. Continue remaining deployed-browser gates using existing accepted sources.
+   The [exact first LZMA Firefox flow](ami/lzma-firefox-output-acceptance.md)
+   now reproduces source-bound JSON suppression import, Apply/Check/report,
+   exact accepted download, removal invalidation and fresh reload on PR #153.
+   Its engine acceptance was rerun separately with the deployed WASM assets.
+   The nested LZMA source remains the next available browser gate; uncompressed
+   AMI and mixed carriers retain their missing real-source gates.
    The observed editor-JSON optional-field queue noise is now fixed: omitted
    `undefined` fields are not edits; defined values and replay guards stay strict.
    P53 runtime-root research stays parked.
