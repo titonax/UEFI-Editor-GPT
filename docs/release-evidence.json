@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "paths": [
+    {
+      "id": "ami-uncompressed",
+      "scope": "Fixed-size uncompressed AMI section paths; real-source scope remains unaccepted.",
+      "engine": {
+        "status": "recorded",
+        "references": ["docs/ami/full-image-reconstruction.md"],
+        "note": "Existing bounded reconstruction and independent re-read record; not rerun by this report."
+      },
+      "realSource": {
+        "status": "pending",
+        "references": ["docs/ami/full-image-reconstruction.md"],
+        "note": "No qualifying real-source acceptance is recorded for this scope."
+      },
+      "browser": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+      },
+      "hardware": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "Physical flash and recovery acceptance are separate and not established by engine or jsdom tests."
+      }
+    },
+    {
+      "id": "ami-lzma-exact",
+      "scope": "Exact first LZMA source, Setup HII edits only.",
+      "engine": {
+        "status": "recorded",
+        "references": ["docs/ami/compressed-output-acceptance.md"],
+        "note": "Existing bounded reconstruction and independent re-read record; not rerun by this report."
+      },
+      "realSource": {
+        "status": "recorded",
+        "references": ["docs/ami/compressed-output-acceptance.md"],
+        "note": "Exact existing source acceptance only; no broader family guarantee."
+      },
+      "browser": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+      },
+      "hardware": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "Physical flash and recovery acceptance are separate and not established by engine or jsdom tests."
+      }
+    },
+    {
+      "id": "ami-lzma-nested",
+      "scope": "Exact nested-volume LZMA SPI source: documented HII, SetupData, root and combined-queue scopes.",
+      "engine": {
+        "status": "recorded",
+        "references": ["docs/ami/nested-lzma-root-queue-output-acceptance.md"],
+        "note": "Existing bounded reconstruction and independent re-read record; not rerun by this report."
+      },
+      "realSource": {
+        "status": "recorded",
+        "references": [
+          "docs/ami/nested-lzma-root-queue-output-acceptance.md",
+          "docs/ami/nested-lzma-setupdata-output-acceptance.md"
+        ],
+        "note": "Exact existing source acceptance only; no broader family guarantee."
+      },
+      "browser": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+      },
+      "hardware": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "Physical flash and recovery acceptance are separate and not established by engine or jsdom tests."
+      }
+    },
+    {
+      "id": "ami-tiano-exact",
+      "scope": "Exact accepted Tiano SPI source and documented combined HII/SetupData/root queue.",
+      "engine": {
+        "status": "recorded",
+        "references": ["docs/ami/tiano-combined-queue-acceptance.md"],
+        "note": "Existing bounded reconstruction and independent re-read record; not rerun by this report."
+      },
+      "realSource": {
+        "status": "recorded",
+        "references": ["docs/ami/tiano-combined-queue-acceptance.md"],
+        "note": "Exact existing source acceptance only; no broader family guarantee."
+      },
+      "browser": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+      },
+      "hardware": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "Physical flash and recovery acceptance are separate and not established by engine or jsdom tests."
+      }
+    },
+    {
+      "id": "hii-p53-mirrored",
+      "scope": "Exact accepted P53 mirrored LZMA Setup Ref move, complete SPI preserved.",
+      "engine": {
+        "status": "recorded",
+        "references": ["docs/phoenix/p53-mirrored-lzma-output-acceptance.md"],
+        "note": "Existing bounded reconstruction and independent re-read record; not rerun by this report."
+      },
+      "realSource": {
+        "status": "recorded",
+        "references": [
+          "docs/phoenix/p53-mirrored-lzma-output-acceptance.md",
+          "docs/phoenix/uefi-hii-output-user-flow.md#opt-in-real-source-frontend-acceptance"
+        ],
+        "note": "Exact existing source acceptance only; no broader family guarantee."
+      },
+      "browser": {
+        "status": "pending",
+        "references": [
+          "docs/phoenix/uefi-hii-output-user-flow.md#firefox-verification-after-deployment"
+        ],
+        "note": "Manual deployed Firefox flow remains open; real-source React/jsdom acceptance does not pass it."
+      },
+      "hardware": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "Physical flash and recovery acceptance are separate and not established by engine or jsdom tests."
+      }
+    },
+    {
+      "id": "hii-mixed-uncompressed",
+      "scope": "Identity-only mixed parent/child uncompressed carriers; synthetic foundation only.",
+      "engine": {
+        "status": "recorded",
+        "references": ["docs/phoenix/uefi-hii-image-builder.md"],
+        "note": "Existing bounded reconstruction and independent re-read record; not rerun by this report."
+      },
+      "realSource": {
+        "status": "pending",
+        "references": ["docs/phoenix/mixed-source-triage.md"],
+        "note": "No qualifying real-source acceptance is recorded for this scope."
+      },
+      "browser": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+      },
+      "hardware": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "Physical flash and recovery acceptance are separate and not established by engine or jsdom tests."
+      }
+    },
+    {
+      "id": "phoenix-lh5-exact",
+      "scope": "Exact accepted Z03 legacy ROM, proven Show callback and fixed TEMPLAT allocation.",
+      "engine": {
+        "status": "recorded",
+        "references": ["docs/phoenix/README.md#z03-reconstruction-acceptance"],
+        "note": "Existing bounded reconstruction and independent re-read record; not rerun by this report."
+      },
+      "realSource": {
+        "status": "recorded",
+        "references": ["docs/phoenix/README.md#z03-reconstruction-acceptance"],
+        "note": "Exact existing source acceptance only; no broader family guarantee."
+      },
+      "browser": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+      },
+      "hardware": {
+        "status": "pending",
+        "references": ["docs/recovery-and-release.md"],
+        "note": "Physical flash and recovery acceptance are separate and not established by engine or jsdom tests."
+      }
+    }
+  ],
+  "excluded": [
+    {
+      "id": "efi-variant",
+      "reason": "No accepted EFI compression variant output path.",
+      "reference": "docs/roadmap.md"
+    },
+    {
+      "id": "mixed-compressed",
+      "reason": "Compressed mixed ancestry has no complete accepted writer path.",
+      "reference": "docs/roadmap.md"
+    },
+    {
+      "id": "capsule-output",
+      "reason": "Output is complete raw image scope, not a signed capsule.",
+      "reference": "docs/roadmap.md"
+    },
+    {
+      "id": "award-output",
+      "reason": "Award legacy is read-only.",
+      "reference": "docs/roadmap.md"
+    },
+    {
+      "id": "amibios8-output",
+      "reason": "AMIBIOS8 legacy is read-only.",
+      "reference": "docs/roadmap.md"
+    },
+    {
+      "id": "p53-dynamic-roots",
+      "reason": "Runtime root ordering and editing semantics remain unproven; research is parked.",
+      "reference": "docs/roadmap.md"
+    },
+    {
+      "id": "amitse-retarget-output",
+      "reason": "Portable planning does not grant full-image AMITSE retarget acceptance.",
+      "reference": "docs/roadmap.md"
+    },
+    {
+      "id": "allocation-growth",
+      "reason": "Module relocation, allocation growth and directory rebalancing remain blocked.",
+      "reference": "docs/roadmap.md"
+    }
+  ]
+}

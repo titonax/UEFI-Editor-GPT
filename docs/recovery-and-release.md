@@ -102,3 +102,42 @@ must not describe an unvalidated path as accepted. Current missing Firefox and
 real mixed-source acceptance remain visible; this guide does not pass those gates,
 expand the BIOS corpus or resume P53 dynamic-root research. Review the
 [roadmap](roadmap.md) for the next bounded work item before starting another PR.
+
+## Executable evidence inventory
+
+The reviewed [release evidence inventory](release-evidence.json) records seven
+existing writer scopes and eight excluded scopes. It contains document links
+and evidence status only, with no firmware bytes, hashes or private paths.
+`recorded` means a linked acceptance record exists for that exact scope; the
+report does not rerun that firmware, prove the record's assertions or transfer
+acceptance to the current commit. Browser and hardware evidence remain separate.
+
+```bash
+npm run release:report
+npm run release:report -- --json
+npm run release:check
+```
+
+`release:report` prints the complete tracked inventory and pending engine,
+real-source or deployed-browser evidence. `release:check` returns exit code 2
+while any of those required records are pending; malformed records return 1.
+A fully recorded inventory returns 0 but still requires current-commit CI,
+review of the actual evidence and the release checklist above. Hardware status
+is always reported independently; success never establishes physical flashing.
+The check evaluates the entire tracked inventory. A narrower advertised release
+scope requires an explicit reviewed scope/control change, not deletion of a
+pending entry to obtain a green result.
+
+`release:validate` checks schema, required scopes, unique statuses/references,
+existing repository documents/anchors and regression tests. It runs in
+`npm run check` and PR CI. Honest pending evidence passes this structural check,
+so ongoing development can proceed while `release:check` remains blocked.
+References cannot be external URLs, absolute paths, traversal or escaping
+symlinks. Changing this inventory cannot enable an editor or writer.
+
+For the initial inventory, all deployed-browser scopes remain pending.
+Uncompressed AMI and mixed uncompressed HII also lack a recorded qualifying
+real-source acceptance. Existing exact LZMA, Tiano, P53 Setup and Z03 records
+remain limited to their linked source/layout/edit scopes. Firefox is unavailable
+in the current execution environment; no browser or hardware gate was passed
+by adding this report.

@@ -35,6 +35,8 @@ jobs:
         run: npm run typecheck
       - name: Validate reviewed cases
         run: npm run case:check
+      - name: Validate release evidence inventory
+        run: npm run release:validate
       - name: Test
         run: npm run test:coverage
       - name: Build
