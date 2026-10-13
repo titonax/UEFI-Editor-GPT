@@ -36,7 +36,7 @@ test("current reviewed inventory is complete but blocked, with hardware kept sep
   assert.equal(report.excluded.length, 8);
   assert.deepEqual(
     report.paths.find((path) => path.id === "hii-p53-mirrored").missing,
-    ["browser"],
+    [],
   );
   assert.deepEqual(
     report.paths.find((path) => path.id === "hii-mixed-uncompressed").missing,
@@ -182,7 +182,8 @@ test("CLI JSON is metadata-only and blocked checks return a distinct nonzero cod
   );
   const blocked = spawnSync(process.execPath, [script, "check"], { encoding: "utf8" });
   assert.equal(blocked.status, 2);
-  assert.match(blocked.stdout, /hii-p53-mirrored: pending browser/);
+  assert.match(blocked.stdout, /hii-p53-mirrored: required evidence recorded/);
+  assert.match(blocked.stdout, /hii-mixed-uncompressed: pending realSource, browser/);
   const invalid = spawnSync(process.execPath, [script, "report", "--force"], {
     encoding: "utf8",
   });

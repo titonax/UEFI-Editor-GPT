@@ -37,8 +37,9 @@ does not establish runtime root registration or physical flash behavior.
 
 The routine frontend tests use synthetic results to exercise lifecycle failures.
 The opt-in real-source frontend acceptance described below additionally exercises
-the actual codecs and full-image engine through rendered React controls. The manual
-Firefox flow remains a separate deployment check.
+the actual codecs and full-image engine through rendered React controls. The deployed
+Firefox flow has its own [exact-source acceptance record](p53-firefox-output-acceptance.md),
+including explicit download, invalidation and reloading the output.
 
 ## Opt-in real-source frontend acceptance
 
