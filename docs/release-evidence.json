@@ -66,9 +66,9 @@
         "note": "Exact existing source acceptance only; no broader family guarantee."
       },
       "browser": {
-        "status": "pending",
-        "references": ["docs/recovery-and-release.md"],
-        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+        "status": "recorded",
+        "references": ["docs/ami/nested-lzma-firefox-output-acceptance.md"],
+        "note": "Firefox 153.0 headless deployed PR #154 revision: exact nested LZMA source-bound JSON HII suppression import, Apply/Check/report, full-SPI download, removal invalidation and fresh reload passed. Direct question-row controls, SetupData/root/combined browser flows, sessions and hardware are not established."
       },
       "hardware": {
         "status": "pending",

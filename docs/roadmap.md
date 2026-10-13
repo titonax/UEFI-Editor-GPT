@@ -70,8 +70,13 @@ The next work order is:
    now reproduces source-bound JSON suppression import, Apply/Check/report,
    exact accepted download, removal invalidation and fresh reload on PR #153.
    Its engine acceptance was rerun separately with the deployed WASM assets.
-   The nested LZMA source remains the next available browser gate; uncompressed
-   AMI and mixed carriers retain their missing real-source gates.
+   The [nested LZMA Firefox flow](ami/nested-lzma-firefox-output-acceptance.md)
+   now also passes the exact source-bound HII suppression flow, full-SPI
+   download, removal invalidation and fresh reload on the deployed PR #154
+   revision. Its engine acceptance was rerun separately with the same deployed
+   WASM assets. Direct controls and its SetupData/root/combined browser scopes
+   remain explicitly unestablished; uncompressed AMI and mixed carriers retain
+   their missing real-source gates.
    The observed editor-JSON optional-field queue noise is now fixed: omitted
    `undefined` fields are not edits; defined values and replay guards stay strict.
    P53 runtime-root research stays parked.
@@ -358,7 +363,11 @@ Its separate [SetupData and combined-queue acceptance](ami/nested-lzma-setupdata
 now verifies both inner FFS repairs before one shared LZMA recompression. Its [root and structural queue acceptance](ami/nested-lzma-root-queue-output-acceptance.md)
 also verifies a same-package Ref move and a fitting four-operation queue with a
 freshly derived eight-entry root vector. Root-only output can still exceed its
-compressed allocation and is rejected; AMITSE editing remains blocked.
+compressed allocation and is rejected; AMITSE editing remains blocked. Its
+[deployed Firefox HII record](ami/nested-lzma-firefox-output-acceptance.md)
+verifies source-bound suppression import, complete SPI download with all bytes
+outside BIOS intact, invalidation and fresh reread. That browser result does not
+claim the separately accepted SetupData/root/combined engine scopes.
 
 The Pages build also checks [nested browser codec integration](ami/mixed-browser-codec-integration.md)
 with actual WASI assets for LZMA/EFI and LZMA/Tiano in both nesting directions.
