@@ -50,9 +50,10 @@ test("current reviewed inventory is complete but blocked, with hardware kept sep
     report.paths.find((path) => path.id === "ami-lzma-exact").missing,
     [],
   );
-  assert.deepEqual(report.paths.find((path) => path.id === "ami-lzma-nested").missing, [
-    "browser",
-  ]);
+  assert.deepEqual(
+    report.paths.find((path) => path.id === "ami-lzma-nested").missing,
+    [],
+  );
   assert.deepEqual(
     report.paths.find((path) => path.id === "ami-uncompressed").missing,
     ["realSource", "browser"],
