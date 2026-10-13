@@ -165,9 +165,9 @@
         "note": "Exact existing source acceptance only; no broader family guarantee."
       },
       "browser": {
-        "status": "pending",
-        "references": ["docs/recovery-and-release.md"],
-        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+        "status": "recorded",
+        "references": ["docs/phoenix/z03-firefox-output-acceptance.md"],
+        "note": "Deployed Firefox 153.0 headless PR #152 revision: exact Z03 Cache Ram Show, Apply/Check/report, explicit download, navigation preservation, removal invalidation and reload passed. Root registration, structural edits, sessions and hardware are not established."
       },
       "hardware": {
         "status": "pending",
