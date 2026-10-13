@@ -39,9 +39,9 @@
         "note": "Exact existing source acceptance only; no broader family guarantee."
       },
       "browser": {
-        "status": "pending",
-        "references": ["docs/recovery-and-release.md"],
-        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+        "status": "recorded",
+        "references": ["docs/ami/lzma-firefox-output-acceptance.md"],
+        "note": "Firefox 153.0 headless deployed PR #153 revision: exact first LZMA source, source-bound JSON suppression import, Apply/Check/report, explicit download, removal invalidation and fresh reload passed. Direct question-row toggles, sessions and hardware are not established."
       },
       "hardware": {
         "status": "pending",
