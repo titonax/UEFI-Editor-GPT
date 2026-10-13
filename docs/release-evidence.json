@@ -90,9 +90,9 @@
         "note": "Exact existing source acceptance only; no broader family guarantee."
       },
       "browser": {
-        "status": "pending",
-        "references": ["docs/recovery-and-release.md"],
-        "note": "No deployed real-browser end-to-end acceptance is recorded for this scope in this inventory."
+        "status": "recorded",
+        "references": ["docs/ami/tiano-firefox-output-acceptance.md"],
+        "note": "Firefox 153.0 headless deployed PR #150 revision: exact real-source combined move/SetupData/suppression/root queue, explicit download, invalidation and reload passed. Suppression used source-bound data.json import; direct scope UI, sessions and hardware are not established."
       },
       "hardware": {
         "status": "pending",
