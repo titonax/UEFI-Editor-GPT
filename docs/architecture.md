@@ -106,6 +106,17 @@ row count, with omissions labelled. They do not serialize complete Data or byte
 buffers. The comparison does not call a writer, set Apply, alter the revision,
 verify full-image bytes or persist session state.
 
+Logical diff generation ignores an absent object field versus an own field whose
+value is `undefined`, because editor JSON omits the latter. A round trip alone
+must not create queue entries or comparison rows. Defined additions/removals,
+including false, null and empty strings, remain changes. Replay still checks
+exact property existence and expected values with the original strict equality;
+this display/queue-diff normalization does not relax source or byte preconditions.
+Source-bound JSON import also restores the opened source's `not-applicable`
+single-FormSet navigation result after discarding stored analysis. It copies the
+trusted negative report rather than removing it as an apparent editor change or
+trusting an imported positive report. This does not create roots or menus.
+
 Portable Phoenix queue sessions use a separate strict version-1 JSON contract.
 They contain image size/SHA-256, template SHA-256, ordered item offsets and enabled
 flags only. No firmware, decoded body, imported patch bytes, labels, Apply status

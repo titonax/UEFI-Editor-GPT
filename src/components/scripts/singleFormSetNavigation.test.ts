@@ -1,9 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { form, prompt } from "../../test/fixtures";
-import { inspectSingleFormSetNavigation } from "./singleFormSetNavigation";
+import { firmwareData, form, prompt } from "../../test/fixtures";
+import {
+  inspectSingleFormSetNavigation,
+  refreshSingleFormSetNavigation,
+} from "./singleFormSetNavigation";
+import { createDataChangeEntry } from "../ChangeQueue/dataChangeQueue";
 import type { Menu } from "./types";
 
 describe("single-FormSet IFR navigation", () => {
+  it.each(["absent", "forged"] as const)(
+    "restores opened not-applicable evidence over an %s imported report without a queue edit",
+    (state) => {
+      const evidence = inspectSingleFormSetNavigation([], [], []);
+      expect(evidence.status).toBe("not-applicable");
+      const base = firmwareData({ singleFormSetNavigation: evidence });
+      const imported = structuredClone(base);
+      delete imported.singleFormSetNavigation;
+      if (state === "forged") {
+        imported.singleFormSetNavigation = {
+          ...evidence,
+          status: "detected",
+          confidence: "corroborated",
+          reason: "Untrusted stored analysis",
+        };
+      }
+      refreshSingleFormSetNavigation(imported, evidence);
+      expect(imported.singleFormSetNavigation).toEqual(evidence);
+      expect(imported.singleFormSetNavigation).not.toBe(evidence);
+      expect(imported.menu).toEqual(base.menu);
+      expect(imported.forms).toEqual(base.forms);
+      expect(createDataChangeEntry(base, imported, "restored-analysis")).toBeNull();
+    },
+  );
+
   it("keeps same-hub constant-suppressed tabs in IFR order without AMITSE", () => {
     const formSetGuid = "7B59104A-C00D-4158-87FF-F04D6396A915";
     const suppressionOffset = "0x2A709";

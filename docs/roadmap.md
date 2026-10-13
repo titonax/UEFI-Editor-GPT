@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-13
 
-PRs #119–#123 and #128–#150 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#151 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -65,11 +65,10 @@ blocked; it does not invalidate the separately accepted static Ref output path.
 
 The next work order is:
 
-1. Fix the observed editor-JSON queue comparison noise: omitted optional
-   `undefined` fields must not become phantom removals; defined values and stale
-   replay guards remain strict. The exact Tiano combined browser flow passed
-   despite that metadata noise. Then continue remaining deployed-browser gates
-   using existing accepted sources; P53 runtime-root research stays parked.
+1. Continue remaining deployed-browser gates using existing accepted sources.
+   The observed editor-JSON optional-field queue noise is now fixed: omitted
+   `undefined` fields are not edits; defined values and replay guards stay strict.
+   P53 runtime-root research stays parked.
 2. Retain the missing qualifying mixed uncompressed source gate from the completed
    31-image inventory. Run bounded real-source acceptance only if an already
    supplied qualifying carrier becomes available; do not repeat that inventory,
@@ -193,8 +192,14 @@ claimed. See [the executable inventory](recovery-and-release.md#executable-evide
 The Tiano browser run exercised move, SetupData flags, source-bound `data.json`
 suppression import and a proven Boot root toggle. Its complete download matched
 the accepted hash and re-opened correctly. Import also revealed 4,520 logical
-comparison fields caused in part by omitted optional `undefined` properties;
-that concrete queue-hardening defect is next. Direct control of an unassociated
+comparison fields caused in part by omitted optional `undefined` properties.
+Logical diff generation now ignores that JSON-only absence while retaining
+defined additions/removals and strict replay property/value checks. Source-bound
+import also restores the opened source's negative single-FormSet navigation
+report. Firefox on a local production build verified zero entries for unchanged
+JSON, exactly one field for the suppression-only override and the same accepted
+combined output hash. Derived IFR offsets from a structural move remain tracked;
+this is not a claim that every combined plan has four scalar patches. Direct control of an unassociated
 suppression scope and portable session acceptance are not claimed by this record.
 
 ## 0. Transactional change queue
