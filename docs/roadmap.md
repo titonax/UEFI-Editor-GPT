@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-13
 
-PRs #119–#123 and #128–#148 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#149 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -33,7 +33,7 @@ compatibility percentage.
 | 5. Case generalization           | Partial                         | Reviewed knowledge/corpus/intake foundation exists; multi-image semantic callback rules remain pending                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 6. Generic UEFI reconstruction   | Partial                         | Fixed uncompressed paths and exact accepted LZMA/Tiano sources work; EFI variant and real mixed compressed ancestry acceptance remain pending                                                                                                                                                                                                                                                                                                                                                                            |
 | 7. Complete AMI output           | Partial                         | Exact accepted full-SPI edit combinations work; broader layout/compression acceptance and AMITSE edits remain blocked                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 8. Phoenix UEFI/HII output       | Active                          | P53 mirrored LZMA Setup Ref move passes full-SPI acceptance; Firefox verification and real mixed-source acceptance remain open; dynamic-root semantics are parked                                                                                                                                                                                                                                                                                                                                                        |
+| 8. Phoenix UEFI/HII output       | Active                          | P53 mirrored LZMA Setup Ref move passes full-SPI acceptance; deployed Firefox static Ref flow passed; real mixed-source acceptance remains open; dynamic-root semantics are parked                                                                                                                                                                                                                                                                                                                                       |
 | 9. Broader corpus / 90%          | Deferred                        | Resume new BIOS cases after the current end-to-end editing/output circuit is closed; no new coverage percentage is claimed                                                                                                                                                                                                                                                                                                                                                                                               |
 | 10. Product hardening            | Partial                         | Pre-save allocation/preservation reports exist; bounded queue undo/redo and selected-plan comparison are implemented; Phoenix portable queue sessions and AMI/HII Ref move and supported menu visibility sessions plus mapped AMI values, suppression overrides, proven AMI root sessions and AMITSE menu reassignment are implemented; complete-image byte comparison is implemented; recovery/release guidance is documented; future-version session migration and outstanding acceptance/release gates remain pending |
 
@@ -41,7 +41,9 @@ The immediate priority is the supported editing/output circuit, not exhaustive
 reverse engineering of one firmware. The accepted P53 Setup Ref move already
 passes mirrored LZMA reconstruction, complete-SPI preservation, independent
 re-extraction and the actual React/queue/codec/download flow under jsdom.
-Real Firefox verification remains a separate open gate.
+The [deployed Firefox acceptance](phoenix/p53-firefox-output-acceptance.md) now
+passes the exact static Ref flow on revision `e487b7e`; hardware and other
+browser/source scopes remain separate.
 
 The [P53 static research](phoenix/p53-runtime-navigation-research.md) links
 browser selection, OEM publication/consumer paths, conditional Ref insertion,
@@ -55,7 +57,7 @@ blocked; it does not invalidate the separately accepted static Ref output path.
 
 | Track                              | Evidence / open gate                                                                                                                                                                                                                                                                                                                                                                              | Priority                              |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Supported P53 editing/output       | Engine and real-source React/jsdom acceptance passed; real Firefox flow pending                                                                                                                                                                                                                                                                                                                   | Finish browser acceptance             |
+| Supported P53 editing/output       | Engine, real-source React/jsdom and deployed Firefox static Ref flow passed                                                                                                                                                                                                                                                                                                                       | Static circuit accepted               |
 | Mixed uncompressed carriers        | Synthetic reconstruction passed; no qualifying carrier in 31 inventoried local inputs; real-source acceptance pending                                                                                                                                                                                                                                                                             | Retain missing-source gate            |
 | P53 dynamic roots                  | Substantial static trace; execution, ordering and edit semantics unproven                                                                                                                                                                                                                                                                                                                         | Parked research backlog               |
 | Broader compression/layout support | EFI variant and compressed mixed ancestry remain unsupported                                                                                                                                                                                                                                                                                                                                      | Separate bounded acceptance work      |
@@ -63,16 +65,14 @@ blocked; it does not invalidate the separately accepted static Ref output path.
 
 The next work order is:
 
-1. Verify the deployed supported P53 user flow in Firefox using the existing
-   [checklist](phoenix/uefi-hii-output-user-flow.md#firefox-verification-after-deployment).
-   Record the browser/deployed revision and the result; jsdom or Chromium does
-   not substitute for Firefox. If Firefox is unavailable, retain that explicit
-   validation gate instead of extending the OEM investigation.
-2. Assess the already supplied images for a qualifying mixed uncompressed
-   carrier. If one exists, run a bounded real-source queue/reconstruction/re-read
-   acceptance. If none qualifies, record that missing acceptance source and
-   retain the blocker; do not expand the corpus or unlock a compressed path to
-   make the test pass.
+1. Continue deployed-browser acceptance for the other supported paths using
+   existing accepted sources. The exact P53 static Ref circuit has passed on
+   revision `e487b7e`; retain its bounded record without extending runtime-root
+   research.
+2. Retain the missing qualifying mixed uncompressed source gate from the completed
+   31-image inventory. Run bounded real-source acceptance only if an already
+   supplied qualifying carrier becomes available; do not repeat that inventory,
+   expand the corpus or unlock compression merely to remove the blocker.
 3. Report the achieved validation level separately for each supported path, then advance the shared
    product-hardening work. Unsupported codecs/layouts retain their own gates.
    Additional BIOS cases remain deferred under phase 9.
@@ -81,9 +81,10 @@ The [existing-source mixed inventory](phoenix/mixed-source-triage.md) has now
 checked 31 unique available images: no `mixed-direct-nested` carrier was reported,
 22 inputs yielded HII modules, and three reported decode failures. This is not
 format-wide absence or mixed output acceptance. Retain the missing qualifying-source
-gate and the unavailable Firefox gate; proceed with shared comparison/history/session
-work without claiming that those validation gates have passed. Further corpus
-acquisition and P53 OEM research remain deferred.
+gate; the exact P53 Firefox static flow is now accepted. Proceed with remaining
+browser acceptance and shared product hardening without claiming mixed-source
+or hardware acceptance. Further corpus acquisition and P53 OEM research remain
+deferred.
 
 Resume P53 runtime research only for a concrete defect in the supported circuit
 or an explicit decision to implement dynamic-root behavior. The remaining
@@ -120,8 +121,9 @@ omissions are explicit. This is a read-only plan preview before Apply, not a
 byte diff of the rebuilt full SPI or output acceptance. Opening the comparison
 preserves a verified output; changing the queue still invalidates it. Synthetic
 hook/UI regressions exercise net values, selection, undo, source/conflict errors,
-summary limits and read-only inspection. Portable session work can proceed;
-Firefox and mixed-source acceptance remain open; verified full-image byte comparison is now implemented.
+summary limits and read-only inspection. Portable session work can proceed.
+The exact P53 deployed Firefox flow is accepted; mixed-source acceptance remains open.
+Verified full-image byte comparison is now implemented.
 
 Phoenix now supports [portable queue sessions](queue-sessions.md) for its proven
 Show callback operations. Version 1 stores only full-image/template hashes, image
@@ -179,7 +181,8 @@ The phase-10 release criteria now have an executable reviewed evidence inventory
 validation and regression tests run in normal checks/CI without treating pending
 evidence as invalid metadata. The inventory cannot enable a writer and does not
 rerun real firmware, establish current-commit acceptance or replace manual
-Firefox/hardware results. All deployed-browser scopes are initially pending;
+Firefox/hardware results. The exact P53 static Ref browser scope now links its
+deployed Firefox record; the other six deployed-browser scopes remain pending;
 uncompressed AMI and mixed uncompressed HII also retain missing real-source
 records. No new source intake, physical flashing or P53 dynamic-root work is
 claimed. See [the executable inventory](recovery-and-release.md#executable-evidence-inventory).
@@ -428,8 +431,9 @@ boundary verification for each supported compression/layout class.
 Exit gate: the exact Lenovo P53 sample now produces and re-reads a complete image
 with one validated Ref move. The editor download lifecycle is integrated and covered
 by synthetic frontend tests plus opt-in real-source React/jsdom acceptance using
-the actual editor, queue, codecs, builder and captured download. Real Firefox
-user-flow verification remains pending. Dynamic root registration/editing is a
+the actual editor, queue, codecs, builder and captured download. The deployed
+Firefox static Ref flow also passes explicit download, invalidation and reload
+with the exact accepted output hash. Dynamic root registration/editing is a
 separate parked extension with its own evidence gate; it is not required to
 accept the already supported static Ref move and remains explicitly blocked.
 

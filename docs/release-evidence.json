@@ -117,11 +117,9 @@
         "note": "Exact existing source acceptance only; no broader family guarantee."
       },
       "browser": {
-        "status": "pending",
-        "references": [
-          "docs/phoenix/uefi-hii-output-user-flow.md#firefox-verification-after-deployment"
-        ],
-        "note": "Manual deployed Firefox flow remains open; real-source React/jsdom acceptance does not pass it."
+        "status": "recorded",
+        "references": ["docs/phoenix/p53-firefox-output-acceptance.md"],
+        "note": "Deployed Firefox 153.0 headless Linux flow on PR #149 revision: real-source select/move/apply/check/report/download/invalidate/reload passed. Exact static Ref scope only; desktop file-picker, sessions and hardware are not established."
       },
       "hardware": {
         "status": "pending",
