@@ -77,8 +77,9 @@ physical acceptance of a new application-generated output.
 ## Release checklist
 
 Application release, AMI `data.json` schema and queue-session format are independent
-versions. This documentation does not bump any of them; version-1 queue imports
-still reject unsupported future versions instead of guessing a migration.
+versions. Queue-session exports use version 2; strict version-1 files migrate in
+memory by adding only their old kind's implied action before identity checks and
+semantic replay. Unsupported future versions still reject instead of guessing.
 
 A release record must identify its commit and enumerate each advertised write
 path with the following evidence:
@@ -95,7 +96,7 @@ path with the following evidence:
 - Linked recovery guidance and a clear physical-flash validation status. Document
   hardware results when measured; engine or browser success is not that result.
 - Explicit limitations for excluded codecs, layouts, root semantics, allocation
-  growth, capsule output and session-version migration.
+  growth, capsule output and unsupported future session versions.
 
 A release can keep unsupported paths excluded with their controls blocked. It
 must not describe an unvalidated path as accepted. Current missing Firefox and

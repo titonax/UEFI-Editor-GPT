@@ -10,12 +10,13 @@ import type { PhoenixSetupInventory } from "./phoenixSetupMenu";
 export const queueSessionTextLimit = 1024 * 1024;
 const operationLimit = 1000;
 interface Operation {
+  action: "show";
   itemOffset: number;
   enabled: boolean;
 }
 interface PhoenixQueueSession {
   format: "uefi-editor-queue-session";
-  version: 1;
+  version: 2;
   kind: "phoenix-visibility";
   source: { sha256: string; size: number; templatSha256: string };
   operations: Operation[];
@@ -49,7 +50,7 @@ function parse(text: string): PhoenixQueueSession {
   if (
     !record(value, ["format", "version", "kind", "source", "operations"]) ||
     value.format !== "uefi-editor-queue-session" ||
-    value.version !== 1 ||
+    (value.version !== 1 && value.version !== 2) ||
     value.kind !== "phoenix-visibility"
   )
     invalid("has an unsupported format, version or editor kind");
@@ -66,19 +67,28 @@ function parse(text: string): PhoenixQueueSession {
     invalid("has too many or invalid operations");
   const offsets = new Set<number>();
   const operations: Operation[] = value.operations.map((operation: unknown) => {
+    const keys =
+      value.version === 1
+        ? ["itemOffset", "enabled"]
+        : ["action", "itemOffset", "enabled"];
     if (
-      !record(operation, ["itemOffset", "enabled"]) ||
+      !record(operation, keys) ||
+      (value.version === 2 && operation.action !== "show") ||
       !isOffset(operation.itemOffset) ||
       typeof operation.enabled !== "boolean"
     )
       invalid("has an invalid operation");
     if (offsets.has(operation.itemOffset)) invalid("contains a duplicate item");
     offsets.add(operation.itemOffset);
-    return { itemOffset: operation.itemOffset, enabled: operation.enabled };
+    return {
+      action: "show",
+      itemOffset: operation.itemOffset,
+      enabled: operation.enabled,
+    };
   });
   return {
     format: "uefi-editor-queue-session",
-    version: 1,
+    version: 2,
     kind: "phoenix-visibility",
     source: {
       sha256: source.sha256,
@@ -119,12 +129,13 @@ export async function savePhoenixQueueSession(
   entries: ChangeQueueEntry<PhoenixVisibilityPayload>[],
 ) {
   const operations = entries.map((entry) => ({
+    action: "show" as const,
     itemOffset: entry.payload.itemOffset,
     enabled: entry.enabled,
   }));
   const session: PhoenixQueueSession = {
     format: "uefi-editor-queue-session",
-    version: 1,
+    version: 2,
     kind: "phoenix-visibility",
     source: await identity(sourceBytes, inventory),
     operations,

@@ -73,6 +73,13 @@ describe("Phoenix portable queue sessions (synthetic)", () => {
   });
   it("round-trips order/selection, regenerates labels and contains no patches or firmware bytes", async () => {
     const f = await saved();
+    expect(JSON.parse(f.text)).toMatchObject({
+      version: 2,
+      operations: [
+        { action: "show", itemOffset: 16, enabled: true },
+        { action: "show", itemOffset: 8, enabled: false },
+      ],
+    });
     expect(f.text).not.toMatch(/patch|rawBytes|prompt|fileName|applied|image|history/);
     f.inventory.menu.sections[0].items[1].prompt = "Fresh decoded label";
     const restored = await loadPhoenixQueueSession(f.text, f.source, f.inventory);
@@ -82,6 +89,25 @@ describe("Phoenix portable queue sessions (synthetic)", () => {
     expect(restored[0].patches[0].expected).toEqual(Uint8Array.of(0x14, 0));
     expect(f.source).toEqual(Uint8Array.of(1, 2, 3));
     expect(f.inventory.templat[53]).toBe(0x14);
+  });
+  it("migrates strict version-1 operations before regeneration", async () => {
+    const f = await saved();
+    const legacy = JSON.parse(f.text) as {
+      version: number;
+      operations: { action?: string; itemOffset: number; enabled: boolean }[];
+    };
+    legacy.version = 1;
+    legacy.operations = legacy.operations.map(({ itemOffset, enabled }) => ({
+      itemOffset,
+      enabled,
+    }));
+    const restored = await loadPhoenixQueueSession(
+      JSON.stringify(legacy),
+      f.source,
+      f.inventory,
+    );
+    expect(restored.map((entry) => entry.payload.itemOffset)).toEqual([16, 8]);
+    expect(restored.map((entry) => entry.enabled)).toEqual([true, false]);
   });
   it.each(["source", "size", "template"])(
     "rejects a different %s without modifying bytes",
@@ -98,7 +124,7 @@ describe("Phoenix portable queue sessions (synthetic)", () => {
   );
   it.each([
     (value: Record<string, unknown>) => {
-      value.version = 2;
+      value.version = 3;
     },
     (value: Record<string, unknown>) => {
       value.kind = "ami";

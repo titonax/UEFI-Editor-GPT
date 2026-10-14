@@ -117,7 +117,7 @@ single-FormSet navigation result after discarding stored analysis. It copies the
 trusted negative report rather than removing it as an apparent editor change or
 trusting an imported positive report. This does not create roots or menus.
 
-Portable Phoenix queue sessions use a separate strict version-1 JSON contract.
+Portable Phoenix queue sessions use a separate strict versioned JSON contract.
 They contain image size/SHA-256, template SHA-256, ordered item offsets and enabled
 flags only. No firmware, decoded body, imported patch bytes, labels, Apply status
 or history snapshot is accepted. Import compares both identities, regenerates
@@ -130,9 +130,10 @@ runs during save/load. AMI/HII now have a bounded `hii-ref-moves` adapter: exact
 full-image/context identity, ordered Form/child index selectors and fresh editor
 replay for every entry, including paused operations against the selected prefix.
 Queues with supported AMI hub-tab or vendor-neutral HII menu Hide/Show use the
-strict version-1 `hii-menu-actions` contract. Visibility runs the existing family
+strict `hii-menu-actions` contract. Visibility runs the existing family
 editor against the selected prefix, regenerating HII parent/sibling/opcode restore
-anchors. Ref-only sessions retain their original format and remain readable.
+anchors. Version-1 Ref-only sessions retain their original format and remain readable
+through the bounded schema migration.
 Export requires each complete logical entry to equal one regenerated supported
 action; stale, compound and other edit types reject rather than losing changes.
 Local descriptions only route replay, never establish editing capability.
@@ -161,7 +162,10 @@ from menu/Form indices. Opened AMITSE hash, bounded unique field ownership,
 original FormId and preceding FormSet GUID bytes must match. Destinations must
 be unique existing Forms in the same FormSet. Physical order and root evidence
 remain intact; paused operations validate too. Trusted module ownership is
-hashed, never imported. Schema migration remains pending. See [Queue sessions](queue-sessions.md).
+hashed, never imported. Version-2 exports use explicit action discriminators;
+strict version-1 Phoenix and AMI/HII files migrate in memory before unchanged
+source/context checks and semantic replay. Unknown future versions remain blocked.
+See [Queue sessions](queue-sessions.md).
 
 Complete-image byte comparison runs after successful independent reconstruction
 verification and before caching the downloadable result in each AMI, HII and
