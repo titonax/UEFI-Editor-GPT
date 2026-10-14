@@ -169,8 +169,11 @@
       },
       "browser": {
         "status": "recorded",
-        "references": ["docs/phoenix/z03-firefox-output-acceptance.md"],
-        "note": "Deployed Firefox 153.0 headless PR #152 revision: exact Z03 Cache Ram Show, Apply/Check/report, explicit download, navigation preservation, removal invalidation and reload passed. Root registration, structural edits, sessions and hardware are not established."
+        "references": [
+          "docs/phoenix/z03-firefox-output-acceptance.md",
+          "docs/phoenix/z03-session-firefox-acceptance.md"
+        ],
+        "note": "Deployed Firefox 153.0 headless PR #152 revision passed the exact Z03 Cache Ram Show/output flow. Deployed PR #157 revision then passed metadata-only v2 export/import, strict v1 migration, fresh Apply/Check/download, identical complete-image output and source-identity rejection. Root registration, structural edits, other session actions and hardware are not established."
       },
       "hardware": {
         "status": "pending",

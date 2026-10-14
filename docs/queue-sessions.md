@@ -179,13 +179,16 @@ capability. Unknown versions/kinds and version-1 files containing version-2
 fields fail explicitly. Other AMI/HII edit adapters, full-image binary comparison and
 release/recovery documentation remain separate roadmap items.
 
-Validation is synthetic: schema/source/context/selector and dependent-prefix
-regressions, mixed move/visibility replay, retained editor capability guards,
-menu/order and HII restore-anchor checks, shared-control asynchronous cancellation,
-queue history and React
-output invalidation. No new real-source session round-trip, Firefox acceptance or
-physical flash test is claimed. Existing compression/reconstruction restrictions
-are unchanged.
+Schema/source/context/selector and dependent-prefix regressions, mixed
+move/visibility replay, retained editor capability guards, menu/order and HII
+restore-anchor checks, shared-control asynchronous cancellation, queue history
+and React output invalidation remain synthetic/jsdom coverage. Separately, the
+[exact Z03 acceptance](phoenix/z03-session-firefox-acceptance.md) reproduces the
+Phoenix v2 export/import and strict v1 migration with the accepted real source in
+the deployed application under Firefox, then verifies identical complete-image
+outputs and source-identity rejection. That does not validate AMI/HII sessions,
+other sources or physical hardware. Existing compression/reconstruction
+restrictions are unchanged.
 
 ## AMITSE menu reassignment
 
