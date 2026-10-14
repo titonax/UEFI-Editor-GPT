@@ -100,9 +100,10 @@
         "status": "recorded",
         "references": [
           "docs/ami/tiano-firefox-output-acceptance.md",
-          "docs/ami/tiano-session-firefox-acceptance.md"
+          "docs/ami/tiano-session-firefox-acceptance.md",
+          "docs/ami/tiano-history-firefox-acceptance.md"
         ],
-        "note": "Firefox 153.0 headless deployed PR #150 revision: exact real-source combined move/SetupData/suppression/root queue, explicit download, invalidation and reload passed. Suppression used source-bound data.json import; direct scope UI, sessions and hardware are not established. Deployed PR #159 revision separately passed metadata-only v2 combined-session export/import, fresh complete-SPI reconstruction with the exact accepted hash and rejection after reopening the changed image. No combined v1 or hardware acceptance is claimed."
+        "note": "Firefox 153.0 headless deployed PR #150 revision: exact real-source combined move/SetupData/suppression/root queue, explicit download, invalidation and reload passed. Suppression used source-bound data.json import; direct scope UI, sessions and hardware are not established. Deployed PR #159 revision separately passed metadata-only v2 combined-session export/import, fresh complete-SPI reconstruction with the exact accepted hash and rejection after reopening the changed image. Deployed PR #163 revision separately passed four-operation Clear/Undo and ready-output Redo/Undo invalidation, new-mutation Redo discard, two fresh identical full-SPI rebuilds, page-reload history reset and independent four-edit reload. No combined v1 or hardware acceptance is claimed."
       },
       "hardware": {
         "status": "pending",
