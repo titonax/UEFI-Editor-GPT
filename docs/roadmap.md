@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-14
 
-PRs #119–#123 and #128–#161 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#162 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -122,8 +122,12 @@ operations can be undone/redone. A new edit discards redo; opening/replacing a
 source clears both histories, even when its bytes match. No-op controls do not
 consume history. Apply and output verification are not restored: every undo/redo
 invalidates the applied plan and verified download, including an identical restored
-queue and a late asynchronous build. These are synthetic React/hook regressions,
-not a new firmware format or real Firefox acceptance. History is held in memory;
+queue and a late asynchronous build. Synthetic React/hook regressions cover
+those general guarantees. The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
+now separately verifies staging Undo/Redo, Clear/Undo and ready-output Redo/Undo
+invalidation, new-mutation Redo discard, a fresh identical rebuild and page-reload
+history reset in deployed Firefox. AMI/HII history and late asynchronous races
+remain separate browser gates; this does not add a firmware format. History is held in memory;
 full-image byte comparison and portable sessions are implemented; recovery and release guidance is now documented; outstanding acceptance gates remain next.
 
 The shared queue dialog now compares the original loaded editor state with the
@@ -532,6 +536,9 @@ list the blocker for every unsupported case.
   passes metadata-only v2 suppression export/import, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This
   BIOS-only source does not establish descriptor-bearing SPI or v1 acceptance.
+- The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
+  verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
+  history, multi-operation variants and asynchronous races remain separate gates.
 - [Recovery and release readiness](recovery-and-release.md) documents original
   backup handling, verified-output review, supported-family boundaries and
   device-specific recovery preparation. It supplies no universal flash command
