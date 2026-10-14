@@ -197,7 +197,12 @@ separately verifies one accepted move/SetupData/suppression/root queue in deploy
 Firefox, metadata-only export, clear/import, fresh exact complete-SPI output and
 source/context rejection after reopening the changed image. Combined v1 replay
 is not claimed; the old Ref-only contract cannot represent those four actions. Existing
-compression/reconstruction restrictions are unchanged.
+compression/reconstruction restrictions are unchanged. The
+[exact nested-LZMA combined v2 acceptance](ami/nested-lzma-session-firefox-acceptance.md)
+separately verifies root/move/SetupData/suppression session export/clear/import,
+fresh exact full-SPI reconstruction, removal invalidation, independent four-edit
+reload and rejection on the changed image. It adds no combined v1, AMITSE or
+hardware claim.
 
 ## AMITSE menu reassignment
 
