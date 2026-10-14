@@ -17,9 +17,9 @@ producing a flashable image are separate capabilities.
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
 | Full-image writing        | Phoenix legacy, fixed-size uncompressed UEFI paths and exact accepted LZMA/Tiano sources            |
 
-## Progress at 2026-10-13
+## Progress at 2026-10-14
 
-PRs #119–#123 and #128–#153 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#155 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -70,13 +70,14 @@ The next work order is:
    now reproduces source-bound JSON suppression import, Apply/Check/report,
    exact accepted download, removal invalidation and fresh reload on PR #153.
    Its engine acceptance was rerun separately with the deployed WASM assets.
-   The [nested LZMA Firefox flow](ami/nested-lzma-firefox-output-acceptance.md)
-   now also passes the exact source-bound HII suppression flow, full-SPI
-   download, removal invalidation and fresh reload on the deployed PR #154
-   revision. Its engine acceptance was rerun separately with the same deployed
-   WASM assets. Direct controls and its SetupData/root/combined browser scopes
-   remain explicitly unestablished; uncompressed AMI and mixed carriers retain
-   their missing real-source gates.
+   The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
+   passes the exact source-bound suppression path on PR #154. Its
+   [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
+   now also passes the exact four-operation move, SetupData, root and
+   source-bound suppression queue on deployed PR #155: exact full-SPI download,
+   removal invalidation and independent reload. Root, move and SetupData use
+   direct controls; the unassociated suppression uses JSON. Uncompressed AMI and
+   mixed carriers retain their missing real-source gates.
    The observed editor-JSON optional-field queue noise is now fixed: omitted
    `undefined` fields are not edits; defined values and replay guards stay strict.
    P53 runtime-root research stays parked.
@@ -196,9 +197,9 @@ Firefox/hardware results. The exact P53 static Ref browser scope now links its
 deployed Firefox record; the exact Tiano combined queue now also has a
 [deployed Firefox record](ami/tiano-firefox-output-acceptance.md). The exact Z03
 LH5 Show path also has a [deployed Firefox record](phoenix/z03-firefox-output-acceptance.md).
-The other four deployed-browser scopes remain pending;
-uncompressed AMI and mixed uncompressed HII also retain missing real-source
-records. No new source intake, physical flashing or P53 dynamic-root work is
+The two remaining deployed-browser scopes are uncompressed AMI and mixed
+uncompressed HII; both also retain missing real-source records. No new source
+intake, physical flashing or P53 dynamic-root work is
 claimed. See [the executable inventory](recovery-and-release.md#executable-evidence-inventory).
 
 The Tiano browser run exercised move, SetupData flags, source-bound `data.json`
@@ -366,8 +367,11 @@ freshly derived eight-entry root vector. Root-only output can still exceed its
 compressed allocation and is rejected; AMITSE editing remains blocked. Its
 [deployed Firefox HII record](ami/nested-lzma-firefox-output-acceptance.md)
 verifies source-bound suppression import, complete SPI download with all bytes
-outside BIOS intact, invalidation and fresh reread. That browser result does not
-claim the separately accepted SetupData/root/combined engine scopes.
+outside BIOS intact, invalidation and fresh reread. Its separate
+[combined deployed Firefox record](ami/nested-lzma-combined-firefox-output-acceptance.md)
+verifies the four-operation move, SetupData, root and source-bound suppression
+queue, exact accepted output and independent reread. This does not establish
+portable sessions, hardware or broader source compatibility.
 
 The Pages build also checks [nested browser codec integration](ami/mixed-browser-codec-integration.md)
 with actual WASI assets for LZMA/EFI and LZMA/Tiano in both nesting directions.
