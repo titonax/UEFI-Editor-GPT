@@ -162,7 +162,8 @@ an accepted real-image write path.
 Synthetic PE-loop regressions cover all AMI profiles, batches, paused/restore
 states, immutable original bytes, fresh code/vector inspection, contradictory
 source provenance, malformed selectors, the last-root guard and atomic failure.
-No new real-source root session or physical flash validation is claimed.
+The exact Tiano combined v2 session has the separate real-source Firefox
+record below; these synthetic regressions do not establish hardware validation.
 
 Shared load behavior is the same as Phoenix: one undoable queue replacement,
 fresh revision, unapplied state and no restored verified output. Queue/source or
@@ -190,7 +191,12 @@ outputs and source-identity rejection. The
 [exact P53 acceptance](phoenix/p53-session-firefox-acceptance.md) separately
 reproduces those v2/v1 guarantees for one supported static HII Ref move, including
 complete-SPI preservation and byte-identical rebuilt outputs. It does not validate
-other AMI/HII actions, sources, dynamic roots or physical hardware. Existing
+other AMI/HII actions, sources, dynamic roots or physical hardware. The
+[exact Tiano combined v2 acceptance](ami/tiano-session-firefox-acceptance.md)
+separately verifies one accepted move/SetupData/suppression/root queue in deployed
+Firefox, metadata-only export, clear/import, fresh exact complete-SPI output and
+source/context rejection after reopening the changed image. Combined v1 replay
+is not claimed; the old Ref-only contract cannot represent those four actions. Existing
 compression/reconstruction restrictions are unchanged.
 
 ## AMITSE menu reassignment
