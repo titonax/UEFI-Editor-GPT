@@ -186,9 +186,12 @@ and React output invalidation remain synthetic/jsdom coverage. Separately, the
 [exact Z03 acceptance](phoenix/z03-session-firefox-acceptance.md) reproduces the
 Phoenix v2 export/import and strict v1 migration with the accepted real source in
 the deployed application under Firefox, then verifies identical complete-image
-outputs and source-identity rejection. That does not validate AMI/HII sessions,
-other sources or physical hardware. Existing compression/reconstruction
-restrictions are unchanged.
+outputs and source-identity rejection. The
+[exact P53 acceptance](phoenix/p53-session-firefox-acceptance.md) separately
+reproduces those v2/v1 guarantees for one supported static HII Ref move, including
+complete-SPI preservation and byte-identical rebuilt outputs. It does not validate
+other AMI/HII actions, sources, dynamic roots or physical hardware. Existing
+compression/reconstruction restrictions are unchanged.
 
 ## AMITSE menu reassignment
 
