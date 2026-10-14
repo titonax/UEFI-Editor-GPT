@@ -17,9 +17,9 @@ producing a flashable image are separate capabilities.
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
 | Full-image writing        | Phoenix legacy, fixed-size uncompressed UEFI paths and exact accepted LZMA/Tiano sources            |
 
-## Progress at 2026-10-14
+## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#162 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#163 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -126,8 +126,11 @@ queue and a late asynchronous build. Synthetic React/hook regressions cover
 those general guarantees. The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
 now separately verifies staging Undo/Redo, Clear/Undo and ready-output Redo/Undo
 invalidation, new-mutation Redo discard, a fresh identical rebuild and page-reload
-history reset in deployed Firefox. AMI/HII history and late asynchronous races
-remain separate browser gates; this does not add a firmware format. History is held in memory;
+history reset in deployed Firefox. The
+[exact Tiano history acceptance](ami/tiano-history-firefox-acceptance.md) now also
+passes four-operation AMI Clear/Undo, ready-output Redo/Undo invalidation, fresh
+identical full-SPI rebuilding and independent four-edit reread. Other AMI/HII
+history and late asynchronous races remain separate browser gates; this does not add a firmware format. History is held in memory;
 full-image byte comparison and portable sessions are implemented; recovery and release guidance is now documented; outstanding acceptance gates remain next.
 
 The shared queue dialog now compares the original loaded editor state with the
@@ -539,6 +542,10 @@ list the blocker for every unsupported case.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
+  The [exact Tiano history acceptance](ami/tiano-history-firefox-acceptance.md)
+  separately verifies the supported four-operation AMI queue and fresh identical
+  full-SPI rebuilding after history invalidation. Vendor-neutral HII history,
+  other sources and asynchronous races remain separate gates.
 - [Recovery and release readiness](recovery-and-release.md) documents original
   backup handling, verified-output review, supported-family boundaries and
   device-specific recovery preparation. It supplies no universal flash command
