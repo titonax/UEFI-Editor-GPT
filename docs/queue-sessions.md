@@ -9,8 +9,9 @@ session. Renaming the original file is fine; changing any image byte, image size
 or opened editing context rejects the session. All hashing and JSON processing are
 local. The session does not include firmware bytes or upload anything.
 
-The initial format is `uefi-editor-queue-session`, version `1`, kind
-`phoenix-visibility`. It records only:
+The current format is `uefi-editor-queue-session`, version `2`, kind
+`phoenix-visibility`. Version 2 gives every operation an explicit `action`;
+Phoenix currently accepts only `show`. It records only:
 
 - SHA-256 and byte size of the complete input image;
 - SHA-256 of its opened decoded TEMPLAT body;
@@ -41,18 +42,18 @@ all existing state untouched.
 
 ## AMI/HII menu sessions
 
-Version 1 kind `hii-ref-moves` stores full-image SHA-256/size, an opened-context
+Legacy version 1 kind `hii-ref-moves` stores full-image SHA-256/size, an opened-context
 SHA-256 and ordered `sourceFormIndex`, `referenceChildIndex`,
 `destinationFormIndex`, `enabled` selectors. These indices refer to the selected
 prefix at that step, not to global FormIds. The context digest binds the original
 editing stream, complete logical base/evidence, family and current trusted module
 locations/ownership. Repeated AMI contexts and joined/isolated HII workspaces must
 match exactly. Reopening with a different parser/model may conservatively reject
-a session; this version has no migration mechanism.
+a session; migration does not change or bypass that identity.
 
-Pure Ref queues retain the existing `hii-ref-moves` output, and its files remain
-readable unchanged. Queues containing visibility use version 1 kind
-`hii-menu-actions`. Each operation has an `action`: `move-ref` includes the three
+Existing Ref-only `hii-ref-moves` files remain readable unchanged. New exports,
+including pure Ref queues, use version 2 kind `hii-menu-actions`. Each operation
+has an `action`: `move-ref` includes the three
 move indices; `visibility` includes `sourceFormIndex`, `referenceChildIndex` and
 boolean `visible`. Both include boolean `enabled`. Unknown actions/fields reject;
 raw restore anchors, provenance or binary edits cannot be supplied.
@@ -107,7 +108,7 @@ three requested byte values with the existing patch builder, not physical flash.
 
 ### Suppression overrides
 
-The version-1 `hii-menu-actions` contract also supports `suppressions`: boolean
+The `hii-menu-actions` contract also supports `suppressions`: boolean
 `enabled` and a non-empty batch of `{conditionIndex, active}` selectors. Up to
 1000 distinct existing conditions can be changed in one original queue entry.
 Unknown fields, offsets, expressions, classifications, non-boolean states,
@@ -135,7 +136,7 @@ remapped Ref/condition positions, invalid scopes/ownership and atomic rejection.
 
 ### Proven AMI root visibility
 
-The version-1 `hii-menu-actions` contract accepts `ami-roots`: boolean `enabled`
+The `hii-menu-actions` contract accepts `ami-roots`: boolean `enabled`
 and up to 1000 distinct `{rootIndex, visible}` selectors. Source buffer IDs,
 byte offsets, original/replacement bytes, GUIDs, labels and detector reports are
 not imported. A batch preserves one original queue entry; the original ordered
@@ -169,9 +170,13 @@ workspace replacement and closing the dialog discard pending completions. Empty
 sessions clear the queue; generated session IDs use a separate namespace from new
 local edits so subsequent staging and Undo cannot collide with restored IDs.
 
-The version-1 Ref-only contract remains compatible; there is no future-version
-migration mechanism. Unknown versions/kinds fail
-explicitly. Other AMI/HII edit adapters, full-image binary comparison and
+New AMI/HII exports use version 2 kind `hii-menu-actions`, including Ref-only
+queues, so every operation has an explicit action discriminator. Strict
+version-1 `hii-ref-moves`, `hii-menu-actions` and `phoenix-visibility` files are
+migrated in memory before normal identity checking and replay. The migration
+adds only the action implied by the old kind; it cannot add selectors or editing
+capability. Unknown versions/kinds and version-1 files containing version-2
+fields fail explicitly. Other AMI/HII edit adapters, full-image binary comparison and
 release/recovery documentation remain separate roadmap items.
 
 Validation is synthetic: schema/source/context/selector and dependent-prefix
@@ -199,4 +204,5 @@ Synthetic regressions cover the three AMI family identifiers, exact AMITSE
 patch bytes, restore/paused actions, bounds, stale/hash/overlapping ownership,
 cross-FormSet and ambiguous destinations, strict selectors and atomic rejection.
 This does not change full-image writer acceptance or claim new real-source or
-physical flash validation. Version-1 Ref-only sessions remain compatible.
+physical flash validation. Version-1 Ref-only sessions remain compatible through
+the bounded v1-to-v2 migration.

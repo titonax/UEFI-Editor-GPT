@@ -149,7 +149,13 @@ describe("source-bound AMI/HII Ref sessions (synthetic)", () => {
       entry.title = "untrusted local title";
       const text = await saveHiiQueueSession(context, [{ ...entry, enabled: false }]);
       const parsed = JSON.parse(text) as { operations: unknown[] };
-      expect(parsed.operations).toEqual([{ ...request, enabled: false }]);
+      expect(JSON.parse(text)).toMatchObject({
+        version: 2,
+        kind: "hii-menu-actions",
+      });
+      expect(parsed.operations).toEqual([
+        { action: "move-ref", ...request, enabled: false },
+      ]);
       expect(text).not.toMatch(
         /patches|expected|replacement|ifrBinary|untrusted|private-id|Target|Destination/,
       );
@@ -196,6 +202,25 @@ describe("source-bound AMI/HII Ref sessions (synthetic)", () => {
       await loadHiiQueueSession(await saveHiiQueueSession(context, []), context),
     ).toEqual([]);
   });
+  it("migrates a strict version-1 Ref-only session before replay", async () => {
+    const { context, text, entry } = await plan();
+    const legacy = JSON.parse(text) as {
+      version: number;
+      kind: string;
+      operations: Record<string, unknown>[];
+    };
+    legacy.version = 1;
+    legacy.kind = "hii-ref-moves";
+    legacy.operations = legacy.operations.map((operation) => ({
+      sourceFormIndex: operation.sourceFormIndex,
+      referenceChildIndex: operation.referenceChildIndex,
+      destinationFormIndex: operation.destinationFormIndex,
+      enabled: operation.enabled,
+    }));
+    const restored = await loadHiiQueueSession(JSON.stringify(legacy), context);
+    expect(restored).toHaveLength(1);
+    expect(restored[0].payload).toEqual(entry.payload);
+  });
   it.each(["source", "size", "stream", "base", "ownership"])(
     "rejects a mismatched %s identity",
     async (part) => {
@@ -209,7 +234,7 @@ describe("source-bound AMI/HII Ref sessions (synthetic)", () => {
     },
   );
   it.each([
-    { version: 2 },
+    { version: 3 },
     { kind: "phoenix-visibility" },
     { unknown: true },
     { source: { sha256: "invalid", size: 3, contextSha256: "0".repeat(64) } },

@@ -88,8 +88,8 @@ type Operation =
   | SuppressionsOperation;
 interface Session {
   format: "uefi-editor-queue-session";
-  version: 1;
-  kind: "hii-ref-moves" | "hii-menu-actions";
+  version: 2;
+  kind: "hii-menu-actions";
   source: { sha256: string; size: number; contextSha256: string };
   operations: Operation[];
 }
@@ -128,8 +128,11 @@ function parse(text: string): Session {
   if (
     !record(value, ["format", "version", "kind", "source", "operations"]) ||
     value.format !== "uefi-editor-queue-session" ||
-    value.version !== 1 ||
-    (value.kind !== "hii-ref-moves" && value.kind !== "hii-menu-actions")
+    (value.version !== 1 && value.version !== 2) ||
+    (value.version === 1 &&
+      value.kind !== "hii-ref-moves" &&
+      value.kind !== "hii-menu-actions") ||
+    (value.version === 2 && value.kind !== "hii-menu-actions")
   )
     invalid("has an unsupported format, version or editor kind");
   const source = value.source;
@@ -143,8 +146,9 @@ function parse(text: string): Session {
     invalid("has an invalid source identity");
   if (!Array.isArray(value.operations) || value.operations.length > 1000)
     invalid("has too many or invalid operations");
+  const explicitActions = value.kind === "hii-menu-actions";
   const operations = value.operations.map((op: unknown): Operation => {
-    if (value.kind === "hii-menu-actions") {
+    if (explicitActions) {
       if (record(op, ["action", "changes", "enabled"]) && op.action === "ami-menu") {
         if (
           !Array.isArray(op.changes) ||
@@ -287,7 +291,7 @@ function parse(text: string): Session {
     }
     if (
       !record(op, [
-        ...(value.kind === "hii-menu-actions" ? ["action"] : []),
+        ...(explicitActions ? ["action"] : []),
         "sourceFormIndex",
         "referenceChildIndex",
         "destinationFormIndex",
@@ -309,8 +313,8 @@ function parse(text: string): Session {
   });
   return {
     format: "uefi-editor-queue-session",
-    version: 1,
-    kind: value.kind,
+    version: 2,
+    kind: "hii-menu-actions",
     source: {
       sha256: source.sha256,
       size: source.size,
@@ -610,24 +614,12 @@ export async function saveHiiQueueSession(
     operations.push(operation);
     if (entry.enabled) before = regenerated.after;
   }
-  const legacy = operations.every((operation) => operation.action === "move-ref");
   const session = {
     format: "uefi-editor-queue-session",
-    version: 1,
-    kind: legacy ? "hii-ref-moves" : "hii-menu-actions",
+    version: 2,
+    kind: "hii-menu-actions",
     source: await identity(context),
-    operations: legacy
-      ? operations.map((operation) => {
-          if (operation.action !== "move-ref")
-            invalid("contains an unsupported operation");
-          return {
-            sourceFormIndex: operation.sourceFormIndex,
-            referenceChildIndex: operation.referenceChildIndex,
-            destinationFormIndex: operation.destinationFormIndex,
-            enabled: operation.enabled,
-          };
-        })
-      : operations,
+    operations,
   };
   const text = JSON.stringify(session, null, 2);
   parse(text);
