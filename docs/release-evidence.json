@@ -67,8 +67,11 @@
       },
       "browser": {
         "status": "recorded",
-        "references": ["docs/ami/nested-lzma-firefox-output-acceptance.md"],
-        "note": "Firefox 153.0 headless deployed PR #154 revision: exact nested LZMA source-bound JSON HII suppression import, Apply/Check/report, full-SPI download, removal invalidation and fresh reload passed. Direct question-row controls, SetupData/root/combined browser flows, sessions and hardware are not established."
+        "references": [
+          "docs/ami/nested-lzma-firefox-output-acceptance.md",
+          "docs/ami/nested-lzma-combined-firefox-output-acceptance.md"
+        ],
+        "note": "Firefox 153.0 headless deployed PR #154 revision passed the exact source-bound HII suppression flow. Deployed PR #155 revision then passed the four-operation move/SetupData/root/suppression queue, exact full-SPI download, invalidation and independent reload. The root, move and SetupData controls were direct; the unassociated suppression used source-bound data.json. Sessions, hardware and broader sources are not established."
       },
       "hardware": {
         "status": "pending",
