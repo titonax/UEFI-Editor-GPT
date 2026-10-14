@@ -40,8 +40,11 @@
       },
       "browser": {
         "status": "recorded",
-        "references": ["docs/ami/lzma-firefox-output-acceptance.md"],
-        "note": "Firefox 153.0 headless deployed PR #153 revision: exact first LZMA source, source-bound JSON suppression import, Apply/Check/report, explicit download, removal invalidation and fresh reload passed. Direct question-row toggles, sessions and hardware are not established."
+        "references": [
+          "docs/ami/lzma-firefox-output-acceptance.md",
+          "docs/ami/lzma-session-firefox-acceptance.md"
+        ],
+        "note": "Firefox 153.0 headless deployed PR #153 revision: exact first LZMA source, source-bound JSON suppression import, Apply/Check/report, explicit download, removal invalidation and fresh reload passed. Deployed PR #161 revision separately passed metadata-only v2 suppression-session export/clear/import, fresh exact complete-BIOS output, removal invalidation, independent empty-scope reload and original-session rejection on the changed image. Direct question-row toggles, v1 replay, other operations and hardware are not established."
       },
       "hardware": {
         "status": "pending",

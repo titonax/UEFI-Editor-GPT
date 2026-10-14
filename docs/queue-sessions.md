@@ -202,7 +202,12 @@ compression/reconstruction restrictions are unchanged. The
 separately verifies root/move/SetupData/suppression session export/clear/import,
 fresh exact full-SPI reconstruction, removal invalidation, independent four-edit
 reload and rejection on the changed image. It adds no combined v1, AMITSE or
-hardware claim.
+hardware claim. The
+[exact first-LZMA v2 acceptance](ami/lzma-session-firefox-acceptance.md)
+separately verifies one accepted suppression session, exact complete-BIOS output,
+removal invalidation, independent empty-scope reload and changed-image rejection.
+This source has no descriptor-bearing SPI regions; v1, other actions and hardware
+remain unclaimed.
 
 ## AMITSE menu reassignment
 

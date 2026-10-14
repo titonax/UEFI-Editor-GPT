@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-14
 
-PRs #119–#123 and #128–#160 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#161 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -70,6 +70,9 @@ The next work order is:
    now reproduces source-bound JSON suppression import, Apply/Check/report,
    exact accepted download, removal invalidation and fresh reload on PR #153.
    Its engine acceptance was rerun separately with the deployed WASM assets.
+   Its [v2 session gate](ami/lzma-session-firefox-acceptance.md) now passes
+   export/clear/import, fresh exact output, invalidation, independent scope reread
+   and source/context rejection. Shared product-hardening acceptance remains next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -525,6 +528,10 @@ list the blocker for every unsupported case.
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed
   image/context rejection. Combined v1 and hardware remain unclaimed.
+  The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
+  passes metadata-only v2 suppression export/import, exact complete-BIOS output,
+  removal invalidation, empty-scope reread and changed-image rejection. This
+  BIOS-only source does not establish descriptor-bearing SPI or v1 acceptance.
 - [Recovery and release readiness](recovery-and-release.md) documents original
   backup handling, verified-output review, supported-family boundaries and
   device-specific recovery preparation. It supplies no universal flash command
