@@ -508,3 +508,51 @@ fault-injected checksum rejection scenario. It does not observe the old import's
 full return or establish spontaneous failures, replacement during checksum
 rejection, file-read failures, other sources, desktop picker or hardware.
 Missing uncompressed AMI/mixed sources and parked P53 dynamic roots are unchanged.
+
+## Source replacement during native checksum rejection
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`2894f0214f326ef5ea4ac0b04ab9b81ece0af162` (PR #177), Firefox 153.0,
+Playwright 1.62.1, headless Linux, 1600 × 1000. Code quality, build and automatic
+Pages deployment completed successfully for this exact SHA. Observed assets were
+`index-LM6CCH_b.js`, `index-D4JOsfQ5.css`, `tiano-decompress.wasm` and
+`ifrextractor.wasm`. The existing authorized 8 MiB source was checked against its
+original size/SHA-256 afresh; private firmware, JSON and downloads remained local.
+
+The new opt-in checker retains the preceding native unsupported-algorithm
+fault injection and current-import positive controls. Instead of Clear/Undo,
+it closes the source while the original native `NotSupportedError` is held,
+then reopens identical bytes in the same document. Check/output/report reset;
+queue, Apply and Undo/Redo are empty/disabled. Exported fresh base has 70 Forms,
+Security `01`, Boot `1`, the DRAM Ref only in Form 3 and the original active
+suppression at `0x8B359`. The browser probe still has one held, undelivered
+native rejection; the document time origin and navigation count are unchanged.
+
+The four accepted edits are then staged/applied again. A new verified full SPI
+is built and downloaded before the old error is released. Delivery counters
+confirm one rejection/delivery and no held failure. No obsolete import/output
+alert appears, the newer four-entry queue and verified output/report remain,
+and exported Security is `00`, not the obsolete import's `05`. Cached download
+matches the fresh rebuild. The same native failure on a current import displays
+the editor alert while retaining queue/output; a normal retry clears it, accepts
+Security `05` and invalidates output. No Security `05` binary output is claimed.
+
+All three 8,388,608-byte SPI downloads have SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`,
+140,913 changed bytes and zero changes outside the two original FFS owners or
+BIOS. Ordinary independent reanalysis of the cached post-delivery SPI confirms
+all four edits, including the Ref only in Form 5 and empty suppression scope.
+No application page error or main-frame navigation occurs. Each Check retains
+its 15-minute limit; the replacement race also must finish within 15 minutes.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-replacement-checksum-firefox-acceptance.mjs
+```
+
+Browser options match the preceding checker. Public CI does not supply the
+private source or execute this opt-in probe. This is controlled timing and an
+injected native failure, not spontaneous failure or observation of the old
+React import's full return. File-read failures, other interleavings/sources,
+desktop picker and hardware remain separate gates. No new writer or format is
+enabled; missing uncompressed AMI/mixed sources and parked P53 research remain.

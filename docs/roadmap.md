@@ -17,9 +17,9 @@ producing a flashable image are separate capabilities.
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
 | Full-image writing        | Phoenix legacy, fixed-size uncompressed UEFI paths and exact accepted LZMA/Tiano sources            |
 
-## Progress at 2026-10-15
+## Progress at 2026-10-16
 
-PRs #119–#123 and #128–#176 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#177 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -564,8 +564,13 @@ list the blocker for every unsupported case.
   passes deployed PR #176 in Firefox: stale rejection retention, visible current
   failure, retry/invalidation, three identical complete SPIs with no non-BIOS
   changes and independent four-edit reread. This is controlled native fault
-  injection, not spontaneous failure. Replacement during checksum rejection
-  remains open; see the lifecycle record.
+  injection, not spontaneous failure. A separate deployed PR #177 probe now also
+  passes source close/reopen while that native checksum rejection is held:
+  fresh original base/empty history, newer verified SPI retained after old
+  rejection delivery, visible current failure, retry/invalidation and independent
+  four-edit reread. All three SPIs match with no changes outside original owners
+  or BIOS. This does not observe the old import's full return; file-read failures
+  and other boundaries remain open. See the lifecycle record and new opt-in checker.
   Other pending-build boundaries, checksum races, read
   failures and other asynchronous interleavings remain separate gates. Existing
   codecs, reconstruction/ownership checks and full-SPI requirements are unchanged.
