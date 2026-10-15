@@ -556,3 +556,52 @@ injected native failure, not spontaneous failure or observation of the old
 React import's full return. File-read failures, other interleavings/sources,
 desktop picker and hardware remain separate gates. No new writer or format is
 enabled; missing uncompressed AMI/mixed sources and parked P53 research remain.
+
+## Controlled native File.text API failure across source replacement
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`25e25f2d81879a67010ce0d5eae7ccc26b93cb06` (PR #178), Firefox 153.0,
+Playwright 1.62.1, headless Linux, 1600 × 1000. Quality, build and automatic
+Pages deployment succeeded for that SHA. Observed assets were
+`index-LM6CCH_b.js`, `index-D4JOsfQ5.css`, `tiano-decompress.wasm` and
+`ifrextractor.wasm`. The authorized existing source's size and SHA-256 were
+checked afresh. Firmware, editor JSON and downloads remained local.
+
+The opt-in checker first proves normal acceptance of the source-bound JSON
+with Security `05`, clears it and builds the accepted four-operation baseline.
+Only the first `File.text()` for the checker's `pending-import.json` is then
+intercepted. The browser's original native method is invoked with an invalid
+receiver, producing a native `TypeError`; the checker holds and later throws
+that exact error unchanged. Other calls forward their real receiver/arguments.
+This is **API fault injection**, not an unreadable file, operating-system I/O
+failure, spontaneous rejection or successful old text delivery.
+
+While the error is held, close/reopen of identical source bytes resets
+Check/output/report, queue, Apply and both histories. Export verifies the
+original 70 Forms and all four original target states. A new four-edit complete
+SPI is verified and downloaded before error release. Exactly one held native
+failure is delivered; the newer queue/output remain, no obsolete alert appears,
+Security remains `00` and cached download matches the fresh build. The same API
+failure on a current import displays the editor alert without discarding the
+existing queue/output. Restoring the native method and retrying accepts Security
+`05`, clears the alert and invalidates output. No Security `05` binary is claimed.
+
+All three 8,388,608-byte SPIs match
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`:
+140,913 changed bytes, zero outside the two original FFS owners and zero outside
+BIOS. Ordinary independent reanalysis verifies the cached SPI's four edits.
+No document navigation/time-origin change or page error occurs. Each Check and
+the replacement race retain 15-minute limits. The original native method's own
+property descriptor (or inherited lookup) is restored before retry/reanalysis.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-late-read-rejection-firefox-acceptance.mjs
+```
+
+Browser options match the preceding checker; public CI does not supply the
+private source or execute this opt-in test. This observes native error delivery
+and resulting UI, not the old React import's full return. Real I/O failures,
+other interleavings/sources, desktop picker and hardware remain unaccepted.
+No writer or format is enabled; missing uncompressed AMI/mixed sources and
+parked P53 dynamic-root research remain unchanged.

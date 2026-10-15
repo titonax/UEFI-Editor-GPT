@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-16
 
-PRs #119–#123 and #128–#177 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#178 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -569,8 +569,13 @@ list the blocker for every unsupported case.
   fresh original base/empty history, newer verified SPI retained after old
   rejection delivery, visible current failure, retry/invalidation and independent
   four-edit reread. All three SPIs match with no changes outside original owners
-  or BIOS. This does not observe the old import's full return; file-read failures
-  and other boundaries remain open. See the lifecycle record and new opt-in checker.
+  or BIOS. A separate deployed PR #178 probe also passes a held native File.text
+  TypeError across same-source close/reopen, fresh original base/empty history,
+  newer SPI retention, visible current API failure, normal retry and independent
+  four-edit reread. It deliberately invokes the native text method with an invalid
+  receiver: this is API fault injection, not an actual unreadable-file/I/O failure.
+  Neither probe observes the old import's full return. Actual read failures and
+  other boundaries remain open. See the lifecycle record and opt-in checkers.
   Other pending-build boundaries, checksum races, read
   failures and other asynchronous interleavings remain separate gates. Existing
   codecs, reconstruction/ownership checks and full-SPI requirements are unchanged.
