@@ -469,3 +469,42 @@ return of the discarded React import. Naturally occurring failures, deployed
 post-fix acceptance, replacement during checksum rejection, file-read failures,
 other sources, desktop picker and hardware remain separate gates. Missing
 uncompressed AMI/mixed sources and parked P53 dynamic roots are unchanged.
+
+## Deployed post-fix native checksum rejection acceptance
+
+Reproduced on 2026-10-15 against deployed main
+`d2bf8878205b9ee012fff0a1d457f98d9018fe55` (PR #176), Firefox 153.0,
+Playwright 1.62.1, headless Linux, 1600 × 1000. The exact SHA's
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38779008757)
+and automatic [Pages deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38779008701)
+both completed successfully. Pages returned `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+
+The unchanged late-checksum scenario above now passes against Pages, not just
+a local production build: normal current-import positive control; held native
+`NotSupportedError`; Clear/Undo to identical entries and a fresh verified build;
+late rejection delivery without an obsolete alert or output invalidation;
+visible current-import failure retaining the four-entry applied queue and
+verified output/report; normal retry clearing the alert, accepting Security
+`05` and invalidating output; independent ordinary reanalysis of the cached
+Security `00` SPI confirming all four edits. No binary output for Security `05`
+is claimed. The exact source was recovered from the authorized existing archive
+and size/SHA-256 checked afresh; private bytes and JSON stayed local.
+
+All three 8,388,608-byte SPI downloads matched
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`.
+There were 140,913 changed bytes, zero outside the two original FFS owners and
+zero outside BIOS. Navigation count and document time origin stayed unchanged;
+no application page errors occurred. The checker's existing native rejection,
+output hash, ownership, 15-minute Check and independent reread assertions were
+not relaxed. Container execution used its existing sandbox compatibility option.
+
+The checker additionally accepts `FIRMWARE_BROWSER_PROXY_SERVER` as an optional
+Playwright launch proxy; it changes transport only, not application behavior or
+acceptance assertions. The ordinary no-proxy deployed run passed separately.
+
+This closes only the deployed post-fix gate for this controlled-timing,
+fault-injected checksum rejection scenario. It does not observe the old import's
+full return or establish spontaneous failures, replacement during checksum
+rejection, file-read failures, other sources, desktop picker or hardware.
+Missing uncompressed AMI/mixed sources and parked P53 dynamic roots are unchanged.
