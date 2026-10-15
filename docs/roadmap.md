@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#170 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#171 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -525,7 +525,12 @@ list the blocker for every unsupported case.
   pending AMI JSON imports now also invalidate on queue revision changes, so
   late reads/checksums/errors cannot act on an obsolete same-source projection.
   Synthetic React/jsdom regressions cover success/rejection and Undo returning
-  to identical entries; this does not add real-browser acceptance.
+  to identical entries. A separate controlled native-checksum delivery probe on
+  deployed PR #171 now passes exact Tiano Clear/Undo to identical entries,
+  fresh complete-SPI rebuild, stale delivery retention and independent four-edit
+  reread. No source replacement or newer import supersedes that old checksum;
+  this isolates queue-revision invalidation. It is not ordinary scheduling,
+  checksum-failure acceptance or observation of the old import's full return.
   explicit return to upload, source/base/selection/error reset, queue/history/Apply
   reset and output unmount. AMI JSON import discards stale file-read/checksum
   successes and failures. Synthetic App/real-footer/queue tests also complete or
@@ -537,7 +542,7 @@ list the blocker for every unsupported case.
   probe on deployed PR #169 now retains a newer verified output after source
   replacement and old real-text delivery, with a current-import positive control
   and independent four-edit reread. This is not ordinary browser scheduling or
-  observation of the old import's full return. Pending builds/checksums, read
+  observation of the old import's full return. Pending builds, other checksum races, read
   failures and other asynchronous interleavings remain separate gates. Existing
   codecs, reconstruction/ownership checks and full-SPI requirements are unchanged.
 
