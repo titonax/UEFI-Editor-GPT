@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#164 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#165 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -133,8 +133,11 @@ identical full-SPI rebuilding and independent four-edit reread. The
 [exact P53 history acceptance](phoenix/p53-history-firefox-acceptance.md) also
 passes static Ref staging Undo/Redo, Clear/Undo, ready-output Redo/Undo
 invalidation, two fresh identical full-SPI downloads and independent Ref reread.
-Other sources, paused/reordered variants and late asynchronous races remain
-separate browser gates; this does not add a firmware format. History is held in memory;
+The [exact Tiano selection/order acceptance](ami/tiano-selection-firefox-acceptance.md)
+also passes one/all pause and reselect invalidation, read-only comparison,
+independent Boot/suppression reorder with identical output, and blocked paused
+or reordered root dependencies. Paused-subset output, other permutations/sources
+and late asynchronous races remain separate browser gates; this does not add a firmware format. History is held in memory;
 full-image byte comparison and portable sessions are implemented; recovery and release guidance is now documented; outstanding acceptance gates remain next.
 
 The shared queue dialog now compares the original loaded editor state with the
@@ -553,6 +556,10 @@ list the blocker for every unsupported case.
   separately verifies the supported static Ref queue, fresh identical full-SPI
   rebuilding, reload history reset and independent Ref reread. Other sources,
   paused/reordered variants and asynchronous races remain separate gates.
+  The [exact Tiano selection/order acceptance](ami/tiano-selection-firefox-acceptance.md)
+  separately verifies selection invalidation, independent reorder with identical
+  full-SPI output and dependency rejection in real Firefox. Paused subsets were
+  not rebuilt; other variants and asynchronous races remain separate gates.
 - [Recovery and release readiness](recovery-and-release.md) documents original
   backup handling, verified-output review, supported-family boundaries and
   device-specific recovery preparation. It supplies no universal flash command
