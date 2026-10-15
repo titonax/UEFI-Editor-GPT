@@ -52,7 +52,7 @@ export default function Footer({
     return () => {
       importContext.current = null;
     };
-  }, [files]);
+  }, [files, changeQueue.revision]);
   const [input, setInput] = React.useState("05");
   const [queueOpened, setQueueOpened] = React.useState(false);
   const [reportOpened, setReportOpened] = React.useState(false);
