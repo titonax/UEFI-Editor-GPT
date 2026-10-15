@@ -336,3 +336,60 @@ other families/sources or hardware. Synthetic React/jsdom success/rejection
 coverage remains separate. Other checksum races, stale failures and missing
 qualifying uncompressed AMI/mixed sources remain open; P53 dynamic roots and
 new BIOS intake remain parked.
+
+## Controlled native WASM failure delivery in Firefox
+
+Reproduced on 2026-10-15 against deployed main
+`c767fbc125c0c047f6dceaad2f56966d35bf0ae6` (PR #174), Firefox 153.0,
+Playwright 1.62.1, headless Linux, 1600 × 1000. Assets were
+`index-B1tQu_qt.js`, `index-D4JOsfQ5.css`, `tiano-decompress.wasm` and
+`ifrextractor.wasm`. Quality and automatic Pages runs for this exact SHA were
+successful. This is a **fault-injection** acceptance, not spontaneous native
+failure or ordinary scheduling.
+
+The opt-in checker retains the exact Tiano source, four edits, output hash and
+FFS/non-BIOS byte checks from the ready-output record above. At the first WASM
+instantiation of an old Check it deliberately supplies an empty imports object
+to the browser's original `WebAssembly.instantiate`, with the actual compiled
+module unchanged. Firefox produces a native `TypeError`; the checker catches
+and holds that exact rejection, then later throws it unchanged. Other
+instantiations forward their original inputs and native results. No firmware,
+codec implementation or application guard is patched.
+
+1. Build and download a real baseline: 202 native instantiations completed.
+2. Clear/Undo/Apply the four edits and hold the old Check's first native failure.
+   Close/reopen the original source in the same document. Check/output/report
+   are reset and disabled; queue, Apply and both histories are empty; exported
+   base has all 70 Forms and the original four target values.
+3. Stage/apply the four edits and build/download a new verified SPI while the
+   old failure remains held. The fresh Check completes 202 native instances.
+4. Deliver the old native rejection. Counters show exactly one delivered failure
+   and no pending native call. Output/report remain enabled, no obsolete error
+   appears, and a cached download is byte-identical without further instances.
+5. Positive control: Clear/Undo/Apply again, inject the same native failure into
+   the next current Check without holding it. The actual application displays
+   `Output check failed:` and leaves output/report disabled. A fresh Check with
+   original imports succeeds and downloads the identical SPI.
+6. Restore the native API and independently reopen the actual post-race download.
+   Fresh extraction confirms Security `00`, Boot zero, the DRAM Ref moved from
+   Form 3 to Form 5, empty suppression at `0x8B359` and no cached output.
+
+All four downloads have 8,388,608 bytes and SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`.
+Each has 140,913 modified bytes, zero outside the two original FFS owners and
+zero outside BIOS. Navigation count and document time origin are unchanged;
+no application page errors occurred. Each Check and the replacement race retain
+the existing 15-minute limit. The checker deletes private intermediates on exit.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-late-failure-firefox-acceptance.mjs
+```
+
+Browser options match the existing replacement checker. Public CI has no source
+and does not run this opt-in acceptance. This establishes controlled native
+failure delivery across source replacement, a current-failure positive control
+and successful retry with the real source/engine/browser. It does not capture
+the old React hook's full return, establish naturally occurring failures,
+checksum-failure interleavings, other sources, desktop picker or hardware.
+Missing AMI-uncompressed/mixed sources and parked P53 dynamic roots are unchanged.

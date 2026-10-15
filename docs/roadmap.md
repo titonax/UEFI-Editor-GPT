@@ -548,6 +548,13 @@ list the blocker for every unsupported case.
   base/empty history/no cached output, a fresh complete-SPI Check, retention after
   old instance delivery and independent four-edit reread. This is not observation
   of the old build's full return, ordinary scheduling or stale-build failure acceptance.
+  A separately scoped fault-injected native WASM rejection probe against deployed
+  PR #174 now also passes source replacement while an old failure is held,
+  delivery after a newer exact full-SPI output, a current-failure positive
+  control with download blocked, successful retry and independent four-edit
+  reread. The native module is unchanged but its imports are deliberately omitted
+  only at the injected boundary; this is not spontaneous failure or observation
+  of the old hook's full return. See the same lifecycle record and opt-in checker.
   Other pending-build boundaries, checksum races, read
   failures and other asynchronous interleavings remain separate gates. Existing
   codecs, reconstruction/ownership checks and full-SPI requirements are unchanged.
