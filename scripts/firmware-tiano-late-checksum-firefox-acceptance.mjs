@@ -174,6 +174,9 @@ async function stageFour(page) {
     browser = await firefox.launch({
       executablePath: process.env.FIRMWARE_BROWSER_FIREFOX_EXECUTABLE || undefined,
       headless: true,
+      proxy: process.env.FIRMWARE_BROWSER_PROXY_SERVER
+        ? { server: process.env.FIRMWARE_BROWSER_PROXY_SERVER }
+        : undefined,
       firefoxUserPrefs:
         process.env.FIRMWARE_BROWSER_CONTAINER_SANDBOX === "1"
           ? { "security.sandbox.content.level": 0 }

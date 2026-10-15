@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#175 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#176 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -560,8 +560,12 @@ list the blocker for every unsupported case.
   App/real-queue regression verifies the alert, retained applied queue and
   clearing after success. The separate local-production Firefox native checksum
   rejection probe passes stale rejection after Clear/Undo, visible current failure,
-  retry/invalidation and independent exact-SPI reread. Deployed post-fix acceptance
-  and replacement during checksum rejection remain open; see the lifecycle record.
+  retry/invalidation and independent exact-SPI reread. The same scenario now also
+  passes deployed PR #176 in Firefox: stale rejection retention, visible current
+  failure, retry/invalidation, three identical complete SPIs with no non-BIOS
+  changes and independent four-edit reread. This is controlled native fault
+  injection, not spontaneous failure. Replacement during checksum rejection
+  remains open; see the lifecycle record.
   Other pending-build boundaries, checksum races, read
   failures and other asynchronous interleavings remain separate gates. Existing
   codecs, reconstruction/ownership checks and full-SPI requirements are unchanged.
