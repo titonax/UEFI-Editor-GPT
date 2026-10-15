@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#167 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#168 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -526,8 +526,11 @@ list the blocker for every unsupported case.
   reset and output unmount. AMI JSON import discards stale file-read/checksum
   successes and failures. Synthetic App/real-footer/queue tests also complete or
   reject an old build after verifying a reopened source. This is implementation
-  plus React/jsdom validation only; accepted-source same-document replacement
-  and stale failures in real Firefox remain the next browser gates. Existing
+  plus React/jsdom validation. The exact Tiano ready-output replacement gate
+  now separately passes deployed Firefox on PR #168: no document navigation,
+  fresh original base/empty history, new identical complete-SPI output and
+  independent four-edit reread. Replacement during pending builds/imports and
+  stale failures remain separate browser gates. Existing
   codecs, reconstruction/ownership checks and full-SPI requirements are unchanged.
 
 - Pre-save risk, space, compression and affected-region report: the AMI footer
