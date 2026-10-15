@@ -57,7 +57,7 @@ The exact Tiano same-document gate now passes separately as recorded below.
 The controlled native file-read cancellation gate below now also passes
 separately. Real-browser stale failures, pending checksum/build boundaries and
 other asynchronous interleavings remain pending except for the separately scoped
-native checksum-delivery probe below; synthetic tests do not
+native checksum-delivery and pending-build replacement probes below; synthetic tests do not
 establish those gates.
 
 No parser, codec, checksum algorithm, allocation capacity, source acceptance,
@@ -259,3 +259,80 @@ This accepts one exact-source checksum-success/queue-revision boundary, includin
 Undo to identical entries. Ordinary scheduling, checksum rejection, source
 replacement during checksum/build, other interleavings, sources and hardware
 remain separate gates. Missing uncompressed AMI/mixed sources remain blocked.
+
+## Controlled native build delivery across source replacement
+
+Reproduced on 2026-10-15 against deployed
+`ad0e4414d8f8cee6a78d25639ced7cfaa3435b22` (merged PR #172).
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38699150936)
+and [Pages build/deploy](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38699151349)
+passed for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux at 1600 × 1000, loaded `index-B1tQu_qt.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+The authorized original source was recovered afresh and its size/SHA-256
+verified before the run; no earlier temporary input was used.
+
+This is a controlled-timing probe, using the native-instance delivery mechanism
+reviewed in [the same-source late-completion record](tiano-late-firefox-acceptance.md).
+The private page wraps `WebAssembly.instantiate`, forwarding original arguments
+to the native API and returning the exact native instance/result object. Only
+one already completed native instantiation's delivery waits behind a Promise;
+no source, codec result, hash, allocation or verification decision is substituted.
+No application code changes.
+
+1. Stage/apply the accepted four-operation queue and Check/download a baseline.
+   Measure its actual native instantiation count rather than arming a frozen
+   count. This run measured 202 delivered instances, zero pending.
+2. Clear/Undo/Apply the same queue, start an old Check and hold delivery of its
+   last native instance: 202 calls, 201 delivered, zero native pending, one held.
+   The old Check is outstanding and its output is disabled.
+3. Click **Load another firmware** while that result is held. Queue/output/report
+   controls disappear. Reopen identical original bytes in the same document.
+   Check/output/details and empty-queue Apply/Undo/Redo are disabled. A fresh base
+   export independently confirms 70 Forms, original Security `01`, Boot one,
+   DRAM Ref only in Form 3 and active suppression at `0x8B359`.
+4. Stage/apply all four operations anew and Check/download the new verified SPI,
+   still holding the old native result. Measure the additional native calls from
+   reopening separately; the new Check adds exactly the baseline's count of
+   completed native instantiations. No native call remains pending.
+5. Release the exact old instance, drain microtasks across two animation frames,
+   and require exactly one more delivery with no extra native calls. The newer
+   queue remains four entries, output/details remain enabled and no output error
+   or load alert appears. Download the cached SPI without another Check or native
+   instantiation and compare every byte with the newer output and baseline.
+6. Restore the native API, close/open the actual post-delivery download and run
+   fresh ordinary extraction. All four requested edits and 70 Forms match the
+   independent read-back assertions above. Main-frame navigation count and
+   document time origin remain unchanged throughout; no page errors occur.
+
+All three downloads are complete 8,388,608-byte SPI images with SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`.
+Each has 140,913 changed bytes confined to original FFS owners
+`[3239384, 3419918)` and `[4612464, 4781106)`. All 1,572,864 non-BIOS bytes
+are identical. The builder retains its normal allocation, codec, checksum,
+ownership and independent complete-image verification requirements.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-pending-build-replacement-firefox-acceptance.mjs
+```
+
+Browser options match the preceding checkers. Each output check and the entire
+controlled race retain their 15-minute limits. Firmware, JSON and downloads
+remain private/local; checker intermediates are removed on exit. Public CI does
+not supply this private source or run this opt-in probe. An initial checker
+attempt timed out on an unnecessary second Apply after staging had already
+applied the queue; removing that redundant test action allowed the complete
+flow to rerun. That failed attempt is not accepted evidence.
+
+The observed event is native delivery and retention across its reviewed
+continuation, not an exposed/captured full return from the discarded old build.
+No successful old-build result is claimed. The remaining native decoder and
+reader/verification/comparison continuation is synchronous or Promise microtasks;
+review this probe again if a new external asynchronous boundary is added.
+This adds one exact-source pending-build replacement boundary in Firefox, not
+ordinary scheduling, stale build rejection, every pending-build interleaving,
+other families/sources or hardware. Synthetic React/jsdom success/rejection
+coverage remains separate. Other checksum races, stale failures and missing
+qualifying uncompressed AMI/mixed sources remain open; P53 dynamic roots and
+new BIOS intake remain parked.
