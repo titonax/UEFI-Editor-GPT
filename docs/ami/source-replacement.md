@@ -56,7 +56,8 @@ Tiano Firefox records remain scoped to their recorded revisions and flows.
 The exact Tiano same-document gate now passes separately as recorded below.
 The controlled native file-read cancellation gate below now also passes
 separately. Real-browser stale failures, pending checksum/build boundaries and
-other asynchronous interleavings remain pending; synthetic tests do not
+other asynchronous interleavings remain pending except for the separately scoped
+native checksum-delivery probe below; synthetic tests do not
 establish those gates.
 
 No parser, codec, checksum algorithm, allocation capacity, source acceptance,
@@ -198,3 +199,63 @@ No successful old import is claimed. Read rejections, pending checksum races,
 pending build replacement, latest-import supersession, other interleavings,
 sources/families and hardware remain separate gates. Review this probe again if
 the stale branch gains another asynchronous boundary.
+
+## Controlled native checksum cancellation after Clear/Undo
+
+Reproduced on 2026-10-15 against deployed
+`95682c65566b5cfa49512dd491a628d1c5b41da5` (merged PR #171).
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38691787727)
+and [Pages build/deploy](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38691787721)
+passed for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux at 1600 × 1000, loaded `index-B1tQu_qt.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+The authorized original source was recovered afresh and its exact size and
+SHA-256 checked as above.
+
+This is a controlled-timing browser probe. The private test page wraps
+`crypto.subtle.digest` for only the first SHA-256 call whose complete input
+matches the positively tested JSON's offset string. The original receiver,
+arguments and native digest result are forwarded unchanged. Only delivery of
+that already calculated native result waits behind a Promise. Other digests
+pass through normally; no checksum, bytes, codec, writer, hydration or validation
+decision is substituted. Application code is unchanged.
+
+1. Export the original base, change only Security flags to `05`, import it
+   normally and verify one queue entry and exported Security `05`. Clear it.
+   This is current-import acceptance, not binary-output acceptance for `05`.
+2. Stage/apply the accepted four operations and Check/download a baseline.
+   Select the same positively tested JSON under the digest gate. Assert one
+   native call/completion, zero deliveries and one held result.
+3. Without replacing the source or starting another import, Clear the four-entry
+   queue and Undo back to four entries. Apply again and require a fresh Check:
+   cached output/details are disabled until it completes. Download the newly
+   verified SPI while the old native checksum remains held.
+4. Release the exact old digest. After microtasks and two animation frames,
+   assert one delivery and no held result, four queue entries, enabled verified
+   output/details, no output error or load alert, and exported Security `00`,
+   not stale `05`. Download the cached output without another Check.
+5. Restore the native method, close/open that actual download and independently
+   reanalyse all 70 Forms and four edits with the normal browser engine/readers.
+   No main-frame navigation or document-time-origin change occurs; no application
+   page errors occur.
+
+All three downloads match the accepted complete 8,388,608-byte SPI SHA-256 above.
+Each has exactly 140,913 changed bytes within the two original FFS owners, none
+outside BIOS, and all 1,572,864 non-BIOS bytes unchanged. Private JSON, source
+and downloads stay local; private checker intermediates are removed on exit.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-pending-checksum-firefox-acceptance.mjs
+```
+
+Browser options match the preceding checker; each Check retains 15 minutes.
+The checksum formula is checked against the exported original offset checksum
+before arming the gate. The reviewed importer checks the revision-bound context
+immediately after this await and returns before hydration/commit on stale state.
+The probe observes native digest delivery and the resulting stale-return branch,
+not a captured full old-import return or a successful old import.
+This accepts one exact-source checksum-success/queue-revision boundary, including
+Undo to identical entries. Ordinary scheduling, checksum rejection, source
+replacement during checksum/build, other interleavings, sources and hardware
+remain separate gates. Missing uncompressed AMI/mixed sources remain blocked.
