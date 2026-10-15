@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#165 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#166 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -137,7 +137,12 @@ The [exact Tiano selection/order acceptance](ami/tiano-selection-firefox-accepta
 also passes one/all pause and reselect invalidation, read-only comparison,
 independent Boot/suppression reorder with identical output, and blocked paused
 or reordered root dependencies. Paused-subset output, other permutations/sources
-and late asynchronous races remain separate browser gates; this does not add a firmware format. History is held in memory;
+and other asynchronous races remain separate browser gates. The
+[exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
+verifies an old real codec continuation after a newer verified output in Firefox
+with controlled native WASM Promise timing. This is not uninstrumented scheduling
+or hardware acceptance; stale failures, source replacement and other boundaries
+remain separate. This does not add a firmware format. History is held in memory;
 full-image byte comparison and portable sessions are implemented; recovery and release guidance is now documented; outstanding acceptance gates remain next.
 
 The shared queue dialog now compares the original loaded editor state with the
@@ -560,6 +565,10 @@ list the blocker for every unsupported case.
   separately verifies selection invalidation, independent reorder with identical
   full-SPI output and dependency rejection in real Firefox. Paused subsets were
   not rebuilt; other variants and asynchronous races remain separate gates.
+  The [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md)
+  separately verifies the newer output survives the old codec continuation using real
+  Firefox/engine/codecs with a native instantiation timing gate. Uninstrumented
+  scheduling, stale failures, source replacement and other boundaries stay separate.
 - [Recovery and release readiness](recovery-and-release.md) documents original
   backup handling, verified-output review, supported-family boundaries and
   device-specific recovery preparation. It supplies no universal flash command
