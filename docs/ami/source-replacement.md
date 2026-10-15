@@ -44,8 +44,10 @@ Promises, not a real-source engine rerun, Firefox or hardware acceptance. No
 firmware was required or recovered for this implementation block. Existing
 Tiano Firefox records remain scoped to their recorded revisions and flows.
 The exact Tiano same-document gate now passes separately as recorded below.
-Real-browser stale failures, pending-import cancellation and other asynchronous
-boundaries remain pending; the synthetic tests do not establish those gates.
+The controlled native file-read cancellation gate below now also passes
+separately. Real-browser stale failures, pending checksum/build boundaries and
+other asynchronous interleavings remain pending; synthetic tests do not
+establish those gates.
 
 No parser, codec, checksum algorithm, allocation capacity, source acceptance,
 writer or independent reader changed. Full-SPI preservation requirements and
@@ -118,3 +120,71 @@ This accepts one exact-source ready-output replacement lifecycle in real
 Firefox with the actual engine/codecs/queue/readers. It is not acceptance of
 replacement during an outstanding build/import, stale asynchronous failures,
 other sources/families, a native desktop file-picker dialog or hardware.
+
+## Controlled native JSON-read cancellation in Firefox
+
+Reproduced on 2026-10-15 against deployed
+`5fc72dbf798448b16b43888e25250449d089e871` (merged PR #169).
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38681855123)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38681855072)
+were successful for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux at 1600 × 1000, loaded the same production JS/CSS/WASM assets
+listed above. The exact authorized source was recovered afresh and size/SHA-256
+verified before this run; no previous temporary input was used.
+
+This is explicitly a **controlled-timing browser probe**, not uninstrumented
+scheduling. After an ordinary positive control and baseline build, the checker
+wraps `File.prototype.text` for one selected local JSON file only. It forwards
+the original receiver/arguments to the native method, waits for the real native
+read to finish, and holds delivery of that exact text behind a Promise gate.
+No file contents, hashes, parser/codec/builder results or validation decisions
+are substituted. Other file reads forward normally. The shim exists only in
+the private test page, not in application code.
+
+1. Export the original base and change only Security's mapped flags from `01`
+   to `05` in local source-bound JSON. Import this exact file normally first:
+   the queue becomes one entry and a fresh export confirms Security `05`.
+   This positive control proves current import acceptance, not binary output
+   acceptance for that value. Clear the queue.
+2. Stage the normal accepted four-operation queue, Apply/Check and download a
+   real baseline. Select the positively tested JSON again, now under the gate.
+   Assert one native read call, one completed native read, zero delivered text
+   results and one held result. The old import remains outstanding.
+3. Load another firmware and reopen the identical source in the same document.
+   Verify original base/empty queue/history/Apply and no cached output. Stage
+   the accepted four operations again and run a fresh Check. Download the new
+   verified SPI while the old real text is still held.
+4. Release the exact old native text. Drain microtasks across two animation
+   frames; assert one delivered result and no held read. The reviewed importer
+   checks source/lifetime immediately after this await and returns on stale
+   context before parsing or starting another asynchronous checksum operation.
+   The queue remains four entries, output/details stay enabled, no output error
+   appears and a fresh editor export retains Security `00`, not stale `05`.
+   Explicitly download the cached output again without another Check.
+5. Restore the native text method. Close/open the actual post-delivery download
+   and run ordinary independent extraction. All four requested edits and 70
+   Forms match the read-back assertions above. Navigation count and document
+   time origin remain unchanged; no application page errors occurred.
+
+All three explicit downloads are byte-identical complete 8,388,608-byte SPI
+images with the accepted output SHA-256 above, 140,913 changes within the two
+original FFS owners, zero outside those owners or BIOS, and all 1,572,864
+non-BIOS bytes unchanged. Private inputs/JSON/downloads remain local and the
+checker removes its private intermediates on exit.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-pending-json-firefox-acceptance.mjs
+```
+
+Browser options and the unchanged 15-minute output-check limit match the
+preceding executable. Public CI never supplies the private source. This probes
+one exact native file-read success boundary using the actual browser, source,
+editor, queue, engine and independent readers. It is distinct from synthetic
+React/jsdom, an injected read failure, ordinary browser scheduling and hardware.
+The discarded import's full return is not exposed/captured; the measured event
+is native text delivery and its reviewed immediate stale-return continuation.
+No successful old import is claimed. Read rejections, pending checksum races,
+pending build replacement, latest-import supersession, other interleavings,
+sources/families and hardware remain separate gates. Review this probe again if
+the stale branch gains another asynchronous boundary.
