@@ -131,9 +131,10 @@
         "status": "recorded",
         "references": [
           "docs/phoenix/p53-firefox-output-acceptance.md",
-          "docs/phoenix/p53-session-firefox-acceptance.md"
+          "docs/phoenix/p53-session-firefox-acceptance.md",
+          "docs/phoenix/p53-history-firefox-acceptance.md"
         ],
-        "note": "Deployed Firefox 153.0 headless Linux flow on PR #149 revision: real-source select/move/apply/check/report/download/invalidate/reload passed. Deployed PR #158 revision then passed metadata-only v2 Ref-session export/import, strict v1 migration, fresh complete-SPI rebuilds with identical output and source/context identity rejection. Exact static Ref scope only; desktop file-picker, other session actions, dynamic roots and hardware are not established."
+        "note": "Deployed Firefox 153.0 headless Linux flow on PR #149 revision: real-source select/move/apply/check/report/download/invalidate/reload passed. Deployed PR #158 revision then passed metadata-only v2 Ref-session export/import, strict v1 migration, fresh complete-SPI rebuilds with identical output and source/context identity rejection. Deployed PR #164 revision separately passed static Ref staging Undo/Redo, Clear/Undo and ready-output Redo/Undo invalidation, new-mutation Redo discard, two fresh identical full-SPI rebuilds, page-reload history reset and independent Ref reread. Exact static Ref scope only; desktop file-picker, other session actions, dynamic roots and hardware are not established."
       },
       "hardware": {
         "status": "pending",

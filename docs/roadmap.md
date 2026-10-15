@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#163 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#164 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -129,8 +129,12 @@ invalidation, new-mutation Redo discard, a fresh identical rebuild and page-relo
 history reset in deployed Firefox. The
 [exact Tiano history acceptance](ami/tiano-history-firefox-acceptance.md) now also
 passes four-operation AMI Clear/Undo, ready-output Redo/Undo invalidation, fresh
-identical full-SPI rebuilding and independent four-edit reread. Other AMI/HII
-history and late asynchronous races remain separate browser gates; this does not add a firmware format. History is held in memory;
+identical full-SPI rebuilding and independent four-edit reread. The
+[exact P53 history acceptance](phoenix/p53-history-firefox-acceptance.md) also
+passes static Ref staging Undo/Redo, Clear/Undo, ready-output Redo/Undo
+invalidation, two fresh identical full-SPI downloads and independent Ref reread.
+Other sources, paused/reordered variants and late asynchronous races remain
+separate browser gates; this does not add a firmware format. History is held in memory;
 full-image byte comparison and portable sessions are implemented; recovery and release guidance is now documented; outstanding acceptance gates remain next.
 
 The shared queue dialog now compares the original loaded editor state with the
@@ -544,8 +548,11 @@ list the blocker for every unsupported case.
   history, multi-operation variants and asynchronous races remain separate gates.
   The [exact Tiano history acceptance](ami/tiano-history-firefox-acceptance.md)
   separately verifies the supported four-operation AMI queue and fresh identical
-  full-SPI rebuilding after history invalidation. Vendor-neutral HII history,
-  other sources and asynchronous races remain separate gates.
+  full-SPI rebuilding after history invalidation. The
+  [exact P53 history acceptance](phoenix/p53-history-firefox-acceptance.md)
+  separately verifies the supported static Ref queue, fresh identical full-SPI
+  rebuilding, reload history reset and independent Ref reread. Other sources,
+  paused/reordered variants and asynchronous races remain separate gates.
 - [Recovery and release readiness](recovery-and-release.md) documents original
   backup handling, verified-output review, supported-family boundaries and
   device-specific recovery preparation. It supplies no universal flash command
