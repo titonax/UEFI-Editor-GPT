@@ -259,6 +259,11 @@ export default function App({
             />
           </AppShell.Footer>
           <AppShell.Main>
+            {error.length > 0 && (
+              <Alert color="red" title="Editor import failed">
+                {error}
+              </Alert>
+            )}
             <FormUi
               data={data}
               setData={setData}

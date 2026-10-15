@@ -393,3 +393,79 @@ and successful retry with the real source/engine/browser. It does not capture
 the old React hook's full return, establish naturally occurring failures,
 checksum-failure interleavings, other sources, desktop picker or hardware.
 Missing AMI-uncompressed/mixed sources and parked P53 dynamic roots are unchanged.
+
+## Current import error visibility and native checksum rejection
+
+On 2026-10-15 the late-checksum probe against deployed main
+`7ff0112ba2596b032bed8d65ed8e6bc9e1b32a05` exposed a UI defect: App kept
+current AMI import errors in state but rendered its alert only in the uploader.
+The native rejection occurred, but the active editor showed no error. Those
+attempts timed out at the current-error assertion and are **not** complete
+acceptance. App now displays `Editor import failed` inside the AMI editor.
+It retains the existing queue and verified output when an import fails; a
+successful import clears the alert and invalidates output normally. Import
+lifetime/revision guards, checksum validation and all writers are unchanged.
+
+The new synthetic App/real-queue regression failed before the fix and passed
+after it. It verifies visible error text, retention of the applied queue and
+clearing after a success callback. Extraction and Footer are mocked in that
+test; it is not binary or real-browser evidence.
+
+The complete opt-in probe then passed in **Firefox 153.0 against a local
+production build** of this change, with Playwright 1.62.1, headless Linux,
+1600 × 1000. This is separate from deployed Pages acceptance. It loaded
+`index-LM6CCH_b.js`, `index-D4JOsfQ5.css` and the actual published
+`tiano-decompress.wasm` / `ifrextractor.wasm` assets. The exact authorized source
+was recovered afresh and verified against the original 8,388,608-byte size and
+SHA-256 recorded above. Source, decoded data, editor JSON and downloads stayed
+local and were not sent to the preview server or GitHub.
+
+This is a **fault-injection and controlled-timing** probe. Only the first digest
+whose input exactly matches the independently checked exported offset string
+uses an unsupported algorithm name. The original native `SubtleCrypto.digest`
+therefore produces `NotSupportedError`; the checker holds and later throws that
+same error unchanged. Other digests use their original inputs/algorithm/results.
+No application validation decision, firmware bytes or codec result is replaced.
+
+1. Import the original source-bound JSON with Security `05` normally and confirm
+   it is accepted; clear it. Stage/apply the four accepted operations and build
+   and download the baseline SPI.
+2. Hold the native checksum rejection from the old JSON import. Clear/Undo back
+   to the same four entries, Apply and require a fresh Check. Download the
+   independently verified new SPI while the old failure is held.
+3. Deliver the old failure. Require one rejection/delivery, no held result, four
+   queue entries, enabled output/report, no import/output alert and exported
+   Security `00`. Download the cached output without another Check.
+4. Restore the native API and explicitly deselect the stale file before selecting
+   it again. Inject the same native rejection for this current import, without a
+   gate. Require one native rejection and a visible editor import alert; the
+   existing four-entry queue and verified output/report remain intact.
+5. Retry the import with the original native digest. Require the alert to clear,
+   Security `05` to be exported and cached output/report to become disabled.
+   No binary output acceptance for Security `05` is claimed.
+6. Close/open the actual cached SPI downloaded in step 3. Fresh ordinary
+   extraction verifies 70 Forms, Security `00`, Boot zero, the DRAM Ref only in
+   Form 5 and the empty suppression scope at `0x8B359`. Output/report are disabled
+   for this new source. No main-frame navigation, document time-origin change
+   or application page error occurs.
+
+All three complete SPI downloads have the accepted SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`,
+140,913 changed bytes, zero changes outside the two original FFS owners and zero
+outside BIOS. All 1,572,864 non-BIOS bytes are unchanged. The ordinary builder's
+allocation, checksum, codec and independent reconstruction guards remain active.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-late-checksum-firefox-acceptance.mjs
+```
+
+`FIRMWARE_BROWSER_URL` optionally selects the local production preview; absent
+that variable, the checker uses Pages. Other browser options match the preceding
+checkers. Each Check retains its 15-minute limit. Private checker intermediates
+are removed on exit; public CI does not supply the source or run this probe.
+The native rejection delivery and resulting UI are observed, not a captured full
+return of the discarded React import. Naturally occurring failures, deployed
+post-fix acceptance, replacement during checksum rejection, file-read failures,
+other sources, desktop picker and hardware remain separate gates. Missing
+uncompressed AMI/mixed sources and parked P53 dynamic roots are unchanged.
