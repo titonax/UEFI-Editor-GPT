@@ -1,13 +1,61 @@
 # UEFI Editor GPT
 
-Web editor for analysing AMI Aptio IV/V HII and IFR structures. It builds the
-menu hierarchy from `FormSet`, `Form` and `Ref` relationships, explains the
-evidence behind visibility decisions, and prepares controlled Aptio V changes.
+Local browser editor for AMI Aptio IV/V, vendor-neutral UEFI HII and supported
+Phoenix legacy firmware. It explains menu and visibility evidence, stages
+transactional edits and rebuilds complete images only through supported,
+independently verified output paths.
 
 This repository is the quality-focused working copy of
 [`titonax/UEFI-Editor`](https://github.com/titonax/UEFI-Editor). Its code was
 copied from `master` at commit `462300f` and then refactored in place; it is not
 a parallel demo application.
+
+## Project status
+
+The current priority is closing the supported editing/output circuit and shared
+product hardening (phase 10), before expanding the BIOS corpus. The
+[roadmap](docs/roadmap.md) defines the work order and the
+[release evidence inventory](docs/release-evidence.json) records acceptance by
+path. Recognition, editable modules, complete-image output, browser acceptance
+and hardware validation are separate capabilities.
+
+| Path                                      | Current accepted scope                                                                                                                                                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phoenix legacy Z03                        | Proven Show callback, fixed-allocation LH5 rebuild, complete-image download and independent reread; Firefox sessions and undo/redo accepted.                                                                      |
+| AMI Tiano                                 | Exact accepted SPI source and documented four-operation HII/SetupData/root queue; Firefox output, v2 sessions, history, selection/order and controlled asynchronous probes accepted within their recorded limits. |
+| AMI LZMA                                  | Exact first source's HII suppression flow and exact nested source's combined queue; complete-image output and v2 sessions accepted in Firefox.                                                                    |
+| P53 UEFI HII                              | Exact static Setup Ref move with mirrored LZMA reconstruction, full-SPI preservation, Firefox sessions and history; dynamic roots remain blocked.                                                                 |
+| AMI uncompressed / mixed uncompressed HII | Reconstruction foundation exists; qualifying real-source and browser acceptance remain pending.                                                                                                                   |
+
+These are exact-source, operation-specific acceptances, not family-wide
+compatibility guarantees or a claimed 90% coverage rate. Firefox records use
+real headless Firefox; they do not establish a human desktop file-picker flow
+or physical flashing.
+
+### What remains
+
+- Finish shared lifecycle hardening and remaining browser gates, including stale
+  failures and pending build/checksum boundaries. Controlled native-result timing
+  probes have explicit limits; some old operations' complete returns were not
+  captured. Synthetic React/jsdom tests do not replace real-browser evidence.
+- Retain the missing qualifying-source gates for AMI uncompressed and mixed HII.
+  The completed existing-source inventory must not be mistaken for acceptance.
+- Complete Phoenix structural menu editing/Advanced2, controlled callback
+  execution and multi-image semantic generalization.
+- Broaden reconstruction only through separate acceptance work: unsupported EFI
+  compression variants, mixed compressed ancestry, allocation growth, AMITSE
+  retarget output and capsule output remain blocked. Award and AMIBIOS8 legacy
+  remain read-only.
+- Keep P53 dynamic-root research and new BIOS acquisition parked under the
+  current work order. Phase 9 corpus expansion follows closure of the current
+  editing/output circuit.
+- Obtain separate hardware/recovery acceptance before claiming it. The stable
+  release gate remains blocked by pending evidence.
+
+Complete SPI input requires complete SPI output with every byte outside BIOS
+preserved, including Descriptor, ME and GbE. A supported output must fit its
+allocation, pass required checksums and survive independent re-extraction and
+requested-edit verification before download is enabled.
 
 ## Current capabilities
 
@@ -58,10 +106,10 @@ a parallel demo application.
   exported as a PBE-compatible `TEMPLAT00.ROM`; unverified Phoenix edits remain
   disabled.
 
-> Full-image reinsertion/export remains disabled until deterministic
-> recompression, bottom-up rebuilding, checksum handling and independent
-> re-extraction verification are implemented. Artifact-level Aptio V export is
-> separate. Generating a BIOS that merely _looks_ valid is deliberately not.
+> Full-image export is available only for supported reconstruction paths and
+> their documented accepted scopes. Unsupported codecs, layouts, roots and
+> growth remain blocked. Artifact-level export alone does not establish
+> complete-image or hardware readiness.
 
 ## Usage
 
@@ -71,16 +119,19 @@ IFRExtractor WebAssembly analysis locally, then explains its evidence and the
 captured reconstruction path. Press **Start HII analysis** to open the already
 analysed menu tree. Shared Setup, AMITSE, NVAR and FFS structures are not treated
 as proof of Aptio IV or V; unresolved images remain clearly marked and
-full-image export stays disabled. If several coherent firmware contexts are
-present, select the intended slot before starting the HII tree.
+full-image export remains gated by reconstruction support and verification. If
+several coherent firmware contexts are present, select the intended slot before
+starting the HII tree.
 
 For PhoenixBIOS 4.0 modular ROMs, the same image selector displays its module
 inventory and opens decoded Setup screens when the template and strings modules
 validate. A menu item with a structurally verified non-zero visibility callback
 can be staged as visible and exported as `TEMPLAT00.ROM` for replacement and
-rebuild in Phoenix BIOS Editor. This is an artifact-level bridge, not a complete
-firmware writer. Phoenix UEFI images show SecCore module evidence and, when
-standard HII packages are found, use the vendor-neutral HII workspace.
+rebuild in Phoenix BIOS Editor. Supported fixed-allocation LH5 paths also offer
+verified complete-image rebuilding; the exact Z03 scope is accepted separately.
+Structural directory editing and allocation growth remain blocked. Phoenix UEFI
+images show SecCore module evidence and, when standard HII packages are found,
+use the vendor-neutral HII workspace.
 
 The tree uses these states:
 
@@ -108,8 +159,9 @@ not treated as proof that a page is a top-level tab.
 For a detected multi-FormSet root vector, press the desired-state button beside
 any root to alternate between `Visible (01)` and `Hidden (00)`. The original BIOS
 state remains visible beside it. Pressing the button back to the original value
-removes that pending change. These plans are included in `data.json`, but
-full-image export remains blocked until reconstruction can apply and verify them.
+removes that pending change. These plans are included in `data.json`; supported
+full-image paths apply and independently verify them. A root plan never unlocks
+an unsupported writer.
 
 For compatibility measurement, use **Local firmware corpus runner** on the
 landing page and select several complete images. The runner processes one image
@@ -141,10 +193,10 @@ npm run build
 npm run check
 ```
 
-GitHub Pages deployment is intentionally manual. Enable Pages with **GitHub
-Actions** as its source in the repository settings, then run the `Build and
-deploy static content to Pages` workflow. Pull requests still compile the WASM
-toolchain without attempting a deployment.
+GitHub Pages builds and deploys automatically on pushes to `main` through the
+`Build and deploy static content to Pages` workflow. Pull requests compile the
+WASM toolchain and run build checks without deploying. A manual workflow trigger
+also exists; it is not required for the normal merge/deployment flow.
 
 The automated suite covers hexadecimal bounds, deep JSON validation, SetupData
 and AMITSE discovery, text and binary IFR parsing, condition semantics,
@@ -152,8 +204,9 @@ GUID-aware tree construction, broken references and binary patch preconditions.
 Coverage thresholds are enforced by `npm run check` and pull-request CI.
 
 The application release is `0.5.0`; exported `data.json` files use schema
-`0.7.0`. Those versions are independent so application releases do not
-unnecessarily invalidate saved editor state.
+`0.7.0`. Portable queue sessions use a separate version-2 contract with strict
+version-1 migration; they are not editor snapshots. Those versions are independent
+so application releases do not unnecessarily invalidate saved editor state.
 
 ## Design rules
 
