@@ -245,6 +245,17 @@ export default function App({
               changeQueue={dataQueue}
               setData={setData}
               onError={handleError}
+              onClose={() => {
+                setFiles({
+                  setupSctContainer: { isWrongFile: false },
+                  setupTxtContainer: { isWrongFile: false },
+                  amitseSctContainer: { isWrongFile: false },
+                  setupdataBinContainer: { isWrongFile: false },
+                });
+                dataQueue.replaceBase(emptyData);
+                setCurrentFormIndex(-1);
+                setError("");
+              }}
             />
           </AppShell.Footer>
           <AppShell.Main>

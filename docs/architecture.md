@@ -86,6 +86,16 @@ and the read-only CorpusRunner integration.
 
 ## Queue history
 
+AMI source replacement is explicit through the footer's Load another firmware
+control. App clears extracted files/provenance, editor base, selected Form and
+error before returning to upload; the queue source reset and footer unmount
+discard Apply/history/output. AMI editor-JSON imports are lifetime/source-bound
+and latest-request-only: stale reads, checksums and errors are discarded after
+close, unmount or files replacement. These UI guards do not replace imported
+source/offset checks or independent full-image verification. See
+[the lifecycle record](ami/source-replacement.md) for synthetic scope and open
+real-browser gates.
+
 The shared React queue controller keeps at most 50 previous entry lists for each
 opened source, retaining immutable entry/payload references rather than firmware
 copies or projected Data snapshots. Undo/redo covers queue mutations, including
