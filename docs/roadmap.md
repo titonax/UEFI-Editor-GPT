@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#168 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#169 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -529,8 +529,12 @@ list the blocker for every unsupported case.
   plus React/jsdom validation. The exact Tiano ready-output replacement gate
   now separately passes deployed Firefox on PR #168: no document navigation,
   fresh original base/empty history, new identical complete-SPI output and
-  independent four-edit reread. Replacement during pending builds/imports and
-  stale failures remain separate browser gates. Existing
+  independent four-edit reread. A separate controlled native JSON-read delivery
+  probe on deployed PR #169 now retains a newer verified output after source
+  replacement and old real-text delivery, with a current-import positive control
+  and independent four-edit reread. This is not ordinary browser scheduling or
+  observation of the old import's full return. Pending builds/checksums, read
+  failures and other asynchronous interleavings remain separate gates. Existing
   codecs, reconstruction/ownership checks and full-SPI requirements are unchanged.
 
 - Pre-save risk, space, compression and affected-region report: the AMI footer
