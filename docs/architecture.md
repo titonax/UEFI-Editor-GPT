@@ -91,7 +91,9 @@ control. App clears extracted files/provenance, editor base, selected Form and
 error before returning to upload; the queue source reset and footer unmount
 discard Apply/history/output. AMI editor-JSON imports are lifetime/source-bound
 and latest-request-only: stale reads, checksums and errors are discarded after
-close, unmount or files replacement. These UI guards do not replace imported
+close, unmount, files replacement or a queue revision change. Editing or
+undoing back to identical entries still cancels a pending import, so it cannot
+commit or report errors against an obsolete projection. These UI guards do not replace imported
 source/offset checks or independent full-image verification. See
 [the lifecycle record](ami/source-replacement.md) for synthetic scope and open
 real-browser gates.

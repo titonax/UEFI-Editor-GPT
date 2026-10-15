@@ -21,6 +21,16 @@ binary hydration, root-plan and navigation checks are unchanged.
 
 ## Reproducible synthetic validation
 
+The pending AMI editor-JSON guard also binds the queue revision. A newer queue
+mutation cancels old reads/checksums/errors even when the source stays open,
+including Undo returning to identical entries. Four new React/jsdom regressions
+failed before this fix: read/checksum success and rejection after a newer edit
+could still report an obsolete error. They pass with revision invalidation;
+an additional Undo regression checks identical restored contents. Existing
+current-import rejection and source-replacement tests remain in force. This
+implementation block does not claim a new real-source/Firefox rerun or hardware
+acceptance; binary import checks, codecs and writer requirements are unchanged.
+
 ```bash
 npm ci
 npx vitest run src/App.test.tsx src/components/Footer/Footer.test.tsx

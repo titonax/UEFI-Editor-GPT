@@ -286,6 +286,83 @@ describe("AMI complete-image user flow (synthetic integration)", () => {
     },
   );
 
+  it.each(["read-success", "read-failure", "checksum-success", "checksum-failure"])(
+    "discards %s after a newer queue edit on the same source",
+    async (scenario) => {
+      const onError = vi.fn();
+      let resolve!: (value: string) => void;
+      let reject!: (reason: Error) => void;
+      const pending = new Promise<string>((done, fail) => {
+        resolve = done;
+        reject = fail;
+      });
+      const imported = firmwareData();
+      imported.forms[0].name = "Imported old state";
+      const text = JSON.stringify(imported);
+      const checksum = vi
+        .spyOn(scripts, "calculateJsonChecksum")
+        .mockReturnValue(
+          scenario.startsWith("checksum") ? pending : Promise.resolve("offsets"),
+        );
+      render(<Workspace onError={onError} />);
+      const file = new File([], "data.json");
+      Object.defineProperty(file, "text", {
+        value: () => (scenario.startsWith("read") ? pending : Promise.resolve(text)),
+      });
+      const input = document.querySelector('input[type="file"][accept=".json"]');
+      if (!input) throw new Error("Expected JSON input");
+      fireEvent.change(input, { target: { files: [file] } });
+      if (scenario.startsWith("checksum"))
+        await waitFor(() => {
+          expect(checksum).toHaveBeenCalledTimes(1);
+        });
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Change all Access Levels in this Form to",
+        }),
+      );
+      expect(screen.getByRole("button", { name: "Change queue (1)" })).toBeEnabled();
+      await act(async () => {
+        if (scenario.endsWith("failure")) reject(new Error("Stale import failure"));
+        else resolve(scenario.startsWith("read") ? text : "offsets");
+        await pending.catch(() => undefined);
+      });
+      expect(onError).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Change queue (1)" })).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeDisabled();
+      expect(buildAmiFirmwareImage).not.toHaveBeenCalled();
+      expect(saveAs).not.toHaveBeenCalled();
+    },
+  );
+
+  it("discards a pending read even after undo restores identical queue contents", async () => {
+    const onError = vi.fn();
+    let resolve!: (text: string) => void;
+    const pending = new Promise<string>((done) => {
+      resolve = done;
+    });
+    render(<Workspace onError={onError} />);
+    const file = new File([], "data.json");
+    Object.defineProperty(file, "text", { value: () => pending });
+    const input = document.querySelector('input[type="file"][accept=".json"]');
+    if (!input) throw new Error("Expected JSON input");
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change all Access Levels in this Form to" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (1)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo queue change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await act(async () => {
+      resolve("invalid old JSON");
+      await pending;
+    });
+    expect(onError).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Change queue (0)" })).toBeEnabled();
+  });
+
   it("ignores an older read superseded by a current import in the same source", async () => {
     const onError = vi.fn();
     let resolve!: (text: string) => void;
