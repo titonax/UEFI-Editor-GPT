@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#166 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#167 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -520,6 +520,15 @@ Exit gate: the dashboard can state exactly what the 90% target measures and
 list the blocker for every unsupported case.
 
 ## 10. Product hardening
+
+- [AMI same-page source replacement](ami/source-replacement.md) is implemented:
+  explicit return to upload, source/base/selection/error reset, queue/history/Apply
+  reset and output unmount. AMI JSON import discards stale file-read/checksum
+  successes and failures. Synthetic App/real-footer/queue tests also complete or
+  reject an old build after verifying a reopened source. This is implementation
+  plus React/jsdom validation only; accepted-source same-document replacement
+  and stale failures in real Firefox remain the next browser gates. Existing
+  codecs, reconstruction/ownership checks and full-SPI requirements are unchanged.
 
 - Pre-save risk, space, compression and affected-region report: the AMI footer
   checks the complete applied queue before download and reports verified packed

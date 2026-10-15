@@ -32,6 +32,7 @@ interface FooterProps {
   setData: Updater<Data>;
   currentFormIndex: number;
   onError: (message: string) => void;
+  onClose?: () => void;
 }
 
 export default function Footer({
@@ -42,8 +43,16 @@ export default function Footer({
   changeQueue,
   setData,
   onError,
+  onClose,
 }: FooterProps) {
   const resetRef = React.useRef<() => void>(null);
+  const importContext = React.useRef<object | null>(null);
+  React.useLayoutEffect(() => {
+    importContext.current = {};
+    return () => {
+      importContext.current = null;
+    };
+  }, [files]);
   const [input, setInput] = React.useState("05");
   const [queueOpened, setQueueOpened] = React.useState(false);
   const [reportOpened, setReportOpened] = React.useState(false);
@@ -99,13 +108,30 @@ export default function Footer({
       )}
       <Group justify="space-between" gap={"xs"} className={s.maxWidth}>
         <Group gap={"xs"}>
+          {onClose && (
+            <Button
+              size="xs"
+              variant="default"
+              onClick={() => {
+                // Cancel imports synchronously, before the parent unmounts us.
+                importContext.current = null;
+                onClose();
+              }}
+            >
+              Load another firmware
+            </Button>
+          )}
           <FileButton
             resetRef={resetRef}
             accept=".json"
             onChange={(file) => {
               if (file) {
+                const context = {};
+                importContext.current = context;
+                const isCurrent = () => importContext.current === context;
                 void (async () => {
                   const fileData = await file.text();
+                  if (!isCurrent()) return;
                   let jsonData = parseDataFile(fileData);
 
                   if (
@@ -120,6 +146,7 @@ export default function Footer({
                       jsonData.suppressions,
                     )) === jsonData.hashes.offsetChecksum
                   ) {
+                    if (!isCurrent()) return;
                     // Binary provenance is rebuilt from the opened source. Stored
                     // edit plans are replayed only when every byte precondition holds.
                     jsonData = hydrateIfrBinary(
@@ -140,6 +167,7 @@ export default function Footer({
                     setData(jsonData);
                     onError("");
                   } else {
+                    if (!isCurrent()) return;
                     onError(
                       "Wrong data.json version, source hashes, or offset checksum.",
                     );
@@ -147,6 +175,7 @@ export default function Footer({
 
                   resetRef.current?.();
                 })().catch((reason: unknown) => {
+                  if (!isCurrent()) return;
                   onError(errorMessage(reason));
                   resetRef.current?.();
                 });

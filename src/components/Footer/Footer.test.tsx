@@ -19,6 +19,7 @@ import {
   type AmiFirmwareBuildResult,
 } from "../scripts/amiFirmwareRebuilder";
 import Footer from "./Footer";
+import * as scripts from "../scripts/scripts";
 
 // The queue, provenance assessment, Footer and report are real. Mock only the
 // expensive builder boundary and download adapter; complete binary acceptance
@@ -99,7 +100,9 @@ function files(): PopulatedFiles {
     },
   };
 }
-function Workspace() {
+const ignoreError = () => undefined;
+function Workspace({ onError = ignoreError }: { onError?: (message: string) => void }) {
+  const [opened, setOpened] = React.useState(true);
   const [openedFiles, setFiles] = React.useState(files);
   const [base] = React.useState(() =>
     firmwareData({
@@ -117,15 +120,31 @@ function Workspace() {
       >
         Reload source
       </button>
-      <Footer
-        files={openedFiles}
-        data={queue.previewData}
-        appliedData={queue.appliedData}
-        changeQueue={queue}
-        setData={queue.enqueueData}
-        currentFormIndex={0}
-        onError={vi.fn()}
-      />
+      {!opened && (
+        <button
+          onClick={() => {
+            setOpened(true);
+          }}
+        >
+          Open source again
+        </button>
+      )}
+      {opened && (
+        <Footer
+          files={openedFiles}
+          data={queue.previewData}
+          appliedData={queue.appliedData}
+          changeQueue={queue}
+          setData={queue.enqueueData}
+          currentFormIndex={0}
+          onError={onError}
+          onClose={() => {
+            setOpened(false);
+            setFiles(files());
+            queue.replaceBase(base);
+          }}
+        />
+      )}
     </MantineProvider>
   );
 }
@@ -186,7 +205,139 @@ describe("AMI complete-image user flow (synthetic integration)", () => {
   });
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it.each(["success", "failure"])(
+    "discards a late %sful file read after closing and reopening the source",
+    async (outcome) => {
+      const onError = vi.fn();
+      let resolve!: (text: string) => void;
+      let reject!: (reason: Error) => void;
+      const read = new Promise<string>((done, fail) => {
+        resolve = done;
+        reject = fail;
+      });
+      render(<Workspace onError={onError} />);
+      const file = new File([], "data.json");
+      Object.defineProperty(file, "text", { value: () => read });
+      const input = document.querySelector('input[type="file"][accept=".json"]');
+      if (!input) throw new Error("Expected JSON input");
+      fireEvent.change(input, { target: { files: [file] } });
+      fireEvent.click(screen.getByRole("button", { name: "Load another firmware" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open source again" }));
+      await act(async () => {
+        if (outcome === "success") resolve("malformed old JSON");
+        else reject(new Error("old read failed"));
+        await read.catch(() => undefined);
+      });
+      expect(onError).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Change queue (0)" })).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "Modified firmware image" }),
+      ).toBeDisabled();
+      expect(saveAs).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["matching", "mismatching", "rejected"])(
+    "discards a late %s checksum after source replacement but reports current import failures",
+    async (outcome) => {
+      const onError = vi.fn();
+      let resolve!: (checksum: string) => void;
+      let reject!: (reason: Error) => void;
+      const checksum = new Promise<string>((done, fail) => {
+        resolve = done;
+        reject = fail;
+      });
+      const calculate = vi
+        .spyOn(scripts, "calculateJsonChecksum")
+        .mockReturnValue(checksum);
+      render(<Workspace onError={onError} />);
+      const file = new File([], "data.json");
+      Object.defineProperty(file, "text", {
+        value: () => Promise.resolve(JSON.stringify(firmwareData())),
+      });
+      const importFile = () => {
+        const input = document.querySelector('input[type="file"][accept=".json"]');
+        if (!input) throw new Error("Expected JSON input");
+        fireEvent.change(input, { target: { files: [file] } });
+      };
+      importFile();
+      await waitFor(() => {
+        expect(calculate).toHaveBeenCalledTimes(1);
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Reload source" }));
+      await act(async () => {
+        if (outcome === "rejected") reject(new Error("Old checksum failed"));
+        else resolve(outcome === "matching" ? "offsets" : "wrong checksum");
+        await checksum.catch(() => undefined);
+      });
+      expect(onError).not.toHaveBeenCalled();
+      calculate.mockResolvedValue("wrong checksum");
+      importFile();
+      await waitFor(() => {
+        expect(onError).toHaveBeenCalledWith(
+          "Wrong data.json version, source hashes, or offset checksum.",
+        );
+      });
+      expect(screen.getByRole("button", { name: "Change queue (0)" })).toBeEnabled();
+    },
+  );
+
+  it("ignores an older read superseded by a current import in the same source", async () => {
+    const onError = vi.fn();
+    let resolve!: (text: string) => void;
+    const read = new Promise<string>((done) => {
+      resolve = done;
+    });
+    render(<Workspace onError={onError} />);
+    const input = document.querySelector('input[type="file"][accept=".json"]');
+    if (!input) throw new Error("Expected JSON input");
+    const old = new File([], "old.json");
+    Object.defineProperty(old, "text", { value: () => read });
+    fireEvent.change(input, { target: { files: [old] } });
+    const current = new File([], "current.json");
+    Object.defineProperty(current, "text", { value: () => Promise.resolve("{") });
+    fireEvent.change(input, { target: { files: [current] } });
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+    const currentError: unknown = onError.mock.calls[0][0];
+    await act(async () => {
+      resolve("old invalid JSON");
+      await read;
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenLastCalledWith(currentError);
+  });
+
+  it("closes a verified workspace and reopens with no output, Apply or history", async () => {
+    vi.mocked(buildAmiFirmwareImage).mockResolvedValue(output);
+    render(<Workspace />);
+    await applyQueue();
+    fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Output details" })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Load another firmware" }));
+    expect(
+      screen.queryByRole("button", { name: "Output details" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open source again" }));
+    expect(
+      screen.getByRole("button", { name: "Check firmware output" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Modified firmware image" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Change queue (0)" }));
+    expect(
+      await screen.findByRole("button", { name: "Undo queue change" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Redo queue change" })).toBeDisabled();
+    expect(saveAs).not.toHaveBeenCalled();
   });
 
   it("requires apply and completed verification, then downloads exact cached bytes without rebuilding", async () => {
@@ -243,6 +394,44 @@ describe("AMI complete-image user flow (synthetic integration)", () => {
     if (!(log instanceof Blob)) throw new Error("Change log is not a blob.");
     expect(new TextDecoder().decode(await readBlob(log))).toBe(output.changeLog);
   });
+
+  it.each(["resolve", "reject"])(
+    "ignores an old build's late %s after closing, reopening and verifying a new source",
+    async (outcome) => {
+      let resolve!: (result: AmiFirmwareBuildResult) => void;
+      let reject!: (reason: Error) => void;
+      const old = new Promise<AmiFirmwareBuildResult>((done, fail) => {
+        resolve = done;
+        reject = fail;
+      });
+      vi.mocked(buildAmiFirmwareImage)
+        .mockReturnValueOnce(old)
+        .mockResolvedValue(output);
+      render(<Workspace />);
+      await applyQueue();
+      fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+      fireEvent.click(screen.getByRole("button", { name: "Load another firmware" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open source again" }));
+      await applyQueue();
+      fireEvent.click(screen.getByRole("button", { name: "Check firmware output" }));
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Output details" })).toBeEnabled(),
+      );
+      await act(async () => {
+        if (outcome === "resolve") resolve({ ...output, fileName: "old.bin" });
+        else reject(new Error("Old source failed"));
+        await old.catch(() => undefined);
+      });
+      expect(screen.getByRole("button", { name: "Output details" })).toBeEnabled();
+      expect(screen.queryByText(/Old source failed/)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Modified firmware image" }));
+      expect(vi.mocked(saveAs).mock.calls.map((call) => call[1])).toEqual([
+        "verified.bin",
+        "changelog.txt",
+      ]);
+      expect(buildAmiFirmwareImage).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it("shows allocation failure without downloading and permits a successful retry", async () => {
     vi.mocked(buildAmiFirmwareImage)
