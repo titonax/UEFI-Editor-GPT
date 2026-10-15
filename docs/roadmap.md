@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-15
 
-PRs #119–#123 and #128–#172 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#175 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -555,6 +555,13 @@ list the blocker for every unsupported case.
   reread. The native module is unchanged but its imports are deliberately omitted
   only at the injected boundary; this is not spontaneous failure or observation
   of the old hook's full return. See the same lifecycle record and opt-in checker.
+  Current AMI import errors are now displayed in the active editor; the upload-only
+  alert previously hid a native checksum rejection from the user. A synthetic
+  App/real-queue regression verifies the alert, retained applied queue and
+  clearing after success. The separate local-production Firefox native checksum
+  rejection probe passes stale rejection after Clear/Undo, visible current failure,
+  retry/invalidation and independent exact-SPI reread. Deployed post-fix acceptance
+  and replacement during checksum rejection remain open; see the lifecycle record.
   Other pending-build boundaries, checksum races, read
   failures and other asynchronous interleavings remain separate gates. Existing
   codecs, reconstruction/ownership checks and full-SPI requirements are unchanged.

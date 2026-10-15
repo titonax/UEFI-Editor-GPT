@@ -93,7 +93,10 @@ discard Apply/history/output. AMI editor-JSON imports are lifetime/source-bound
 and latest-request-only: stale reads, checksums and errors are discarded after
 close, unmount, files replacement or a queue revision change. Editing or
 undoing back to identical entries still cancels a pending import, so it cannot
-commit or report errors against an obsolete projection. These UI guards do not replace imported
+commit or report errors against an obsolete projection. Current AMI editor import
+errors are rendered in the active editor, not only in the upload branch. Failed
+imports retain the existing queue and verified output; successful imports clear
+the alert and invalidate output through the normal queue mutation. These UI guards do not replace imported
 source/offset checks or independent full-image verification. See
 [the lifecycle record](ami/source-replacement.md) for synthetic scope and open
 real-browser gates.

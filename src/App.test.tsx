@@ -60,6 +60,20 @@ vi.mock("./components/Footer/Footer", () => ({
       <button onClick={changeQueue.apply}>Apply</button>
       <button
         onClick={() => {
+          onError("Synthetic checksum rejection");
+        }}
+      >
+        Fail import
+      </button>
+      <button
+        onClick={() => {
+          onError("");
+        }}
+      >
+        Successful import
+      </button>
+      <button
+        onClick={() => {
           onError("Previous source error");
           onClose?.();
         }}
@@ -136,5 +150,36 @@ it("returns AMI to upload and resets source data, selection, queue, Apply, histo
   expect(await screen.findByText("Form index -1")).toBeInTheDocument();
   expect(
     screen.getByText("Entries 0; undo false; redo false; applied false"),
+  ).toBeInTheDocument();
+});
+
+it("shows current editor import failures without discarding the applied queue and clears them after success", async () => {
+  render(
+    <MantineProvider env="test">
+      <AppShell>
+        <App
+          navigationWidth={300}
+          navigationMinWidth={200}
+          navigationMaxWidth={600}
+          onNavigationWidthChange={vi.fn()}
+          onNavigationWidthReset={vi.fn()}
+        />
+      </AppShell>
+    </MantineProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic source" }));
+  await screen.findByRole("button", { name: "Stage" });
+  fireEvent.click(screen.getByRole("button", { name: "Stage" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+  fireEvent.click(screen.getByRole("button", { name: "Fail import" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Editor import failed");
+  expect(screen.getByRole("alert")).toHaveTextContent("Synthetic checksum rejection");
+  expect(
+    screen.getByText("Entries 1; undo true; redo false; applied true"),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Successful import" }));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(
+    screen.getByText("Entries 1; undo true; redo false; applied true"),
   ).toBeInTheDocument();
 });
