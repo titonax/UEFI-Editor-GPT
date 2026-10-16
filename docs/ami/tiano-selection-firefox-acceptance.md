@@ -120,3 +120,53 @@ specific move-only subset/reselection browser gate. Other subsets, the five-entr
 restore plan, sessions with paused entries, permutations/sources, asynchronous
 races and hardware remain separate gates. No writer, format or growth allowance
 is enabled; missing uncompressed AMI/mixed sources and parked P53 work remain.
+
+## Bounded five-entry Boot restore output
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`09dd3c5345cd88a357e7ceced6a2808873ef7c24` (PR #180), after successful exact-SHA
+Quality, build and automatic Pages deployment. Firefox 153.0 / Playwright 1.62.1,
+headless Linux, 1600 × 1000 loaded the same `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm` assets.
+The same authorized complete SPI was size/hash checked afresh. There was no
+browser API, application, codec or builder mocking or fault injection.
+
+1. Stage/apply the four original operations in physical queue order: Ref move,
+   Security flags, JSON suppression override and Hide Boot. Fresh Check/download
+   matches the previously accepted four-edit full SPI hash above.
+2. Stage Show Boot through the actual desired-root control as a fifth entry.
+   Output, Check and details invalidate. Pause Hide Boot: Apply is disabled and
+   comparison is unavailable with the strict dependency diagnostic. Re-enable
+   Hide Boot: the five-entry plan is coherent but still requires fresh Apply.
+3. Apply/Check/download the five-entry plan. Its complete SPI matches the
+   separately reproduced [engine restore result](tiano-combined-queue-acceptance.md#bounded-hideshow-boot-cancellation),
+   SHA-256 `d9c22589b68884e973af22f87f718b7fc9fb130bfbdcca3871a55c12d294f3be`.
+   Read-only comparison preserves this verified output.
+4. Remove Show Boot and then Hide Boot through their queue controls. Each removal
+   invalidates output. The remaining three selected entries require a fresh
+   Apply/Check/download, yielding a byte-identical result to the five-entry plan.
+5. Independently reopen and normally analyze both actual restored/net-three
+   downloads. Both retain 70 Forms, Security `00`, an empty `0x8B359` suppression
+   body, the DRAM Ref absent from Ai Tweaker and present exactly once in CPU Power
+   Management, and all seven original root values `1111111`, including Boot.
+   Source replacement resets output/details. No application page errors occur.
+
+Both restored/net-three downloads are complete 8,388,608-byte SPIs with 49,938
+changed bytes, confined to the same original two FFS allocations above. Every
+byte outside BIOS is identical. The expected restored hash/count came from
+independent engine reconstruction before the Firefox run, not from accepting an
+unknown browser output on sight. The writer retains allocation fit, codec round
+trip, checksum repair and independent reconstruction verification.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-boot-restore-firefox-acceptance.mjs
+```
+
+Browser settings match the earlier checker. Check retains its 15-minute limit;
+private intermediates are removed on exit and public CI receives no source.
+This closes only the exact coherent Hide/Show Boot restore-plan output gate.
+Other subsets, sessions with paused entries, permutations/sources, asynchronous
+races, desktop picker and physical hardware remain separate. Uncompressed AMI
+and mixed HII still lack qualifying real-source acceptance; no format, allocation
+growth, capsule or P53 dynamic-root allowance is added.

@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-16
 
-PRs #119–#123 and #128–#179 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#180 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -139,7 +139,11 @@ independent Boot/suppression reorder with identical output, and blocked paused
 or reordered root dependencies. Its separate deployed PR #179 run now verifies
 the exact move-only subset with Security/suppression/Boot paused: known full-SPI
 hash, untouched paused states, fresh reselected full output identical to baseline
-and independent rereads of both variants. Other subsets, permutations/sources
+and independent rereads of both variants. A deployed PR #180 run separately
+rebuilds the coherent five-entry Hide/Show Boot restore plan and the equivalent
+three-entry plan without either root action: both match the independently
+reproduced engine hash and reread with all original roots plus the other three
+edits intact. Other subsets, sessions with paused entries, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
 verifies an old real codec continuation after a newer verified output in Firefox
@@ -628,7 +632,10 @@ list the blocker for every unsupported case.
   full-SPI output and dependency rejection in real Firefox. A separate deployed
   PR #179 run now also rebuilds the exact move-only paused subset and fresh full
   reselection, with the existing engine hashes, no non-BIOS changes and independent
-  rereads confirming selected edits and unchanged paused states. Other subsets,
+  rereads confirming selected edits and unchanged paused states. Deployed PR #180
+  separately passes five-entry Hide/Show Boot cancellation and fresh equivalent
+  three-entry output, with the engine hash, full-SPI preservation and independent
+  rereads confirming all original roots and the three requested edits. Other subsets,
   variants and asynchronous races remain separate gates.
   The [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md)
   separately verifies the newer output survives the old codec continuation using real
