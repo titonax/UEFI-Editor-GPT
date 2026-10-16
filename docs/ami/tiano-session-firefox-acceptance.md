@@ -80,3 +80,66 @@ establish combined v1 replay, AMITSE menu reassignment, other sources or codecs,
 human desktop file-picker behavior, hardware flashing or recovery. Ref-only v1
 acceptance remains separately recorded for P53; its old format cannot represent
 this combined queue. P53 dynamic roots and new BIOS cases remain parked.
+
+## Bounded paused v2 session
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`8009a07fe24d56dec36b79e5911c0cde577f26b8` (PR #181), after successful exact-SHA
+Quality, build and automatic Pages deployment. Firefox 153.0 / Playwright 1.62.1,
+headless Linux, 1600 × 1000 loaded `index-LM6CCH_b.js`, `index-D4JOsfQ5.css`,
+`tiano-decompress.wasm` and `ifrextractor.wasm`. Browser sandbox/certificate
+settings match the earlier checker. The same authorized source was checked
+afresh for its complete size and SHA-256. No browser API, application, editor,
+queue, codec or writer was mocked or fault-injected.
+
+1. Stage the same four operations above, then pause Security, suppression and
+   Hide Boot through their real checkboxes. Keep all entries in order, with only
+   the Ref move enabled. Apply/Check/download produces the existing accepted
+   move-only full SPI, not the four-edit result.
+2. Save the queue from that ready-output state. Assert the exact metadata-only
+   v2 schema and selectors above, with enabled flags `[true, false, false, false]`.
+   Saving preserves the verified download and details; no source filename,
+   firmware bytes, decoded data, offsets, history or Apply state are exported.
+3. Clear the queue: output, Check and details invalidate. Load the session via
+   the normal file control. All four entries/order and the exact paused selection
+   return, but no Apply or verified output does. Re-export is JSON-value identical
+   to the original session. Fresh Apply/Check/download yields a byte-identical
+   move-only complete SPI.
+4. Change only the paused root operation's selector to nonexistent root index
+   `999`, keeping it disabled and source/context identities unchanged. Loading
+   rejects with `targets a missing or ambiguous root`; the prior queue, selection,
+   verified output and details remain intact. Another export equals the original
+   session. A paused entry therefore still undergoes semantic root validation;
+   this is not merely a malformed-schema or changed-source rejection.
+5. Reactivate the three restored entries. Each mutation invalidates output.
+   Fresh Apply/Check/download matches the existing accepted four-edit full SPI.
+6. Independently reopen and normally analyze the restored move-only download
+   and the reselected full download. Both retain 70 Forms and the Ref absent from
+   Ai Tweaker and present exactly once in CPU Power Management. The subset retains
+   Security `01`, Boot `1` and the active nonempty suppression at `0x8B359`; the
+   full output has Security `00`, Boot zero and an empty suppression body.
+   Reopening resets output/details. Loading the original paused session on the
+   changed full SPI rejects with different image/context, leaving the queue empty
+   and download disabled. No application page errors occur.
+
+All three downloads remain complete 8,388,608-byte SPIs. Both move-only outputs
+have SHA-256 `b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`
+and 12,295 changed bytes only in Setup FFS `[4612464, 4781106)`; the companion
+FFS remains unchanged. The full output retains SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changed bytes inside the two original FFS owners above. Every byte
+outside BIOS is identical. Both expected hashes/counts come from existing engine
+evidence, not calibration to this browser run. Normal allocation, codec,
+checksum and independent reconstruction guards remain in force.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-paused-session-firefox-acceptance.mjs
+```
+
+The opt-in checker retains the 15-minute Check limit and removes private
+intermediates on exit; public CI does not supply the source. This closes only
+the exact one-enabled/three-paused combined v2 round trip and its described
+rejections. Other selections, dependent paused sessions, session Undo/Redo,
+asynchronous save/load races, other sources/families, desktop picker, combined v1
+and hardware remain separate gates. No writer/format or source gate is unlocked.

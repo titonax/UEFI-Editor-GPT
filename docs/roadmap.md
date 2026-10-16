@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-16
 
-PRs #119–#123 and #128–#180 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#181 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -143,7 +143,11 @@ and independent rereads of both variants. A deployed PR #180 run separately
 rebuilds the coherent five-entry Hide/Show Boot restore plan and the equivalent
 three-entry plan without either root action: both match the independently
 reproduced engine hash and reread with all original roots plus the other three
-edits intact. Other subsets, sessions with paused entries, permutations/sources
+edits intact. A separate deployed PR #181 combined v2 session run now preserves
+the exact move-only selection with three paused entries through export/clear/import,
+metadata-identical re-export and fresh output; an invalid paused root rejects
+atomically while verified output remains intact. Independent rereads and changed-image
+rejection pass. Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
 verifies an old real codec continuation after a newer verified output in Firefox
@@ -608,7 +612,11 @@ list the blocker for every unsupported case.
   The [exact Tiano combined session acceptance](ami/tiano-session-firefox-acceptance.md)
   reproduces metadata-only v2 export/import for move, mapped SetupData flags,
   suppression and root actions, fresh exact complete-SPI output and identity
-  rejection in deployed Firefox. It does not claim a combined v1 session.
+  rejection in deployed Firefox. A separate deployed PR #181 run also passes the
+  exact one-enabled/three-paused v2 round trip, metadata-identical re-export,
+  fresh move-only output and full reselection, invalid paused-root atomic rejection
+  retaining verified output, independent rereads and changed-image rejection.
+  Other selections/dependencies, session history/races and combined v1 remain separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed
