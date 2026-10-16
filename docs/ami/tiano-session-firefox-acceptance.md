@@ -143,3 +143,51 @@ the exact one-enabled/three-paused combined v2 round trip and its described
 rejections. Other selections, dependent paused sessions, session Undo/Redo,
 asynchronous save/load races, other sources/families, desktop picker, combined v1
 and hardware remain separate gates. No writer/format or source gate is unlocked.
+
+## Bounded session-load Undo/Redo
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`873dabb19c66cb94776e4e761ca67ca19e39197c` (PR #182), after fresh exact-SHA
+Quality, build and automatic Pages deployment success. The extended checker
+above ran with Firefox 153.0 / Playwright 1.62.1, headless Linux, 1600 × 1000,
+the same browser sandbox/certificate options and the same `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm` assets.
+The authorized source was checked afresh for size/SHA-256. No browser API,
+application, queue, codec or writer was mocked or fault-injected.
+
+The earlier paused-session export/clear/import, invalid paused-root atomic
+rejection and full reselection steps all pass again. The extension then:
+
+1. Loads the original one-enabled/three-paused v2 session directly over the
+   four-enabled queue with its complete output ready, without clearing first.
+   The whole selection changes and Check, download and details invalidate.
+2. Clicks Undo once: all four original entries return selected, in original
+   order, without Apply/output restoration. Redo once returns the exact paused
+   selection. A new export equals the original session, including metadata-only
+   schema and enabled flags; no imported/saved history is needed.
+3. Applies/checks/downloads the Redo selection afresh. This move-only complete
+   SPI is byte-identical to the earlier restored-session move-only output.
+4. Clicks Undo from that verified-output state: all four entries return selected
+   and output invalidates again. Fresh Apply/Check/download is byte-identical
+   to the earlier four-edit output. Apply and Check leave Redo available.
+5. Clicks Redo with this full output ready: the paused selection returns, but
+   Check, download and details are disabled again rather than reviving old bytes.
+6. Independently reopens/analyzes the actual post-Redo move-only and post-Undo
+   full downloads. The 70 Forms, unique moved Ref, original paused Security/Boot/
+   suppression states in the subset and requested four-edit full states match
+   the assertions above. Changed-image session rejection still leaves an empty
+   queue and disabled download. No application page errors occur.
+
+All five downloads are complete 8,388,608-byte SPIs. The three move-only results
+retain SHA-256 `b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`
+and 12,295 changes confined to original Setup FFS. The two full results retain
+SHA-256 `264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changes confined to the original two owners. Every non-BIOS byte
+remains identical. No expected hash, allocation, codec, checksum, timeout or
+independent reconstruction guard changed. Private intermediates are removed on
+exit; the same opt-in command above reproduces this extended flow.
+
+This closes only the described session-load single-mutation Undo/Redo gate for
+this exact source/selection. Other history sequences, sources, dependent paused
+plans, asynchronous save/load races, combined v1, desktop picker and physical
+hardware remain separate. P53 dynamic roots and new BIOS remain parked.
