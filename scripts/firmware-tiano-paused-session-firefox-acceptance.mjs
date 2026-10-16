@@ -227,51 +227,54 @@ async function openSource(page, source) {
     await openSource(page, path.join(work, "source.bin"));
     console.log("OPENED", await browser.version(), [...assets]);
 
-    const moves = page.getByRole("button", {
-      name: "Move DRAM Timing Control",
-      exact: true,
-    });
-    assert.equal(await moves.count(), 1);
-    await moves.click();
-    const destination = page.getByPlaceholder("Choose the new parent menu");
-    await destination.fill("CPU Power Management");
-    await page
-      .getByText(/^Safe · CPU Power Management ·/)
-      .last()
-      .click();
-    await page
-      .getByRole("dialog", { name: "Move HII menu", exact: true })
-      .getByRole("button", { name: "Move menu", exact: true })
-      .click();
-    await page.getByRole("button").filter({ hasText: /^Main/ }).first().click();
-    const security = page.locator("tr").filter({ hasText: "Security" }).first();
-    const flags = security.locator("input").first();
-    assert.equal(await flags.inputValue(), "01");
-    await flags.fill("00");
-    await flags.press("Tab");
-    const editorDownload = page.waitForEvent("download");
-    await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
-    const editorFile = path.join(work, "editor.json");
-    await (await editorDownload).saveAs(editorFile);
-    const editor = JSON.parse(fs.readFileSync(editorFile, "utf8"));
-    const condition = editor.suppressions.find(
-      (item) => item.offset.toLowerCase() === "0x8b359",
-    );
-    assert(condition);
-    assert.equal(condition.active, true);
-    condition.active = false;
-    fs.writeFileSync(editorFile, JSON.stringify(editor));
-    await page
-      .locator('input[type=file][accept=".json"]')
-      .first()
-      .setInputFiles(editorFile);
-    await page.getByText("Top-level menu", { exact: true }).click();
-    await page
-      .getByRole("button", {
-        name: "Desired root state for Boot: visible",
+    async function stageFullQueue() {
+      const moves = page.getByRole("button", {
+        name: "Move DRAM Timing Control",
         exact: true,
-      })
-      .click();
+      });
+      assert.equal(await moves.count(), 1);
+      await moves.click();
+      const destination = page.getByPlaceholder("Choose the new parent menu");
+      await destination.fill("CPU Power Management");
+      await page
+        .getByText(/^Safe · CPU Power Management ·/)
+        .last()
+        .click();
+      await page
+        .getByRole("dialog", { name: "Move HII menu", exact: true })
+        .getByRole("button", { name: "Move menu", exact: true })
+        .click();
+      await page.getByRole("button").filter({ hasText: /^Main/ }).first().click();
+      const security = page.locator("tr").filter({ hasText: "Security" }).first();
+      const flags = security.locator("input").first();
+      assert.equal(await flags.inputValue(), "01");
+      await flags.fill("00");
+      await flags.press("Tab");
+      const editorDownload = page.waitForEvent("download");
+      await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
+      const editorFile = path.join(work, "editor.json");
+      await (await editorDownload).saveAs(editorFile);
+      const editor = JSON.parse(fs.readFileSync(editorFile, "utf8"));
+      const condition = editor.suppressions.find(
+        (item) => item.offset.toLowerCase() === "0x8b359",
+      );
+      assert(condition);
+      assert.equal(condition.active, true);
+      condition.active = false;
+      fs.writeFileSync(editorFile, JSON.stringify(editor));
+      await page
+        .locator('input[type=file][accept=".json"]')
+        .first()
+        .setInputFiles(editorFile);
+      await page.getByText("Top-level menu", { exact: true }).click();
+      await page
+        .getByRole("button", {
+          name: "Desired root state for Boot: visible",
+          exact: true,
+        })
+        .click();
+    }
+    await stageFullQueue();
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     const queue = page.getByRole("dialog", { name: "Change queue", exact: true });
 
@@ -445,34 +448,37 @@ async function openSource(page, source) {
     const heldSessionFile = path.join(work, "held-paused-session.json");
     fs.copyFileSync(path.join(work, "paused-v2.json"), heldSessionFile);
     const documentOrigin = await page.evaluate(() => performance.timeOrigin);
-    await page.evaluate(() => {
-      const original = File.prototype.text;
-      let release;
-      const gate = new Promise((resolve) => {
-        release = resolve;
-      });
-      const state = { calls: 0, nativeCompleted: 0, delivered: 0, held: false };
-      File.prototype.text = function (...args) {
-        if (this.name !== "held-paused-session.json" || state.calls > 0)
-          return original.apply(this, args);
-        state.calls += 1;
-        return original.apply(this, args).then(async (text) => {
-          state.nativeCompleted += 1;
-          state.held = true;
-          await gate;
-          state.held = false;
-          state.delivered += 1;
-          return text;
+    async function armSessionRead(targetName) {
+      await page.evaluate((targetName) => {
+        const original = File.prototype.text;
+        let release;
+        const gate = new Promise((resolve) => {
+          release = resolve;
         });
-      };
-      window.__sessionReadProbe = {
-        state,
-        release,
-        restore: () => {
-          File.prototype.text = original;
-        },
-      };
-    });
+        const state = { calls: 0, nativeCompleted: 0, delivered: 0, held: false };
+        File.prototype.text = function (...args) {
+          if (this.name !== targetName || state.calls > 0)
+            return original.apply(this, args);
+          state.calls += 1;
+          return original.apply(this, args).then(async (text) => {
+            state.nativeCompleted += 1;
+            state.held = true;
+            await gate;
+            state.held = false;
+            state.delivered += 1;
+            return text;
+          });
+        };
+        window.__sessionReadProbe = {
+          state,
+          release,
+          restore: () => {
+            File.prototype.text = original;
+          },
+        };
+      }, targetName);
+    }
+    await armSessionRead("held-paused-session.json");
     await queue.getByLabel("Load queue session file").setInputFiles(heldSessionFile);
     await page.waitForFunction(() => window.__sessionReadProbe.state.held);
     assert.deepEqual(await page.evaluate(() => window.__sessionReadProbe.state), {
@@ -571,6 +577,158 @@ async function openSource(page, source) {
       "LATE_SESSION_TEXT_AFTER_CLEAR_UNDO_RETAINED_NEW_FULL_QUEUE_AND_EXACT_SPI",
     );
 
+    // A different lifetime boundary: close/reopen the source while the native
+    // session text is held. No Clear/Undo is used in this replacement sequence.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    const replacementSessionFile = path.join(work, "replacement-paused-session.json");
+    fs.copyFileSync(path.join(work, "paused-v2.json"), replacementSessionFile);
+    await armSessionRead("replacement-paused-session.json");
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(replacementSessionFile);
+    await page.waitForFunction(() => window.__sessionReadProbe.state.held);
+    const heldState = { calls: 1, nativeCompleted: 1, delivered: 0, held: true };
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionReadProbe.state),
+      heldState,
+    );
+    assert.equal(await output.isDisabled(), false);
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Load another firmware", exact: true })
+      .click();
+    await openSource(page, path.join(work, "source.bin"));
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    assert.equal(
+      await queue
+        .getByRole("button", { name: "Undo queue change", exact: true })
+        .isDisabled(),
+      true,
+    );
+    assert.equal(
+      await queue
+        .getByRole("button", { name: "Redo queue change", exact: true })
+        .isDisabled(),
+      true,
+    );
+    await invalidated();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const freshBaseDownload = page.waitForEvent("download", (download) =>
+      download.suggestedFilename().endsWith(".json"),
+    );
+    await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
+    const freshBaseFile = path.join(work, "replacement-original-base.json");
+    await (await freshBaseDownload).saveAs(freshBaseFile);
+    const freshBase = JSON.parse(fs.readFileSync(freshBaseFile, "utf8"));
+    assert.equal(freshBase.forms.length, 70);
+    assert.equal(freshBase.forms[0].children[1].accessLevel, "01");
+    assert.deepEqual(
+      freshBase.rootVisibility.entries.map((item) => item.value),
+      Array(7).fill(1),
+    );
+    const flattenBase = (items) =>
+      items.flatMap((item) => [item, ...flattenBase(item.children || [])]);
+    const baseRefs = (index) =>
+      flattenBase(freshBase.forms[index].children).filter(
+        (item) => item.type === "Ref" && item.name === "DRAM Timing Control",
+      );
+    assert.equal(baseRefs(3).length, 1);
+    assert.equal(baseRefs(5).length, 0);
+    const baseSuppression = freshBase.suppressions.find(
+      (item) => item.offset.toLowerCase() === "0x8b359",
+    );
+    assert(baseSuppression);
+    assert.equal(baseSuppression.active, true);
+    assert.notEqual(baseSuppression.start, baseSuppression.end);
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionReadProbe.state),
+      heldState,
+    );
+    console.log(
+      "PENDING_SESSION_SOURCE_REOPENED_SAME_DOCUMENT_ORIGINAL_BASE_EMPTY_HISTORY",
+    );
+
+    await stageFullQueue();
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    assert.deepEqual(await order(), titles);
+    for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    await invalidated();
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const replacementOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "replacement-current.bin"),
+    );
+    assert.deepEqual(replacementOutput, freshRaceOutput);
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionReadProbe.state),
+      heldState,
+    );
+    await armSessionDigests();
+    await page.evaluate(() => window.__sessionReadProbe.release());
+    await page.waitForFunction((expected) => {
+      const read = window.__sessionReadProbe.state;
+      const digest = window.__sessionDigestProbe.state;
+      return (
+        read.delivered === 1 &&
+        !read.held &&
+        digest.calls === expected &&
+        digest.completed === expected &&
+        digest.pending === 0
+      );
+    }, currentLoadDigests.calls);
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(await page.evaluate(() => window.__sessionReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 1,
+      held: false,
+    });
+    console.log(
+      "REPLACED_SOURCE_OLD_SESSION_NATIVE_DIGESTS_COMPLETED",
+      await page.evaluate(() => window.__sessionDigestProbe.state),
+    );
+    await page.evaluate(() => window.__sessionDigestProbe.restore());
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    assert.deepEqual(await order(), titles);
+    for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    assert.equal(await output.isDisabled(), false);
+    assert.equal(await details.isDisabled(), false);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal((await queue.innerText()).includes("Queue session loaded."), false);
+    const replacementSessionDownload = page.waitForEvent(
+      "download",
+      (download) => download.suggestedFilename() === "firmware-session.json",
+    );
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    const replacementExport = path.join(work, "replacement-retained-session.json");
+    await (await replacementSessionDownload).saveAs(replacementExport);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(replacementExport, "utf8")),
+      expectedFullSession,
+    );
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const replacementRetainedDownload = page.waitForEvent("download", (download) =>
+      download.suggestedFilename().endsWith(".bin"),
+    );
+    await output.click();
+    const replacementRetainedFile = path.join(work, "replacement-after-delivery.bin");
+    await (await replacementRetainedDownload).saveAs(replacementRetainedFile);
+    assert.deepEqual(verifyOutput(replacementRetainedFile), replacementOutput);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    await page.evaluate(() => window.__sessionReadProbe.restore());
+    console.log(
+      "LATE_SESSION_AFTER_SOURCE_REPLACEMENT_RETAINED_NEW_FULL_QUEUE_AND_EXACT_SPI",
+    );
+
     // Loading is one undoable queue replacement, not four separate mutations.
     // Apply/output are never restored by Undo or Redo, even with identical entries.
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
@@ -643,6 +801,7 @@ async function openSource(page, source) {
       ["history-redo.bin", "move-only"],
       ["history-undo.bin", "full"],
       ["race-after-delivery.bin", "full"],
+      ["replacement-after-delivery.bin", "full"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })

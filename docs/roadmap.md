@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-16
 
-PRs #119–#123 and #128–#182 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#184 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -155,6 +155,11 @@ read delivery after Clear/Undo and dialog closure, a fresh exact full-SPI Check,
 completion of the old validation hashes before any newer session operation,
 retention of the four-enabled queue/output and independent reread. This combined
 sequence does not isolate revision cancellation from dialog closure.
+A separate deployed PR #184 probe now also holds a session read across same-byte
+source close/reopen in the same document, proves original base/empty history,
+rebuilds the new full queue and retains it after old native text/hash completion.
+The retained full SPI independently rereads correctly. Dialog closure and source
+unmount/reset both occur; they are not isolated from one another.
 Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
@@ -631,7 +636,11 @@ list the blocker for every unsupported case.
   A deployed PR #183 controlled native-text extension also retains the newer full
   queue/output after Clear/Undo, dialog closure and old session read/hash delivery,
   with fresh known SPI output and independent reread. It combines revision/dialog
-  cancellation; neither mechanism is isolated. Other selections/dependencies,
+  cancellation; neither mechanism is isolated. The deployed PR #184 probe also
+  passes held session text across same-byte source close/reopen, original-base/
+  empty-history reset, fresh full rebuilding, old validation-hash completion and
+  retained new queue/SPI with independent reread. Dialog closure plus source
+  unmount/reset are combined. Other selections/dependencies,
   history sequences, remaining save/load races and combined v1 stay separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact

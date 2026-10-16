@@ -258,3 +258,72 @@ desktop picker and hardware remain separate. This extends real Firefox evidence;
 it does not add standalone engine or new synthetic-test acceptance. P53 dynamic
 roots, new BIOS and missing qualifying uncompressed AMI/mixed sources stay parked
 or blocked as before.
+
+## Controlled pending session read across source close/reopen
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`e07bd5aeda286763dff92bcf3ac331ba7ee248a7` (PR #184), after fresh exact-SHA
+Quality, build and automatic Pages deployment success. The same opt-in checker
+above ran with Firefox 153.0 / Playwright 1.62.1, headless Linux, 1600 × 1000,
+the documented container/certificate options and the same `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm` assets.
+The existing authorized source was size/SHA-256 checked afresh. Firmware,
+decoded bodies, editor/session JSON and outputs remain private and local.
+
+The checker now shares its normal four-action staging and native text gate
+between the earlier race and this separate lifetime sequence. It forwards the
+original native File.text call for one selected session filename, retaining only
+delivery of the actual successful text. It does not change text, digests,
+algorithms, writer inputs or validation. This is **controlled native timing**,
+not ordinary scheduling or a real unreadable-file/I/O failure.
+
+1. While the four-edit output is ready, start loading the saved one-enabled/
+   three-paused session. Require one completed native read, zero deliveries and
+   the held state; loading alone keeps the old verified download enabled.
+2. Close the queue dialog and use Load another firmware. Reopen the same original
+   complete SPI bytes, without document navigation. The queue is empty, Undo/Redo
+   disabled and Apply/output absent. Export freshly parsed base data: 70 Forms,
+   Security `01`, all seven original root bytes `1111111`, the Ref still in Form 3
+   and absent from Form 5, and the original active nonempty suppression. The old
+   native text remains held throughout. This is a fresh workspace even though
+   the source hash matches; no Clear/Undo occurs in this replacement sequence.
+3. Stage the accepted four actions again through the actual move/flags/JSON-
+   suppression/root controls, then Apply/Check/download a fresh full SPI while
+   old text is held. It matches the accepted full result byte for byte.
+4. Release old native text. Require exactly one delivery and all five old native
+   validation hashes completed with zero pending, measured against the successful
+   current-load control earlier in the same run. Drain two animation frames before
+   starting any newer queue-session save/load. The replay path after those hashes
+   has no further external await; the old React operation's full return is not
+   separately exposed or claimed.
+5. The newly opened queue still has all four entries selected in order, with
+   output/details ready and no stale loaded/error message. A new metadata-only
+   session export equals the expected full selection. Download the cached SPI
+   without another Check: it equals the fresh replacement output. Document time
+   origin remains unchanged. Restore the native API wrappers normally.
+6. The current session-load Undo/Redo flow still works afterward. Independently
+   reopen/analyze the actual retained replacement SPI as well as the history
+   variants and earlier retained race output. All full results retain the four
+   requested edits and 70 Forms; the move-only result preserves paused states.
+   Changed-image session rejection and zero application page errors still pass.
+
+All nine downloads remain complete 8,388,608-byte SPIs. The three move-only
+results retain SHA-256
+`b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`
+and 12,295 changed bytes only in original Setup FFS `[4612464, 4781106)`.
+The six full results retain SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changes only inside that FFS and original companion owner
+`[3239384, 3419918)`. Every non-BIOS byte is identical. Expected hashes/counts,
+allocation fit, codecs, checksum repair, independent reconstruction and the
+15-minute Check bound are unchanged. Public CI has no private source; the checker
+removes private intermediates on exit.
+
+This accepts only successful late-read delivery after dialog closure plus
+same-byte source close/reopen in the same page, with no newer session operation
+masking delivery. It does not isolate dialog closure from source unmount/reset,
+or establish a distinct-image replacement, pending save/hash-only boundary,
+stale rejection, ordinary scheduling, other source/selection or hardware gate.
+No standalone engine or new synthetic acceptance is claimed. P53 dynamic roots,
+new BIOS and missing qualifying uncompressed AMI/mixed HII sources remain parked
+or blocked.
