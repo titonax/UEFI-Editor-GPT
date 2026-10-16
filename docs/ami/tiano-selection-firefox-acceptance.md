@@ -73,3 +73,50 @@ claimed for them. Other permutations, sources/families, the 50-entry limit,
 in-place source replacement and late asynchronous races retain separate gates.
 Hardware, desktop picker, AMITSE retarget output, broader compression, growth
 and capsules are not established. P53 dynamic roots and new BIOS remain parked.
+
+## Bounded paused move-only output
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`b47297969ac1f797913e4769ce0845de31f41e3a` (PR #179), with successful Quality,
+build and automatic Pages deployment for that SHA. Firefox 153.0 / Playwright
+1.62.1, headless Linux, 1600 × 1000 loaded `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+The existing authorized source was size/SHA-256 checked afresh. No browser API,
+application, codec or builder was mocked or fault-injected.
+
+1. Stage/apply the same four operations and build/download the accepted complete
+   SPI. Read-only comparison leaves this verified output intact.
+2. Pause Security, suppression and Hide Boot using their actual checkboxes.
+   Each mutation invalidates Check, output and details. Physical queue order and
+   all four entries remain; only the original Ref move is selected. Apply is
+   available. Apply/Check/download builds the exact known move-only result from
+   [engine acceptance](tiano-ref-move-output-acceptance.md), not the four-edit SPI.
+3. Reselect all three paused entries. Every mutation invalidates output again;
+   Apply/Check/download must run afresh. The result is byte-identical to step 1.
+4. Independently reopen and ordinarily analyze both actual downloads. Both retain
+   70 Forms and the DRAM Ref only in CPU Power Management. The subset has original
+   Security `01`, Boot `1` and an active nonempty `0x8B359` suppression scope.
+   The full result has Security `00`, Boot zero and the empty scope. Reopening
+   each resets output/details. There are no application page errors.
+
+All outputs are complete 8,388,608-byte SPIs. The baseline and reselected output
+retain SHA-256 `264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changed bytes inside the original two FFS owners. The move-only
+subset has SHA-256 `b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`
+and 12,295 changed bytes, all inside original Setup FFS `[4612464, 4781106)`;
+the entire companion FFS remains identical. Every byte outside BIOS is unchanged
+in all three downloads. Both expected hashes/counts were already recorded in
+engine evidence before this run; no unknown output hash was accepted on sight.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-paused-output-firefox-acceptance.mjs
+```
+
+The new opt-in checker retains the 15-minute Check limit and existing source,
+hash, ownership and independent reread requirements. Private intermediates are
+removed on exit; public CI does not supply the source. This closes only the
+specific move-only subset/reselection browser gate. Other subsets, the five-entry
+restore plan, sessions with paused entries, permutations/sources, asynchronous
+races and hardware remain separate gates. No writer, format or growth allowance
+is enabled; missing uncompressed AMI/mixed sources and parked P53 work remain.

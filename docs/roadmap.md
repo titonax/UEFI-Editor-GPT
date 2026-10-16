@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-16
 
-PRs #119–#123 and #128–#178 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#179 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -136,8 +136,11 @@ invalidation, two fresh identical full-SPI downloads and independent Ref reread.
 The [exact Tiano selection/order acceptance](ami/tiano-selection-firefox-acceptance.md)
 also passes one/all pause and reselect invalidation, read-only comparison,
 independent Boot/suppression reorder with identical output, and blocked paused
-or reordered root dependencies. Paused-subset output, other permutations/sources
-and other asynchronous races remain separate browser gates. The
+or reordered root dependencies. Its separate deployed PR #179 run now verifies
+the exact move-only subset with Security/suppression/Boot paused: known full-SPI
+hash, untouched paused states, fresh reselected full output identical to baseline
+and independent rereads of both variants. Other subsets, permutations/sources
+and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
 verifies an old real codec continuation after a newer verified output in Firefox
 with controlled native WASM Promise timing. This is not uninstrumented scheduling
@@ -622,8 +625,11 @@ list the blocker for every unsupported case.
   paused/reordered variants and asynchronous races remain separate gates.
   The [exact Tiano selection/order acceptance](ami/tiano-selection-firefox-acceptance.md)
   separately verifies selection invalidation, independent reorder with identical
-  full-SPI output and dependency rejection in real Firefox. Paused subsets were
-  not rebuilt; other variants and asynchronous races remain separate gates.
+  full-SPI output and dependency rejection in real Firefox. A separate deployed
+  PR #179 run now also rebuilds the exact move-only paused subset and fresh full
+  reselection, with the existing engine hashes, no non-BIOS changes and independent
+  rereads confirming selected edits and unchanged paused states. Other subsets,
+  variants and asynchronous races remain separate gates.
   The [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md)
   separately verifies the newer output survives the old codec continuation using real
   Firefox/engine/codecs with a native instantiation timing gate. Uninstrumented
