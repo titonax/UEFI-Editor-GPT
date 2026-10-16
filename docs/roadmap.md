@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-16
 
-PRs #119–#123 and #128–#186 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#187 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -170,6 +170,10 @@ then performs Clear/Undo with the dialog kept open and no source reset or newer
 session request. Old digest delivery does not replace the restored full queue;
 output stays invalidated until a fresh exact full-SPI Check and independent reread.
 This accepts that queue/history context boundary, not individual token internals.
+A deployed PR #187 probe also holds the final load hash across same-byte source
+close/reopen, verifies original base/empty history, freshly rebuilds the full
+queue/SPI and retains both after old delivery before any newer session request.
+The cached SPI independently rereads; dialog closure and source reset are combined.
 Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
@@ -657,6 +661,10 @@ list the blocker for every unsupported case.
   dialog/source open across Clear/Undo and final native hash delivery, retains
   the full queue without stale loaded/error state, and requires a fresh exact
   full-SPI Check plus independent reread. No newer session request masks it.
+  The deployed PR #187 extension separately retains a freshly checked full queue/SPI
+  after final old load-hash delivery across same-byte close/reopen, with original
+  base/history reset and independent retained-output reread. Dialog/source
+  cancellation are combined; distinct-image replacement is not established.
   Other selections/dependencies,
   history sequences, remaining save/load races and combined v1 stay separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
