@@ -80,6 +80,31 @@ Use the deployed `firmware-decompress.wasm`, `tiano-decompress.wasm` and
 metadata and queue titles only. The existing `hii`, `setupdata`, `refmove` and
 `rootvisibility` scenarios remain available through the same command.
 
+## Bounded Hide/Show Boot cancellation
+
+Reproduced on 2026-10-16 with the same authorized source and freshly downloaded
+deployed WASM assets. The queue acceptance test now projects the four entries
+plus the dependent restore-Boot entry, and separately projects only the first
+three entries. Both coherent plans pass the normal writer and produce exactly
+the same complete 8,388,608-byte SPI (byte-for-byte comparison), SHA-256
+`d9c22589b68884e973af22f87f718b7fc9fb130bfbdcca3871a55c12d294f3be`.
+There are 49,938 changed bytes, all inside the original two FFS owners above;
+every non-BIOS byte remains identical. No allocation or codec guard changed.
+
+Independent extraction checks all seven valid Forms Packages and 70 Forms,
+the original all-visible root vector `1111111`, exact requested HII/SetupData
+bytes, unchanged AMITSE and entire expected decoded owner buffers. The Setup
+owner contains the HII edits but no residual root-byte change. Source buffers
+and the editor base remain unchanged. The existing removed-dependency and
+oversized Tool-combination negative assertions still run.
+
+Use the same `queue` command above, with
+`NODE_OPTIONS=--max-old-space-size=8192` in the validation environment. An initial
+run exhausted Node's default 2 GiB heap; the successful run uses a native bounded
+byte comparison rather than deep assertion traversal of two 8 MiB arrays.
+The existing 300-second test limit is unchanged. This is real-source engine
+evidence, not a synthetic test, browser interaction or physical flash test.
+
 ## Deployed Firefox evidence
 
 The [exact Firefox acceptance record](tiano-firefox-output-acceptance.md) exercises

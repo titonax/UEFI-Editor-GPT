@@ -272,9 +272,78 @@ it("real combined queue through complete Tiano SPI reconstruction", async () => 
   expect(result.image.length).toBe(original.length);
   expect(await sha256Hex(original)).toBe(originalHash);
   expect(JSON.stringify(base)).toBe(untouchedState);
+  // A coherent Hide/Show pair must produce exactly the plan with neither root edit.
+  // This is independent of the browser queue and still uses the normal writer.
+  const restoredPlan = projectDataChangeQueue(base, [...entries, restoreEntry]);
+  expect(restoredPlan.analysis.canApply).toBe(true);
+  expect(restoredPlan.data.rootVisibilityEdits).toEqual(beforeRoot.rootVisibilityEdits);
+  const netPlan = projectDataChangeQueue(base, entries.slice(0, 3));
+  expect(netPlan.analysis.canApply).toBe(true);
+  const restoredResult = await buildAmiFirmwareImage(restoredPlan.data, files);
+  const netResult = await buildAmiFirmwareImage(netPlan.data, files);
+  expect(
+    Buffer.compare(Buffer.from(restoredResult.image), Buffer.from(netResult.image)),
+  ).toBe(0);
+  expect(restoredResult.image.length).toBe(original.length);
+  const restoredArtifacts = await extractAmiFirmwareBytes(restoredResult.image);
+  expect(await sha256Hex(restoredArtifacts.hii)).toBe(
+    await sha256Hex(expected.setupSct),
+  );
+  expect(await sha256Hex(restoredArtifacts.setupData)).toBe(
+    await sha256Hex(expected.setupdataBin),
+  );
+  expect(await sha256Hex(restoredArtifacts.amitse)).toBe(
+    await sha256Hex(artifacts.amitse),
+  );
+  for (const [kind, replacement] of [
+    ["setup-hii", expected.setupSct],
+    ["setupdata", expected.setupdataBin],
+  ]) {
+    const location = artifacts.provenance.artifacts.find((item) => item.kind === kind);
+    const originalNode = artifacts.provenance.buffers.find(
+      (item) => item.id === location.bufferId,
+    );
+    const expectedNode = originalNode.bytes.slice();
+    expectedNode.set(replacement, location.payloadStart);
+    const reopenedLocation = restoredArtifacts.provenance.artifacts.find(
+      (item) => item.kind === kind,
+    );
+    const reopenedNode = restoredArtifacts.provenance.buffers.find(
+      (item) => item.id === reopenedLocation.bufferId,
+    );
+    expect(await sha256Hex(reopenedNode.bytes)).toBe(await sha256Hex(expectedNode));
+  }
+  const restoredParsed = await parseData(
+    filesFor(restoredArtifacts, await sha256Hex(restoredResult.image)),
+  );
+  expect(restoredParsed.forms).toHaveLength(70);
+  expect(restoredParsed.rootVisibility.entries.map((item) => item.value)).toEqual(
+    Array(7).fill(1),
+  );
+  const restoredBinary = analyzeIfrBinary(restoredArtifacts.hii);
+  expect(restoredBinary.packages).toHaveLength(7);
+  expect(restoredBinary.packages.every((item) => item.valid)).toBe(true);
+  let restoredChangedBytes = 0;
+  for (let offset = 0; offset < original.length; offset++) {
+    if (original[offset] === restoredResult.image[offset]) continue;
+    expect(offset >= layout.biosStart && offset < layout.biosEnd).toBe(true);
+    expect(owners.some((owner) => offset >= owner.start && offset < owner.end)).toBe(
+      true,
+    );
+    restoredChangedBytes++;
+  }
+  expect(inspectFirmwareImageLayout(restoredResult.image)).toEqual(layout);
+  expect(restoredChangedBytes).toBe(49938);
+  expect(await sha256Hex(restoredResult.image)).toBe(
+    "d9c22589b68884e973af22f87f718b7fc9fb130bfbdcca3871a55c12d294f3be",
+  );
+  expect(await sha256Hex(original)).toBe(originalHash);
+  expect(JSON.stringify(base)).toBe(untouchedState);
   process.stdout.write(
     JSON.stringify({
       scenario: "queue",
+      restoredOutputHash: await sha256Hex(restoredResult.image),
+      restoredChangedBytes,
       rootIndex,
       originalHash,
       outputHash: await sha256Hex(result.image),
