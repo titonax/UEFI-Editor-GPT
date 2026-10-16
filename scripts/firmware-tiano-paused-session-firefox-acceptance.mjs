@@ -1079,9 +1079,86 @@ async function openSource(page, source) {
       "LATE_SESSION_LOAD_HASH_AFTER_SOURCE_REPLACEMENT_NEW_QUEUE_AND_SPI_RETAINED",
     );
 
+    // An actual semantic rejection, not a fabricated browser/API error. The
+    // existing invalid session has a missing root selector even though paused.
+    // Keep the dialog/source open; only Clear/Undo cancels the old context.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await assertFullSelection();
+    await armSessionLoadHash();
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(path.join(work, "invalid-paused-root.json"));
+    await page.waitForFunction(() => window.__sessionLoadHashProbe.state.held);
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionLoadHashProbe.state),
+      heldLoadHash,
+    );
+    assert.match(await queue.innerText(), /Validating queue session/);
+    assert.equal(await output.isDisabled(), false);
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    await invalidated();
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    await assertFullSelection();
+    await invalidated();
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionLoadHashProbe.state),
+      heldLoadHash,
+    );
+    await page.evaluate(() => window.__sessionLoadHashProbe.release());
+    await page.waitForFunction((expected) => {
+      const state = window.__sessionLoadHashProbe.state;
+      return state.delivered === expected && !state.held;
+    }, currentLoadDigests.calls);
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(await page.evaluate(() => window.__sessionLoadHashProbe.state), {
+      ...heldLoadHash,
+      delivered: currentLoadDigests.calls,
+      held: false,
+    });
+    // Observe before Apply, dialog closure, source reset or a newer request.
+    await assertFullSelection();
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal((await queue.innerText()).includes("Queue session loaded."), false);
+    await invalidated();
+    assert.equal(await apply.isDisabled(), false);
+    console.log(
+      "LATE_PAUSED_ROOT_REJECTION_AFTER_CLEAR_UNDO_NO_STALE_ALERT_FULL_QUEUE",
+    );
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const afterStaleRootOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "after-stale-root-rejection.bin"),
+    );
+    assert.deepEqual(afterStaleRootOutput, hashReplacementOutput);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+
+    // Positive control: the unchanged invalid file must still reject visibly
+    // in the current context and preserve this newly checked full queue/output.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(path.join(work, "invalid-paused-root.json"));
+    const currentRootRejection = queue.getByRole("alert");
+    await currentRootRejection.waitFor();
+    assert.match(
+      await currentRootRejection.innerText(),
+      /targets a missing or ambiguous root/,
+    );
+    await assertFullSelection();
+    assert.equal(await output.isDisabled(), false);
+    assert.equal(await details.isDisabled(), false);
+    console.log("CURRENT_PAUSED_ROOT_REJECTION_VISIBLE_VERIFIED_FULL_OUTPUT_RETAINED");
+
     // Loading is one undoable queue replacement, not four separate mutations.
     // Apply/output are never restored by Undo or Redo, even with identical entries.
-    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    // Continue in the already open dialog, so the successful load itself must
+    // clear the current rejection rather than a dialog close hiding it first.
     const undo = queue.getByRole("button", { name: "Undo queue change", exact: true });
     const redo = queue.getByRole("button", { name: "Redo queue change", exact: true });
     async function assertFullSelection() {
@@ -1103,6 +1180,7 @@ async function openSource(page, source) {
     });
     await assertPausedSelection();
     await invalidated();
+    assert.equal(await queue.getByRole("alert").count(), 0);
     await undo.click();
     await assertFullSelection();
     await invalidated();
@@ -1155,6 +1233,7 @@ async function openSource(page, source) {
       ["save-replacement-after-delivery.bin", "full"],
       ["load-hash-after-clear-undo.bin", "full"],
       ["load-hash-replacement-retained.bin", "full"],
+      ["after-stale-root-rejection.bin", "full"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })
