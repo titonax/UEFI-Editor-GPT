@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-16
 
-PRs #119–#123 and #128–#181 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#182 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -147,7 +147,10 @@ edits intact. A separate deployed PR #181 combined v2 session run now preserves
 the exact move-only selection with three paused entries through export/clear/import,
 metadata-identical re-export and fresh output; an invalid paused root rejects
 atomically while verified output remains intact. Independent rereads and changed-image
-rejection pass. Other subsets, dependent paused sessions, permutations/sources
+rejection pass. The deployed PR #182 extension now also verifies one-step Undo/Redo
+of loading that paused session over a ready four-edit queue, invalidation from
+both ready variants, fresh known move-only/full outputs and independent rereads.
+Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
 verifies an old real codec continuation after a newer verified output in Firefox
@@ -616,7 +619,11 @@ list the blocker for every unsupported case.
   exact one-enabled/three-paused v2 round trip, metadata-identical re-export,
   fresh move-only output and full reselection, invalid paused-root atomic rejection
   retaining verified output, independent rereads and changed-image rejection.
-  Other selections/dependencies, session history/races and combined v1 remain separate.
+  A deployed PR #182 extension verifies session load as one undoable replacement:
+  single Undo/Redo restores the full/paused selections without cached output;
+  fresh post-Redo move-only and post-Undo full outputs match known hashes and
+  independently reread correctly. Other selections/dependencies, history sequences,
+  asynchronous save/load races and combined v1 remain separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed

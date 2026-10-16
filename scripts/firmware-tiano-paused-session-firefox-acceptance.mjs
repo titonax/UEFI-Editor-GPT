@@ -403,9 +403,77 @@ async function openSource(page, source) {
     await downloadVerifiedOutput(page, path.join(work, "reselected.bin"));
     console.log("RESTORED_PAUSED_ENTRIES_RESELECTED_FRESH_FULL_SPI_VERIFIED");
 
+    // Loading is one undoable queue replacement, not four separate mutations.
+    // Apply/output are never restored by Undo or Redo, even with identical entries.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    const undo = queue.getByRole("button", { name: "Undo queue change", exact: true });
+    const redo = queue.getByRole("button", { name: "Redo queue change", exact: true });
+    async function assertFullSelection() {
+      assert.deepEqual(await order(), titles);
+      assert.match(await queue.innerText(), /4 SELECTED/);
+      for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    }
+    await assertFullSelection();
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(path.join(work, "paused-v2.json"));
+    await waitForDisabled(apply, false);
+    // Wait for the actual replacement, not the already enabled Apply control.
+    await page.waitForFunction(() => {
+      const items = [
+        ...document.querySelectorAll('[role="dialog"] input[type="checkbox"]'),
+      ];
+      return items.length === 4 && items.filter((item) => item.checked).length === 1;
+    });
+    await assertPausedSelection();
+    await invalidated();
+    await undo.click();
+    await assertFullSelection();
+    await invalidated();
+    assert.equal(await redo.isDisabled(), false);
+    await redo.click();
+    await assertPausedSelection();
+    await invalidated();
+    assert.deepEqual(await saveSession("history-redo-session.json"), session);
+    await invalidated();
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await downloadVerifiedOutput(
+      page,
+      path.join(work, "history-redo.bin"),
+      "move-only",
+    );
+    assert.deepEqual(
+      fs.readFileSync(path.join(work, "history-redo.bin")),
+      fs.readFileSync(path.join(work, "restored-move-only.bin")),
+    );
+    console.log("SESSION_LOAD_SINGLE_UNDO_REDO_FRESH_MOVE_ONLY_OUTPUT_VERIFIED");
+
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await undo.click();
+    await assertFullSelection();
+    await invalidated();
+    assert.equal(await redo.isDisabled(), false);
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await downloadVerifiedOutput(page, path.join(work, "history-undo.bin"));
+    assert.deepEqual(
+      fs.readFileSync(path.join(work, "history-undo.bin")),
+      fs.readFileSync(path.join(work, "reselected.bin")),
+    );
+    console.log("SESSION_LOAD_UNDO_AFTER_READY_OUTPUT_FRESH_FULL_SPI_IDENTICAL");
+
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    assert.equal(await redo.isDisabled(), false);
+    await redo.click();
+    await assertPausedSelection();
+    await invalidated();
+    console.log("SESSION_LOAD_REDO_AFTER_READY_FULL_OUTPUT_INVALIDATED");
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+
     for (const [file, mode] of [
-      ["restored-move-only.bin", "move-only"],
-      ["reselected.bin", "full"],
+      ["history-redo.bin", "move-only"],
+      ["history-undo.bin", "full"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })
