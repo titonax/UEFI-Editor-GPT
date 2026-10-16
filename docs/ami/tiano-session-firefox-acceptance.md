@@ -405,3 +405,73 @@ replacement, queue-revision-only save cancellation, stale save rejection,
 load-hash-only cancellation, other selections or hardware. Combined v1, missing
 qualifying uncompressed AMI/mixed sources, P53 dynamic roots and new BIOS retain
 their existing separate gates.
+
+## Controlled final load hash across Clear/Undo with the dialog kept open
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`cfc8e117f0b0b8209b53e0e5c9dda766a1f422c2` (PR #186), after fresh exact-SHA
+Quality, build and automatic Pages deployment success. The same opt-in checker
+ran in Firefox 153.0 / Playwright 1.62.1, headless Linux, 1600 × 1000 with the
+documented container/certificate settings. Loaded assets were
+`index-LM6CCH_b.js`, `index-D4JOsfQ5.css`, `tiano-decompress.wasm` and
+`ifrextractor.wasm`. The same authorized original SPI was checked afresh for
+size/SHA-256. No source, decoded bodies, editor/session JSON or output is published.
+
+This probe separates a pending **load hash** from the earlier held text and
+source/dialog sequences. It forwards the real native `SubtleCrypto.digest`
+receiver, arguments and unchanged successful digest. The successful paused-session
+load earlier in the same run measures five completed native calls, zero pending;
+the probe uses that measured count to hold delivery of only the final call.
+`File.text` is native and unheld. The digest wrapper restores the original method
+as soon as the selected final call starts, so subsequent normal work is unaffected.
+
+1. Open the four-enabled queue with its full SPI and details ready. Load the
+   original one-enabled/three-paused session. Require all five native hashes
+   completed, four results delivered and the final result held, with the loading
+   status visible. All four current entries remain selected; download/details
+   are still enabled before mutation.
+2. Keep the queue dialog open. Clear empties the queue and invalidates Check,
+   download and details. Undo restores the exact original four entry titles,
+   order and enabled selection, but not Apply/output. Require the old final
+   digest still held. Do not close the dialog, replace the source, Apply or start
+   another session operation.
+3. Release the unchanged final digest. Require all five results delivered and
+   no held result, then drain two animation frames before any further operation.
+   The four selected entries/order remain; no stale loaded message or alert is
+   shown. Check/download/details stay invalidated and Apply is available. The
+   old paused-session selection does not replace the restored full selection.
+4. Only now Apply, close the dialog and perform a fresh Check/download. Its
+   full SPI equals the previously checked full result byte for byte. Page time
+   origin remains unchanged. The existing current-session load/Undo/Redo tests
+   afterward still verify actual selection replacement, output invalidation and
+   fresh known subset/full results; cancellation has not disabled valid loads.
+5. Independently reopen/analyze this new post-cancellation full SPI along with
+   the five earlier history/retained-race outputs. All six reanalyses retain
+   70 Forms, a unique Ref moved to Form 5 and the correct requested full or
+   original paused Security, Boot and suppression states. Changed-image session
+   rejection still leaves the empty queue and disabled download. No application
+   page errors occurred. The complete run passed on its first attempt.
+
+All twelve downloads are complete 8,388,608-byte SPIs: three move-only results
+with SHA-256
+`b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`
+and 12,295 changes confined to Setup FFS `[4612464, 4781106)`, and nine full
+results with SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changes confined to that FFS plus companion `[3239384, 3419918)`.
+Every byte outside the original owners and outside BIOS is identical. The
+15-minute Check bound, source/buffer ownership, codec, allocation, checksum and
+independent reconstruction requirements remain unchanged. The same command above
+reproduces the checker and removes private intermediates; public CI has no source.
+
+This establishes controlled successful hash delivery across queue/history
+context invalidation without a competing dialog close, source reset or session
+request. Code review confirms the remaining exact AMI suppression/root replay
+has no external await after the last hash; the old React operation's full return
+is not separately exposed. The browser does not inspect internal entry reference
+identity or isolate individual revision/request-token implementation details.
+It does not establish stale rejection, load-hash delivery across source replacement,
+other histories/selections, ordinary scheduling, actual I/O failure or hardware.
+No standalone engine or new synthetic acceptance is claimed. Combined v1,
+missing qualifying uncompressed AMI/mixed sources, P53 dynamic roots and new BIOS
+retain their existing separate gates.
