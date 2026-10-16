@@ -191,3 +191,70 @@ This closes only the described session-load single-mutation Undo/Redo gate for
 this exact source/selection. Other history sequences, sources, dependent paused
 plans, asynchronous save/load races, combined v1, desktop picker and physical
 hardware remain separate. P53 dynamic roots and new BIOS remain parked.
+
+## Controlled late session read across history change and dialog closure
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`ad90df8534a236da4f804646a1dfdd31b0271522` (PR #183), after fresh exact-SHA
+Quality and automatic Pages build/deployment success. Firefox 153.0 / Playwright
+1.62.1, headless Linux, 1600 × 1000 loaded `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+The authorized source was recovered afresh and checked for the original complete
+size/SHA-256. Firmware, decoded bodies, editor/session JSON and downloads remain
+local. No application, queue, codec, writer or validation guard changed.
+
+This extension is a **controlled-timing native API probe**, not ordinary
+scheduling. It forwards `File.prototype.text` with the original receiver and
+arguments for one selected local paused-session file. Only delivery of its real
+completed text waits behind a Promise gate; that text is not altered. A second
+wrapper forwards native `SubtleCrypto.digest` calls unchanged and counts their
+completion without changing algorithm, input or returned digest.
+
+1. The normal paused-session load earlier in the same run completes five native
+   digests, with zero pending, before exporting/rebuilding the restored selection.
+   The probe measures this count; it does not substitute a frozen call target.
+   Existing paused-root rejection and full reselection continue to pass.
+2. Start loading the exact saved one-enabled/three-paused session while the
+   four-edit output is ready. Hold the actual text after one native read has
+   completed, with no delivered text. Loading alone retains the existing output.
+3. Clear/Undo back to the four selected entries, require Apply/output invalidation,
+   Apply again and close the queue dialog. Run a fresh complete Check and download
+   while the old text is still held. The new full SPI equals the accepted full
+   result byte for byte.
+4. Release the old native text. Require one text delivery, no held read, and all
+   five native digests of its validation to complete with zero pending. Drain
+   microtasks across two animation frames. Review of the exact AMI action path
+   confirms the remaining replay/commit continuation has no external await after
+   these hashes. No competing save/load starts before these observations.
+5. Reopen the queue: all four entries retain their order and enabled flags, output
+   and details remain enabled, and no stale loaded/error message appears. A fresh
+   metadata-only session export equals the original session with all enabled
+   flags true. Download the cached SPI without another Check; it equals the fresh
+   post-mutation result. Document time origin is unchanged across the race.
+6. The existing single-step session Undo/Redo and fresh subset/full reconstruction
+   steps still pass. Independently reopen/analyze the actual post-delivery cached
+   SPI as well as the history downloads: 70 Forms, unique Ref moved to Form 5,
+   requested full Security/Boot/suppression states and original paused states in
+   the move-only variant. Changed-image rejection still leaves the empty queue
+   and disabled output. No application page errors occur.
+
+All seven downloads are complete 8,388,608-byte SPIs. The three move-only results
+retain SHA-256 `b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`
+and 12,295 changed bytes confined to Setup FFS. The four full results retain
+SHA-256 `264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changes within the original two owners. Every byte outside BIOS is
+unchanged. The checker above reproduces this extension and removes its private
+intermediates on exit. Public CI has no private source. The normal 15-minute
+Check limit, allocations, checksums, codecs and independent reconstruction
+requirements remain unchanged.
+
+This accepts only this exact successful late-read sequence combining Clear/Undo
+and dialog closure. Both context invalidation mechanisms occur; it does **not**
+isolate queue revision alone from dialog closure. Native read/hash delivery and
+the retained resulting state are observed, not an exposed full return of the old
+React operation. Save races, stale rejection, source replacement during session
+validation, other contexts/selections, ordinary scheduling, actual I/O failure,
+desktop picker and hardware remain separate. This extends real Firefox evidence;
+it does not add standalone engine or new synthetic-test acceptance. P53 dynamic
+roots, new BIOS and missing qualifying uncompressed AMI/mixed sources stay parked
+or blocked as before.
