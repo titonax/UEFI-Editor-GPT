@@ -896,6 +896,100 @@ async function openSource(page, source) {
       await page.evaluate(() => window.__sessionSaveProbe.state),
     );
 
+    // Isolate queue/history cancellation from dialog/source replacement and
+    // newer requests. File.text is native/unheld; only the last successful
+    // validation digest waits. The open dialog stays mounted through delivery.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    assert.deepEqual(await order(), titles);
+    await page.evaluate((lastCall) => {
+      const original = crypto.subtle.digest;
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const state = { calls: 0, nativeCompleted: 0, delivered: 0, held: false };
+      crypto.subtle.digest = function (...args) {
+        const call = ++state.calls;
+        if (call === lastCall) crypto.subtle.digest = original;
+        return original.apply(this, args).then(async (result) => {
+          state.nativeCompleted += 1;
+          if (call === lastCall) {
+            state.held = true;
+            await gate;
+            state.held = false;
+          }
+          state.delivered += 1;
+          return result;
+        });
+      };
+      window.__sessionLoadHashProbe = { state, release };
+    }, currentLoadDigests.calls);
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(path.join(work, "paused-v2.json"));
+    await page.waitForFunction(() => window.__sessionLoadHashProbe.state.held);
+    const heldLoadHash = {
+      calls: currentLoadDigests.calls,
+      nativeCompleted: currentLoadDigests.calls,
+      delivered: currentLoadDigests.calls - 1,
+      held: true,
+    };
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionLoadHashProbe.state),
+      heldLoadHash,
+    );
+    assert.match(await queue.innerText(), /Validating queue session/);
+    for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    assert.equal(await output.isDisabled(), false);
+    assert.equal(await details.isDisabled(), false);
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    await invalidated();
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.deepEqual(await order(), titles);
+    for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    await invalidated();
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionLoadHashProbe.state),
+      heldLoadHash,
+    );
+    // No dialog close, source replacement, Apply or other session request has
+    // occurred since this load began. Returning to equal entries is not reuse.
+    await page.evaluate(() => window.__sessionLoadHashProbe.release());
+    await page.waitForFunction((expected) => {
+      const state = window.__sessionLoadHashProbe.state;
+      return state.delivered === expected && !state.held;
+    }, currentLoadDigests.calls);
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(await page.evaluate(() => window.__sessionLoadHashProbe.state), {
+      ...heldLoadHash,
+      delivered: currentLoadDigests.calls,
+      held: false,
+    });
+    assert.deepEqual(await order(), titles);
+    for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    assert.match(await queue.innerText(), /4 SELECTED/);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal((await queue.innerText()).includes("Queue session loaded."), false);
+    await invalidated();
+    assert.equal(await apply.isDisabled(), false);
+    console.log(
+      "LATE_SESSION_FINAL_HASH_AFTER_CLEAR_UNDO_OPEN_DIALOG_FULL_QUEUE_RETAINED",
+    );
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const loadHashOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "load-hash-after-clear-undo.bin"),
+    );
+    assert.deepEqual(loadHashOutput, saveReplacementOutput);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    console.log("SESSION_HASH_CANCELLED_PLAN_FRESH_FULL_SPI_IDENTICAL");
+
     // Loading is one undoable queue replacement, not four separate mutations.
     // Apply/output are never restored by Undo or Redo, even with identical entries.
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
@@ -970,6 +1064,7 @@ async function openSource(page, source) {
       ["race-after-delivery.bin", "full"],
       ["replacement-after-delivery.bin", "full"],
       ["save-replacement-after-delivery.bin", "full"],
+      ["load-hash-after-clear-undo.bin", "full"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })
