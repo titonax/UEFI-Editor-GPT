@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-16
 
-PRs #119–#123 and #128–#184 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#185 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -160,6 +160,11 @@ source close/reopen in the same document, proves original base/empty history,
 rebuilds the new full queue and retains it after old native text/hash completion.
 The retained full SPI independently rereads correctly. Dialog closure and source
 unmount/reset both occur; they are not isolated from one another.
+A deployed PR #185 probe now also holds the final native digest of a session save
+across the same close/reopen sequence. After a fresh full queue/SPI is ready,
+old digest delivery creates neither a JSON Blob URL nor a session download;
+the current save succeeds and the retained full SPI independently rereads.
+This combines dialog/source cancellation, not queue-revision-only cancellation.
 Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
@@ -640,7 +645,10 @@ list the blocker for every unsupported case.
   passes held session text across same-byte source close/reopen, original-base/
   empty-history reset, fresh full rebuilding, old validation-hash completion and
   retained new queue/SPI with independent reread. Dialog closure plus source
-  unmount/reset are combined. Other selections/dependencies,
+  unmount/reset are combined. The deployed PR #185 save probe holds the last
+  native digest across the same close/reopen boundary: no stale JSON Blob URL
+  or session download, successful current save and retained exact full SPI with
+  independent reread. Other selections/dependencies,
   history sequences, remaining save/load races and combined v1 stay separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact

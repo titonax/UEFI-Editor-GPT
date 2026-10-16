@@ -327,3 +327,81 @@ stale rejection, ordinary scheduling, other source/selection or hardware gate.
 No standalone engine or new synthetic acceptance is claimed. P53 dynamic roots,
 new BIOS and missing qualifying uncompressed AMI/mixed HII sources remain parked
 or blocked.
+
+## Controlled pending session save across source close/reopen
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`271218ca5131e6d0fcf2d47b61123e9b1df3b18d` (PR #185), after fresh exact-SHA
+Quality, build and automatic Pages deployment success. The same opt-in checker
+ran with Firefox 153.0 / Playwright 1.62.1, headless Linux, 1600 × 1000 and the
+documented container/certificate settings. Assets remained `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+The existing authorized complete source was size/SHA-256 checked afresh. Private
+firmware, decoded/editor/session JSON and outputs remain local; the checker
+removes its private intermediates on exit. Public CI has no private source.
+
+1. A successful current full-queue session export measures five completed native
+   SHA-256 calls, with none pending, and equals the expected metadata-only v2
+   session. The probe uses that measured count, not a frozen digest index.
+2. Start another Save queue session while the full output is ready. Forward
+   native `SubtleCrypto.digest` with unchanged receiver, arguments and result;
+   retain only delivery of the final successful digest. All five native calls
+   have completed, four results have delivered and the final one is held. No
+   session download or JSON Blob URL is created; existing output/details stay
+   enabled. Restore the original digest method as soon as the final call starts,
+   before doing any replacement analysis or reconstruction.
+3. Close the dialog and use Load another firmware. Reopen the same original SPI
+   in the same document. Verify empty queue, disabled Undo/Redo and no applied or
+   checked output, plus the original 70 Forms, Security `01`, seven enabled roots,
+   original Ref placement and active nonempty suppression from a fresh Data
+   export. Stage the four actions again and Apply/Check/download a new exact full
+   SPI. The old final digest is still held throughout; no newer session save/load
+   has started.
+4. Release that native digest and require all five results delivered, no held
+   result, then drain two animation frames. Before any new session operation,
+   require no additional session download and no additional JSON Blob URL. The
+   latter is counted synchronously by a forwarding `URL.createObjectURL` wrapper
+   for `application/json`; it returns the native URL unchanged and retains no
+   Blob content. This checks save commit activity, not only download-event timing.
+   Review of `saveHiiQueueSession` confirms no further external await after its
+   final identity digest. The old React operation's full return is not separately
+   exposed or claimed.
+5. Reopen the queue: the four selected entries/order and verified output/details
+   remain intact, with no stale saved/error message. A new current Save succeeds:
+   exactly one session download and one JSON Blob URL, with the exact expected
+   metadata-only full session. Restore the URL wrapper. Download the cached SPI
+   without another Check; it equals the fresh replacement result byte for byte.
+   Document time origin is unchanged throughout.
+6. The existing session-load Undo/Redo, paused-root rejection, subset/full rebuilds
+   and earlier late-read probes still pass. Independently reopen the retained
+   post-save replacement SPI as well as both history outputs and both earlier
+   retained race outputs: five reanalyses, 70 Forms, unique moved Ref and the
+   correct full/paused Security, Boot and suppression states. Changed-image
+   session rejection leaves the queue empty and download disabled. No application
+   page errors occurred.
+
+All eleven downloads are complete 8,388,608-byte SPIs. The three move-only
+results retain SHA-256
+`b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`
+and 12,295 changes only in original Setup FFS `[4612464, 4781106)`.
+The eight full results retain SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changes only in that FFS and companion `[3239384, 3419918)`.
+Every byte outside BIOS and outside those original owners is identical. Existing
+allocation, codec, checksum, buffer ownership, independent reconstruction and
+15-minute Check guards are unchanged. No standalone engine run or new synthetic
+acceptance is claimed.
+
+The initial attempt stopped before this save probe because a reopened dialog's
+checkbox list was inspected before its contents mounted. The checker now waits
+for the actual first row under the existing timeout before asserting the exact
+complete order. That attempt is not counted as a pass; the final full rerun
+passed. No application timing, timeout or expected queue/output was relaxed.
+
+This is controlled successful native hash delivery across dialog closure plus
+same-byte source unmount/reset, not ordinary scheduling or an actual I/O failure.
+It does not isolate those cancellation mechanisms, establish distinct-image
+replacement, queue-revision-only save cancellation, stale save rejection,
+load-hash-only cancellation, other selections or hardware. Combined v1, missing
+qualifying uncompressed AMI/mixed sources, P53 dynamic roots and new BIOS retain
+their existing separate gates.

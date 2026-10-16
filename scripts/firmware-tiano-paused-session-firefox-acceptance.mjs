@@ -217,6 +217,11 @@ async function openSource(page, source) {
     page.setDefaultTimeout(60000);
     const pageErrors = [];
     const assets = new Set();
+    const sessionDownloads = [];
+    page.on("download", (download) => {
+      if (download.suggestedFilename() === "firmware-session.json")
+        sessionDownloads.push(download);
+    });
     page.on("pageerror", (error) => pageErrors.push(error));
     page.on("response", (response) => {
       if (/\.wasm|assets\/index-/.test(response.url()))
@@ -297,6 +302,9 @@ async function openSource(page, source) {
     const selected = (title) =>
       queue.getByRole("checkbox", { name: "Select " + title, exact: true });
     async function order() {
+      // A reopened Mantine dialog can exist before its animated contents mount.
+      // Wait for the actual row, then still require the exact complete order.
+      await selected(titles[0]).waitFor();
       return queue
         .getByRole("checkbox")
         .evaluateAll((items) =>
@@ -548,6 +556,7 @@ async function openSource(page, source) {
     assert.equal(await details.isDisabled(), false);
     assert.equal(await queue.getByRole("alert").count(), 0);
     assert.equal((await queue.innerText()).includes("Queue session loaded."), false);
+    await armSessionDigests();
     const fullSessionDownload = page.waitForEvent(
       "download",
       (download) => download.suggestedFilename() === "firmware-session.json",
@@ -563,6 +572,14 @@ async function openSource(page, source) {
       JSON.parse(fs.readFileSync(fullSessionFile, "utf8")),
       expectedFullSession,
     );
+    const currentSaveDigests = await page.evaluate(
+      () => window.__sessionDigestProbe.state,
+    );
+    assert(currentSaveDigests.calls > 0);
+    assert.equal(currentSaveDigests.pending, 0);
+    assert.equal(currentSaveDigests.completed, currentSaveDigests.calls);
+    await page.evaluate(() => window.__sessionDigestProbe.restore());
+    console.log("CURRENT_SESSION_SAVE_NATIVE_DIGESTS", currentSaveDigests);
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     const retainedDownload = page.waitForEvent("download", (download) =>
       download.suggestedFilename().endsWith(".bin"),
@@ -594,54 +611,57 @@ async function openSource(page, source) {
     );
     assert.equal(await output.isDisabled(), false);
     await queue.getByRole("button", { name: "Close", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Load another firmware", exact: true })
-      .click();
-    await openSource(page, path.join(work, "source.bin"));
-    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
-    await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
-    assert.match(await queue.innerText(), /The queue is empty/);
-    assert.equal(
-      await queue
-        .getByRole("button", { name: "Undo queue change", exact: true })
-        .isDisabled(),
-      true,
-    );
-    assert.equal(
-      await queue
-        .getByRole("button", { name: "Redo queue change", exact: true })
-        .isDisabled(),
-      true,
-    );
-    await invalidated();
-    await queue.getByRole("button", { name: "Close", exact: true }).click();
-    const freshBaseDownload = page.waitForEvent("download", (download) =>
-      download.suggestedFilename().endsWith(".json"),
-    );
-    await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
-    const freshBaseFile = path.join(work, "replacement-original-base.json");
-    await (await freshBaseDownload).saveAs(freshBaseFile);
-    const freshBase = JSON.parse(fs.readFileSync(freshBaseFile, "utf8"));
-    assert.equal(freshBase.forms.length, 70);
-    assert.equal(freshBase.forms[0].children[1].accessLevel, "01");
-    assert.deepEqual(
-      freshBase.rootVisibility.entries.map((item) => item.value),
-      Array(7).fill(1),
-    );
-    const flattenBase = (items) =>
-      items.flatMap((item) => [item, ...flattenBase(item.children || [])]);
-    const baseRefs = (index) =>
-      flattenBase(freshBase.forms[index].children).filter(
-        (item) => item.type === "Ref" && item.name === "DRAM Timing Control",
+    async function reopenOriginalWithEmptyHistory() {
+      await page
+        .getByRole("button", { name: "Load another firmware", exact: true })
+        .click();
+      await openSource(page, path.join(work, "source.bin"));
+      assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+      await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+      assert.match(await queue.innerText(), /The queue is empty/);
+      assert.equal(
+        await queue
+          .getByRole("button", { name: "Undo queue change", exact: true })
+          .isDisabled(),
+        true,
       );
-    assert.equal(baseRefs(3).length, 1);
-    assert.equal(baseRefs(5).length, 0);
-    const baseSuppression = freshBase.suppressions.find(
-      (item) => item.offset.toLowerCase() === "0x8b359",
-    );
-    assert(baseSuppression);
-    assert.equal(baseSuppression.active, true);
-    assert.notEqual(baseSuppression.start, baseSuppression.end);
+      assert.equal(
+        await queue
+          .getByRole("button", { name: "Redo queue change", exact: true })
+          .isDisabled(),
+        true,
+      );
+      await invalidated();
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      const freshBaseDownload = page.waitForEvent("download", (download) =>
+        download.suggestedFilename().endsWith(".json"),
+      );
+      await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
+      const freshBaseFile = path.join(work, "replacement-original-base.json");
+      await (await freshBaseDownload).saveAs(freshBaseFile);
+      const freshBase = JSON.parse(fs.readFileSync(freshBaseFile, "utf8"));
+      assert.equal(freshBase.forms.length, 70);
+      assert.equal(freshBase.forms[0].children[1].accessLevel, "01");
+      assert.deepEqual(
+        freshBase.rootVisibility.entries.map((item) => item.value),
+        Array(7).fill(1),
+      );
+      const flattenBase = (items) =>
+        items.flatMap((item) => [item, ...flattenBase(item.children || [])]);
+      const baseRefs = (index) =>
+        flattenBase(freshBase.forms[index].children).filter(
+          (item) => item.type === "Ref" && item.name === "DRAM Timing Control",
+        );
+      assert.equal(baseRefs(3).length, 1);
+      assert.equal(baseRefs(5).length, 0);
+      const baseSuppression = freshBase.suppressions.find(
+        (item) => item.offset.toLowerCase() === "0x8b359",
+      );
+      assert(baseSuppression);
+      assert.equal(baseSuppression.active, true);
+      assert.notEqual(baseSuppression.start, baseSuppression.end);
+    }
+    await reopenOriginalWithEmptyHistory();
     assert.deepEqual(
       await page.evaluate(() => window.__sessionReadProbe.state),
       heldState,
@@ -729,6 +749,153 @@ async function openSource(page, source) {
       "LATE_SESSION_AFTER_SOURCE_REPLACEMENT_RETAINED_NEW_FULL_QUEUE_AND_EXACT_SPI",
     );
 
+    // Save has no File.text boundary. Hold only the final successful native
+    // digest delivery, using the actual current-save call count above. Restore
+    // the native method as soon as that call starts, before other source work.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    const downloadsBeforeOldSave = sessionDownloads.length;
+    await page.evaluate((lastCall) => {
+      const original = crypto.subtle.digest;
+      const createObjectURL = URL.createObjectURL;
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const state = {
+        calls: 0,
+        nativeCompleted: 0,
+        delivered: 0,
+        held: false,
+        jsonUrls: 0,
+      };
+      URL.createObjectURL = function (...args) {
+        if (args[0]?.type === "application/json") state.jsonUrls += 1;
+        return createObjectURL.apply(this, args);
+      };
+      crypto.subtle.digest = function (...args) {
+        const call = ++state.calls;
+        if (call === lastCall) crypto.subtle.digest = original;
+        return original.apply(this, args).then(async (result) => {
+          state.nativeCompleted += 1;
+          if (call === lastCall) {
+            state.held = true;
+            await gate;
+            state.held = false;
+          }
+          state.delivered += 1;
+          return result;
+        });
+      };
+      window.__sessionSaveProbe = {
+        state,
+        release,
+        restore: () => {
+          URL.createObjectURL = createObjectURL;
+        },
+      };
+    }, currentSaveDigests.calls);
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    await page.waitForFunction(() => window.__sessionSaveProbe.state.held);
+    const heldSaveState = {
+      calls: currentSaveDigests.calls,
+      nativeCompleted: currentSaveDigests.calls,
+      delivered: currentSaveDigests.calls - 1,
+      held: true,
+      jsonUrls: 0,
+    };
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionSaveProbe.state),
+      heldSaveState,
+    );
+    assert.match(await queue.innerText(), /Validating queue session/);
+    assert.equal(await output.isDisabled(), false);
+    assert.equal(await details.isDisabled(), false);
+    assert.equal(sessionDownloads.length, downloadsBeforeOldSave);
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await reopenOriginalWithEmptyHistory();
+    await stageFullQueue();
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    assert.deepEqual(await order(), titles);
+    for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    await invalidated();
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const saveReplacementOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "save-replacement-current.bin"),
+    );
+    assert.deepEqual(saveReplacementOutput, replacementOutput);
+    const beforeSaveDelivery = await page.evaluate(
+      () => window.__sessionSaveProbe.state,
+    );
+    // The base export and suppression staging legitimately create JSON URLs
+    // while the old save is held. Snapshot those before releasing its digest.
+    assert.deepEqual(beforeSaveDelivery, {
+      ...heldSaveState,
+      jsonUrls: beforeSaveDelivery.jsonUrls,
+    });
+    assert.equal(sessionDownloads.length, downloadsBeforeOldSave);
+    await page.evaluate(() => window.__sessionSaveProbe.release());
+    await page.waitForFunction((expected) => {
+      const state = window.__sessionSaveProbe.state;
+      return state.delivered === expected && !state.held;
+    }, currentSaveDigests.calls);
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(await page.evaluate(() => window.__sessionSaveProbe.state), {
+      ...beforeSaveDelivery,
+      delivered: currentSaveDigests.calls,
+      held: false,
+    });
+    // Check before a newer session operation could supersede the old request.
+    assert.equal(sessionDownloads.length, downloadsBeforeOldSave);
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    assert.deepEqual(await order(), titles);
+    for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    assert.equal(await output.isDisabled(), false);
+    assert.equal(await details.isDisabled(), false);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal((await queue.innerText()).includes("Queue session saved."), false);
+    const newSaveDownload = page.waitForEvent(
+      "download",
+      (download) => download.suggestedFilename() === "firmware-session.json",
+    );
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    const newSaveFile = path.join(work, "save-replacement-current-session.json");
+    await (await newSaveDownload).saveAs(newSaveFile);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(newSaveFile, "utf8")),
+      expectedFullSession,
+    );
+    assert.equal(sessionDownloads.length, downloadsBeforeOldSave + 1);
+    assert.equal(
+      await page.evaluate(() => window.__sessionSaveProbe.state.jsonUrls),
+      beforeSaveDelivery.jsonUrls + 1,
+    );
+    await page.evaluate(() => window.__sessionSaveProbe.restore());
+    assert.equal(await output.isDisabled(), false);
+    assert.equal(await details.isDisabled(), false);
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const saveRetainedDownload = page.waitForEvent("download", (download) =>
+      download.suggestedFilename().endsWith(".bin"),
+    );
+    await output.click();
+    const saveRetainedFile = path.join(work, "save-replacement-after-delivery.bin");
+    await (await saveRetainedDownload).saveAs(saveRetainedFile);
+    assert.deepEqual(verifyOutput(saveRetainedFile), saveReplacementOutput);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    console.log(
+      "LATE_SESSION_SAVE_AFTER_SOURCE_REPLACEMENT_NO_STALE_DOWNLOAD_NEW_QUEUE_AND_SPI_RETAINED",
+      await page.evaluate(() => window.__sessionSaveProbe.state),
+    );
+
     // Loading is one undoable queue replacement, not four separate mutations.
     // Apply/output are never restored by Undo or Redo, even with identical entries.
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
@@ -802,6 +969,7 @@ async function openSource(page, source) {
       ["history-undo.bin", "full"],
       ["race-after-delivery.bin", "full"],
       ["replacement-after-delivery.bin", "full"],
+      ["save-replacement-after-delivery.bin", "full"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })
