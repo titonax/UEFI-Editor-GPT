@@ -342,6 +342,33 @@ async function openSource(page, source) {
       assertMetadataOnly(session);
       return session;
     }
+    async function armSessionDigests() {
+      await page.evaluate(() => {
+        const original = crypto.subtle.digest;
+        const state = { calls: 0, pending: 0, completed: 0 };
+        crypto.subtle.digest = function (...args) {
+          state.calls += 1;
+          state.pending += 1;
+          return original.apply(this, args).then(
+            (result) => {
+              state.pending -= 1;
+              state.completed += 1;
+              return result;
+            },
+            (error) => {
+              state.pending -= 1;
+              throw error;
+            },
+          );
+        };
+        window.__sessionDigestProbe = {
+          state,
+          restore: () => {
+            crypto.subtle.digest = original;
+          },
+        };
+      });
+    }
     const session = await saveSession("paused-v2.json");
     await assertPausedSelection();
     assert.equal(await output.isDisabled(), false);
@@ -351,12 +378,21 @@ async function openSource(page, source) {
     await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
     assert.match(await queue.innerText(), /The queue is empty/);
     await invalidated();
+    await armSessionDigests();
     await queue
       .getByLabel("Load queue session file")
       .setInputFiles(path.join(work, "paused-v2.json"));
     await waitForDisabled(apply, false);
     await assertPausedSelection();
     await invalidated();
+    const currentLoadDigests = await page.evaluate(
+      () => window.__sessionDigestProbe.state,
+    );
+    assert(currentLoadDigests.calls > 0);
+    assert.equal(currentLoadDigests.pending, 0);
+    assert.equal(currentLoadDigests.completed, currentLoadDigests.calls);
+    await page.evaluate(() => window.__sessionDigestProbe.restore());
+    console.log("CURRENT_SESSION_LOAD_NATIVE_DIGESTS", currentLoadDigests);
     assert.deepEqual(await saveSession("paused-roundtrip.json"), session);
     await invalidated();
     await apply.click();
@@ -402,6 +438,138 @@ async function openSource(page, source) {
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     await downloadVerifiedOutput(page, path.join(work, "reselected.bin"));
     console.log("RESTORED_PAUSED_ENTRIES_RESELECTED_FRESH_FULL_SPI_VERIFIED");
+
+    // Controlled native File.text delivery across queue/history changes and
+    // dialog closure, including Undo back to identical entries and selection.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    const heldSessionFile = path.join(work, "held-paused-session.json");
+    fs.copyFileSync(path.join(work, "paused-v2.json"), heldSessionFile);
+    const documentOrigin = await page.evaluate(() => performance.timeOrigin);
+    await page.evaluate(() => {
+      const original = File.prototype.text;
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const state = { calls: 0, nativeCompleted: 0, delivered: 0, held: false };
+      File.prototype.text = function (...args) {
+        if (this.name !== "held-paused-session.json" || state.calls > 0)
+          return original.apply(this, args);
+        state.calls += 1;
+        return original.apply(this, args).then(async (text) => {
+          state.nativeCompleted += 1;
+          state.held = true;
+          await gate;
+          state.held = false;
+          state.delivered += 1;
+          return text;
+        });
+      };
+      window.__sessionReadProbe = {
+        state,
+        release,
+        restore: () => {
+          File.prototype.text = original;
+        },
+      };
+    });
+    await queue.getByLabel("Load queue session file").setInputFiles(heldSessionFile);
+    await page.waitForFunction(() => window.__sessionReadProbe.state.held);
+    assert.deepEqual(await page.evaluate(() => window.__sessionReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 0,
+      held: true,
+    });
+    assert.match(await queue.innerText(), /Validating queue session/);
+    assert.equal(await output.isDisabled(), false);
+    console.log("OLD_SESSION_NATIVE_TEXT_HELD_READY_FULL_OUTPUT_UNCHANGED");
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    await invalidated();
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    assert.deepEqual(await order(), titles);
+    await invalidated();
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const freshRaceOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "race-current.bin"),
+    );
+    assert.deepEqual(
+      freshRaceOutput,
+      fs.readFileSync(path.join(work, "reselected.bin")),
+    );
+    assert.deepEqual(await page.evaluate(() => window.__sessionReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 0,
+      held: true,
+    });
+    await armSessionDigests();
+    await page.evaluate(async () => {
+      window.__sessionReadProbe.release();
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(await page.evaluate(() => window.__sessionReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 1,
+      held: false,
+    });
+    await page.waitForFunction((expected) => {
+      const state = window.__sessionDigestProbe.state;
+      return (
+        state.calls === expected && state.completed === expected && state.pending === 0
+      );
+    }, currentLoadDigests.calls);
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    console.log(
+      "STALE_SESSION_NATIVE_DIGESTS_COMPLETED",
+      await page.evaluate(() => window.__sessionDigestProbe.state),
+    );
+    await page.evaluate(() => window.__sessionDigestProbe.restore());
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+    assert.deepEqual(await order(), titles);
+    assert.equal(await output.isDisabled(), false);
+    assert.equal(await details.isDisabled(), false);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal((await queue.innerText()).includes("Queue session loaded."), false);
+    const fullSessionDownload = page.waitForEvent(
+      "download",
+      (download) => download.suggestedFilename() === "firmware-session.json",
+    );
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    const fullSessionFile = path.join(work, "race-current-session.json");
+    await (await fullSessionDownload).saveAs(fullSessionFile);
+    const expectedFullSession = structuredClone(session);
+    for (const operation of expectedFullSession.operations) operation.enabled = true;
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(fullSessionFile, "utf8")),
+      expectedFullSession,
+    );
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const retainedDownload = page.waitForEvent("download", (download) =>
+      download.suggestedFilename().endsWith(".bin"),
+    );
+    await output.click();
+    const retainedFile = path.join(work, "race-after-delivery.bin");
+    await (await retainedDownload).saveAs(retainedFile);
+    assert.deepEqual(verifyOutput(retainedFile), freshRaceOutput);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    await page.evaluate(() => window.__sessionReadProbe.restore());
+    console.log(
+      "LATE_SESSION_TEXT_AFTER_CLEAR_UNDO_RETAINED_NEW_FULL_QUEUE_AND_EXACT_SPI",
+    );
 
     // Loading is one undoable queue replacement, not four separate mutations.
     // Apply/output are never restored by Undo or Redo, even with identical entries.
@@ -474,6 +642,7 @@ async function openSource(page, source) {
     for (const [file, mode] of [
       ["history-redo.bin", "move-only"],
       ["history-undo.bin", "full"],
+      ["race-after-delivery.bin", "full"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })

@@ -150,6 +150,11 @@ atomically while verified output remains intact. Independent rereads and changed
 rejection pass. The deployed PR #182 extension now also verifies one-step Undo/Redo
 of loading that paused session over a ready four-edit queue, invalidation from
 both ready variants, fresh known move-only/full outputs and independent rereads.
+A controlled native-text probe on deployed PR #183 now also passes late paused-session
+read delivery after Clear/Undo and dialog closure, a fresh exact full-SPI Check,
+completion of the old validation hashes before any newer session operation,
+retention of the four-enabled queue/output and independent reread. This combined
+sequence does not isolate revision cancellation from dialog closure.
 Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
@@ -622,8 +627,12 @@ list the blocker for every unsupported case.
   A deployed PR #182 extension verifies session load as one undoable replacement:
   single Undo/Redo restores the full/paused selections without cached output;
   fresh post-Redo move-only and post-Undo full outputs match known hashes and
-  independently reread correctly. Other selections/dependencies, history sequences,
-  asynchronous save/load races and combined v1 remain separate.
+  independently reread correctly.
+  A deployed PR #183 controlled native-text extension also retains the newer full
+  queue/output after Clear/Undo, dialog closure and old session read/hash delivery,
+  with fresh known SPI output and independent reread. It combines revision/dialog
+  cancellation; neither mechanism is isolated. Other selections/dependencies,
+  history sequences, remaining save/load races and combined v1 stay separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed
