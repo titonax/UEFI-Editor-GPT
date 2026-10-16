@@ -475,3 +475,68 @@ other histories/selections, ordinary scheduling, actual I/O failure or hardware.
 No standalone engine or new synthetic acceptance is claimed. Combined v1,
 missing qualifying uncompressed AMI/mixed sources, P53 dynamic roots and new BIOS
 retain their existing separate gates.
+
+## Controlled final load hash across source close/reopen
+
+Reproduced on 2026-10-16 (Europe/Madrid) against deployed main
+`d754bb17752daa9a21bc1894060e6431c4346119` (PR #187), after fresh exact-SHA
+Quality, build and automatic Pages deployment success. Firefox 153.0 /
+Playwright 1.62.1, headless Linux, 1600 × 1000 used the documented browser
+container/certificate settings and `index-LM6CCH_b.js`, `index-D4JOsfQ5.css`,
+`tiano-decompress.wasm` and `ifrextractor.wasm`. The authorized original SPI was
+size/SHA-256 checked afresh. Private firmware, decoded/editor/session JSON and
+outputs stay local and are removed by the checker on exit; public CI has no source.
+
+The checker reuses the preceding final-native-load-hash gate, separately from
+the open-dialog Clear/Undo sequence. The successful current load measures five
+native hashes, zero pending. Original native receiver/arguments and successful
+digest bytes are unchanged; only delivery of the last result is held. The native
+digest method is restored when that last call starts, before replacement work.
+File.text is native and unheld. No production editor, codec or writer is changed.
+
+1. With the four-enabled queue/output ready, load the original one-enabled/
+   three-paused session. Require five native hashes completed, four delivered,
+   the final result held, a visible validating status and the old output ready.
+2. Close the dialog and use Load another firmware. Reopen the same original
+   complete SPI without navigation. Verify original base data, 70 Forms, Security
+   `01`, seven enabled roots, original Ref placement and active suppression;
+   queue/history/Apply/output reset. Reuse the same assertions as the earlier
+   source-bound text/save probes, without weakening any of them.
+3. Stage the normal four actions and Apply/Check/download a fresh full SPI.
+   It matches the known full output byte for byte. Require the old final load
+   digest still held throughout. No Clear/Undo or newer session save/load occurs
+   in this replacement sequence before old delivery.
+4. Release the unchanged last result. Require all five delivered and none held;
+   drain two animation frames before observing the new queue. Its four selected
+   entries/order and ready output/details remain intact, with no stale loaded
+   message or alert. No newer session operation has superseded that old load.
+   As in the preceding probe, exact AMI replay after this last hash has no further
+   external await; the old React operation's full return is not separately exposed.
+5. Only after those observations, export the current full session. It equals the
+   expected metadata-only v2 session. Download the cached SPI without another
+   Check: it equals the fresh replacement result. Document time origin is unchanged.
+6. Existing valid session load/Undo/Redo, atomic paused-root rejection and earlier
+   races still pass. Independently reopen the retained post-hash-replacement SPI
+   and all six earlier history/retained outputs: seven reanalyses confirm 70 Forms,
+   a unique moved Ref and correct full/paused Security, Boot and suppression
+   states. Changed-image session rejection still leaves an empty queue and disabled
+   output. No application page errors occurred. The full run passed first attempt.
+
+All fourteen downloads are complete 8,388,608-byte SPIs. Three move-only results
+retain SHA-256
+`b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`
+and 12,295 changes only in Setup FFS `[4612464, 4781106)`; eleven full results
+retain SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changes only inside that FFS and companion `[3239384, 3419918)`.
+Every non-BIOS and outside-owner byte is unchanged. Original hashes/counts,
+buffer ownership, codec, allocation, checksum, independent reconstruction and
+15-minute Check guards are unchanged. The opt-in command above reproduces this
+extension; no standalone engine run or new synthetic acceptance is claimed.
+
+This is controlled successful native hash delivery across dialog closure plus
+same-byte source unmount/reset. It does not isolate those cancellation mechanisms
+or establish distinct-image replacement, stale rejection, other hash boundaries,
+other histories/selections, ordinary scheduling, actual I/O failure or hardware.
+Combined v1, missing qualifying uncompressed AMI/mixed sources, P53 dynamic roots
+and new BIOS retain their existing separate gates.
