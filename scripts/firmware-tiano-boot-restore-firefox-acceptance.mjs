@@ -214,6 +214,7 @@ async function openSource(page, source) {
     const selected = (title) =>
       queue.getByRole("checkbox", { name: "Select " + title, exact: true });
     async function order() {
+      await selected(titles[0]).waitFor({ state: "visible" });
       return queue
         .getByRole("checkbox")
         .evaluateAll((items) =>
@@ -266,6 +267,174 @@ async function openSource(page, source) {
     await comparison.click();
     assert.equal(await output.isDisabled(), false);
     await comparison.click();
+    const fiveTitles = [...titles, "Show root menu Boot"];
+    async function saveSession(file) {
+      const download = page.waitForEvent(
+        "download",
+        (item) => item.suggestedFilename() === "firmware-session.json",
+      );
+      await queue
+        .getByRole("button", { name: "Save queue session", exact: true })
+        .click();
+      await (await download).saveAs(file);
+      return JSON.parse(fs.readFileSync(file, "utf8"));
+    }
+    async function assertFiveSelection(lastEnabled) {
+      assert.deepEqual(await order(), fiveTitles);
+      for (const title of titles) assert.equal(await selected(title).isChecked(), true);
+      assert.equal(await selected(fiveTitles[4]).isChecked(), lastEnabled);
+      assert.match(await queue.innerText(), lastEnabled ? /5 SELECTED/ : /4 SELECTED/);
+    }
+    const fullSessionFile = path.join(work, "dependent-full-session.json");
+    const fullSession = await saveSession(fullSessionFile);
+    assert.deepEqual(Object.keys(fullSession).sort(), [
+      "format",
+      "kind",
+      "operations",
+      "source",
+      "version",
+    ]);
+    assert.equal(fullSession.format, "uefi-editor-queue-session");
+    assert.equal(fullSession.kind, "hii-menu-actions");
+    assert.equal(fullSession.version, 2);
+    assert.deepEqual(Object.keys(fullSession.source).sort(), [
+      "contextSha256",
+      "sha256",
+      "size",
+    ]);
+    assert.equal(fullSession.source.sha256, sha256(sourceBytes));
+    assert.equal(fullSession.source.size, sourceBytes.length);
+    assert.match(fullSession.source.contextSha256, /^[a-f0-9]{64}$/);
+    assert.deepEqual(fullSession.operations, [
+      {
+        action: "move-ref",
+        sourceFormIndex: 3,
+        referenceChildIndex: 49,
+        destinationFormIndex: 5,
+        enabled: true,
+      },
+      {
+        action: "ami-values",
+        changes: [{ formIndex: 0, childIndex: 1, field: "accessLevel", value: "00" }],
+        enabled: true,
+      },
+      {
+        action: "suppressions",
+        changes: [{ conditionIndex: 5, active: false }],
+        enabled: true,
+      },
+      {
+        action: "ami-roots",
+        changes: [{ rootIndex: 4, visible: false }],
+        enabled: true,
+      },
+      {
+        action: "ami-roots",
+        changes: [{ rootIndex: 4, visible: true }],
+        enabled: true,
+      },
+    ]);
+    assert.doesNotMatch(
+      JSON.stringify(fullSession),
+      /patches|expected|replacement|ifrBinary|history|applied|fileName|offset|source\.bin/,
+    );
+    assert.equal(await output.isDisabled(), false);
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    await invalidated();
+    await queue.getByLabel("Load queue session file").setInputFiles(fullSessionFile);
+    await selected(fiveTitles[4]).waitFor({ state: "visible" });
+    await waitForDisabled(apply, false);
+    await assertFiveSelection(true);
+    await invalidated();
+    assert.deepEqual(
+      await saveSession(path.join(work, "dependent-reexport.json")),
+      fullSession,
+    );
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await downloadVerifiedOutput(
+      page,
+      path.join(work, "session-restored.bin"),
+      "restored",
+    );
+    assert.deepEqual(
+      fs.readFileSync(path.join(work, "session-restored.bin")),
+      fs.readFileSync(path.join(work, "restored.bin")),
+    );
+    console.log("DEPENDENT_HIDE_SHOW_V2_ROUND_TRIP_EXACT_RESTORED_SPI");
+
+    await page.getByRole("button", { name: "Change queue (5)", exact: true }).click();
+    for (const restoreEnabled of [true, false]) {
+      const invalidSession = structuredClone(fullSession);
+      invalidSession.operations[3].enabled = false;
+      invalidSession.operations[4].enabled = restoreEnabled;
+      const invalidFile = path.join(work, `missing-hide-${restoreEnabled}.json`);
+      fs.writeFileSync(invalidFile, JSON.stringify(invalidSession));
+      await queue.getByLabel("Load queue session file").setInputFiles(invalidFile);
+      const rejection = queue.getByRole("alert");
+      await rejection.waitFor();
+      assert.match(
+        await rejection.innerText(),
+        /contains a menu action with no change/,
+      );
+      await assertFiveSelection(true);
+      assert.equal(await output.isDisabled(), false);
+      assert.equal(await details.isDisabled(), false);
+      assert.equal(await check.isDisabled(), false);
+      console.log("MISSING_HIDE_REJECTED_ATOMICALLY_RESTORE_ENABLED", restoreEnabled);
+      if (restoreEnabled) {
+        assert.deepEqual(
+          await saveSession(path.join(work, "after-missing-hide.json")),
+          fullSession,
+        );
+        assert.equal(await queue.getByRole("alert").count(), 0);
+      }
+    }
+    const pausedSession = structuredClone(fullSession);
+    pausedSession.operations[4].enabled = false;
+    const pausedFile = path.join(work, "dependent-show-paused.json");
+    fs.writeFileSync(pausedFile, JSON.stringify(pausedSession));
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedFile);
+    // Apply was already enabled: observe the actual selected projection instead.
+    await page.waitForFunction(() => {
+      const boxes = [
+        ...document.querySelectorAll('[role="dialog"] input[type="checkbox"]'),
+      ];
+      return boxes.length === 5 && boxes.filter((item) => item.checked).length === 4;
+    });
+    await assertFiveSelection(false);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await invalidated();
+    assert.deepEqual(
+      await saveSession(path.join(work, "dependent-paused-reexport.json")),
+      pausedSession,
+    );
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await downloadVerifiedOutput(page, path.join(work, "session-show-paused.bin"));
+    assert.deepEqual(
+      fs.readFileSync(path.join(work, "session-show-paused.bin")),
+      fs.readFileSync(path.join(work, "original-order.bin")),
+    );
+    console.log("DEPENDENT_SHOW_PAUSED_VALID_SESSION_EXACT_HIDDEN_BOOT_SPI");
+    await page.getByRole("button", { name: "Change queue (5)", exact: true }).click();
+    await selected(fiveTitles[4]).check();
+    await assertFiveSelection(true);
+    await invalidated();
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await downloadVerifiedOutput(
+      page,
+      path.join(work, "session-show-reselected.bin"),
+      "restored",
+    );
+    assert.deepEqual(
+      fs.readFileSync(path.join(work, "session-show-reselected.bin")),
+      fs.readFileSync(path.join(work, "restored.bin")),
+    );
+    console.log("DEPENDENT_SHOW_RESELECTED_FRESH_RESTORED_SPI_IDENTICAL");
+    await page.getByRole("button", { name: "Change queue (5)", exact: true }).click();
     await queue
       .getByRole("button", {
         name: "Remove Show root menu Boot from change queue",
@@ -295,6 +464,9 @@ async function openSource(page, source) {
     for (const [file, mode] of [
       ["restored.bin", "restored"],
       ["net-three.bin", "net-three"],
+      ["session-restored.bin", "session-restored"],
+      ["session-show-paused.bin", "full"],
+      ["session-show-reselected.bin", "reselected"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })
@@ -309,7 +481,7 @@ async function openSource(page, source) {
       const reopened = JSON.parse(fs.readFileSync(readFile, "utf8"));
       assert.equal(reopened.forms.length, 70);
       assert.equal(reopened.forms[0].children[1].accessLevel, "00");
-      assert.equal(reopened.rootVisibility.entries[4].value, 1);
+      assert.equal(reopened.rootVisibility.entries[4].value, mode === "full" ? 0 : 1);
       const flatten = (items) =>
         items.flatMap((item) => [item, ...flatten(item.children || [])]);
       const moved = (index) =>
@@ -325,14 +497,14 @@ async function openSource(page, source) {
       assert.equal(suppression.start, suppression.end);
       assert.deepEqual(
         reopened.rootVisibility.entries.map((item) => item.value),
-        Array(7).fill(1),
+        mode === "full" ? [1, 1, 1, 1, 0, 1, 1] : Array(7).fill(1),
       );
       assert.equal(await output.isDisabled(), true);
       assert.equal(await details.isDisabled(), true);
       console.log(
         "INDEPENDENT_REANALYSIS_" +
           mode.toUpperCase() +
-          "_THREE_EDITS_AND_ALL_ORIGINAL_ROOTS",
+          "_EXACT_THREE_EDITS_AND_REQUESTED_ROOTS",
       );
     }
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
