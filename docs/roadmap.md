@@ -17,9 +17,9 @@ producing a flashable image are separate capabilities.
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
 | Full-image writing        | Phoenix legacy, fixed-size uncompressed UEFI paths and exact accepted LZMA/Tiano sources            |
 
-## Progress at 2026-10-17
+## Progress at 2026-10-18
 
-PRs #119–#123 and #128–#189 are integrated. This status distinguishes implemented
+PRs #119–#123, #128–#189 and #195 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -165,6 +165,12 @@ across the same close/reopen sequence. After a fresh full queue/SPI is ready,
 old digest delivery creates neither a JSON Blob URL nor a session download;
 the current save succeeds and the retained full SPI independently rereads.
 This combines dialog/source cancellation, not queue-revision-only cancellation.
+A deployed PR #195 save probe now separately keeps dialog/source open across
+Clear/Undo and final native digest delivery. The restored full queue retains
+invalidated output; no stale JSON Blob URL, download, saved message or alert occurs
+before any newer request. Current save then succeeds in that same dialog, followed
+by a fresh exact full SPI and independent reread. Individual token internals and
+other save hash boundaries/rejections remain separate.
 A deployed PR #186 probe holds the final native hash of a paused-session load,
 then performs Clear/Undo with the dialog kept open and no source reset or newer
 session request. Old digest delivery does not replace the restored full queue;
@@ -666,7 +672,12 @@ list the blocker for every unsupported case.
   unmount/reset are combined. The deployed PR #185 save probe holds the last
   native digest across the same close/reopen boundary: no stale JSON Blob URL
   or session download, successful current save and retained exact full SPI with
-  independent reread. The deployed PR #186 load-hash probe separately keeps the
+  independent reread. A separate deployed PR #195 save probe keeps dialog/source
+  open across Clear/Undo: final native digest delivery creates no stale JSON URL
+  or download and leaves output invalidated; current save in the same dialog
+  succeeds, followed by fresh exact full SPI and independent reread. No newer
+  request masks old delivery. Other save boundaries/rejections remain separate.
+  The deployed PR #186 load-hash probe separately keeps the
   dialog/source open across Clear/Undo and final native hash delivery, retains
   the full queue without stale loaded/error state, and requires a fresh exact
   full-SPI Check plus independent reread. No newer session request masks it.

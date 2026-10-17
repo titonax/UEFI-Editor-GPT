@@ -685,3 +685,70 @@ same-byte source unmount/reset, not isolated source cancellation, distinct-image
 replacement, other rejection causes, ordinary scheduling, actual I/O or hardware.
 Combined v1, other save/load races/hash boundaries, missing qualifying uncompressed
 AMI/mixed sources, P53 dynamic roots and new BIOS retain their separate gates.
+
+## Controlled final save hash across Clear/Undo with the dialog kept open
+
+Reproduced on 2026-10-18 (Europe/Madrid) against deployed main
+`0d1f6bf61831d1c5d2600a7347945f8083b15da3` (PR #195), after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39071768001)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39071768039)
+success. Firefox 153.0 / Playwright 1.62.1, headless Linux, 1600 × 1000 used the
+documented container/certificate settings. Loaded assets were
+`index-LM6CCH_b.js`, `index-D4JOsfQ5.css`, `tiano-decompress.wasm` and
+`ifrextractor.wasm`. The authorized original SPI was size/SHA-256 checked afresh;
+firmware, decoded/editor/session JSON and downloads remain private and local.
+The checker removes its private intermediates on exit; CI has no private input.
+
+The checker shares the existing final-native-save-hash gate between the earlier
+source-reopen sequence and this separate queue/history sequence. Its successful
+current save measures five completed native hashes, zero pending. The gate uses
+that measured count, forwards native receiver/arguments/result unchanged and
+holds only delivery of the last successful digest. The native digest method is
+restored when that call starts. A forwarding JSON Blob URL counter retains no
+content and returns native URLs unchanged. No production behavior changes.
+
+1. From a ready four-enabled queue/output, start Save queue session. Require all
+   five native calls completed, four results delivered, final result held, zero
+   JSON URLs and no session download; validating status is visible and output/
+   details remain ready before mutation.
+2. Keep dialog and source open. Clear empties the queue and invalidates Apply/
+   Check/download/details. Undo restores the four selected entries in the same
+   order without restoring output. The old final digest remains held; no dialog
+   close, source reset, Apply or newer session request occurs.
+3. Deliver the unchanged final digest, require all five results delivered and
+   none held, then drain two animation frames. Before any further session action,
+   require zero JSON Blob URLs and no session download, no stale saved message
+   or alert, the full selection unchanged, output still invalidated and Apply
+   available. Returning to equal entries has not revived the old save context.
+   Review of `saveHiiQueueSession` confirms no further external await after its
+   final identity digest; the old React operation's full return is not separately
+   exposed. Individual entry-reference/request-token internals are not isolated.
+4. Positive control in that same open dialog: a current Save creates exactly one
+   JSON Blob URL and session download, equals the expected metadata-only full v2
+   session and shows the saved message. Selection and invalidated output remain
+   unchanged. Restore the URL wrapper, then Apply/Check/download afresh. The full
+   SPI equals the known full result byte for byte; document time origin is unchanged.
+5. All earlier paused/full outputs, session load Undo/Redo, source-reopen probes
+   and current/stale semantic rejection controls still pass. Independently reopen
+   this new post-history-save full SPI and the nine earlier history/retained
+   outputs: ten reanalyses confirm 70 Forms, the unique moved Ref and correct
+   full/paused Security, Boot and suppression states. Changed-image session
+   rejection leaves an empty queue and disabled download. No application page
+   errors occurred. The complete checker passed on its first attempt.
+
+All eighteen downloads are complete 8,388,608-byte SPIs: three move-only results,
+SHA-256 `b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`,
+12,295 changes only in Setup FFS `[4612464, 4781106)`; fifteen full results,
+SHA-256 `264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`,
+140,913 changes only inside that FFS and companion `[3239384, 3419918)`.
+Every non-BIOS and outside-owner byte remains identical. Expected hashes/counts,
+allocation, codec, checksum, buffer ownership, independent reconstruction and
+15-minute Check guards are unchanged. The same opt-in command above reproduces
+the extension. No standalone engine rerun or new synthetic acceptance is claimed.
+
+This accepts controlled successful final save-hash delivery across this queue/
+history invalidation, without competing dialog/source/new-request cancellation.
+It does not establish other save hash boundaries, stale save rejection, ordinary
+scheduling, actual I/O, distinct-source replacement, other selections or hardware.
+Combined v1, other session races, missing qualifying uncompressed AMI/mixed
+sources, P53 dynamic roots and new BIOS retain their separate gates.
