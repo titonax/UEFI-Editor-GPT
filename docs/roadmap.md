@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-18
 
-PRs #119–#123, #128–#189 and #195 are integrated. This status distinguishes implemented
+PRs #119–#123, #128–#189 and #195–#196 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -189,6 +189,13 @@ and same-byte source close/reopen. Original base/empty history reset, a freshly
 checked full queue/SPI survives old delivery without a stale alert, and the cached
 retained SPI independently rereads. Dialog/source cancellation are combined;
 distinct-image replacement and other rejection causes remain separate.
+A deployed PR #196 dependency-session probe now passes the five-entry Hide/Show
+Boot v2 round trip/re-export, fresh exact restored SPI, valid paused Show with
+the preceding Hide enabled, and fresh known hidden/restored outputs after
+reselection. Pausing the prerequisite Hide rejects import with Show enabled or
+paused, preserving the prior full queue/output; valid retry clears the alert.
+Five independent rereads confirm the requested roots and other three edits.
+This accepts those exact dependent selections, not arbitrary dependencies.
 Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
@@ -694,6 +701,10 @@ list the blocker for every unsupported case.
   a stale alert, current rejection/retry and independent retained-output reread.
   Dialog closure and source reset are combined. Other rejection causes and
   distinct-image replacement remain separate.
+  A deployed PR #196 dependency-session probe also passes the five-entry Boot
+  Hide/Show v2 round trip and exact re-export, valid paused Show with Hide selected,
+  fresh known hidden/restored full SPIs, atomic rejection without the selected
+  prerequisite Hide even when Show is paused, valid retry and independent rereads.
   Other selections/dependencies,
   history sequences, remaining save/load races and combined v1 stay separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)

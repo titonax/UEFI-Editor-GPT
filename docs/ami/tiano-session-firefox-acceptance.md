@@ -752,3 +752,78 @@ It does not establish other save hash boundaries, stale save rejection, ordinary
 scheduling, actual I/O, distinct-source replacement, other selections or hardware.
 Combined v1, other session races, missing qualifying uncompressed AMI/mixed
 sources, P53 dynamic roots and new BIOS retain their separate gates.
+
+## Dependent Hide/Show Boot v2 sessions and paused restoration
+
+Reproduced on 2026-10-18 (Europe/Madrid) against deployed main
+`baa10361cac80441b7ad46a6192d4ac32f115438` (PR #196), after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39075283563)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39075283570)
+success. Firefox 153.0 / Playwright 1.62.1, headless Linux, 1600 × 1000 used the
+documented container/certificate settings and `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm`, `ifrextractor.wasm`. The existing
+authorized complete SPI was size/SHA-256 checked afresh. No browser API, queue,
+codec or writer was mocked, timing-gated or fault-injected in this run.
+
+The extended Boot restore checker retains its original four-edit baseline,
+five-entry Hide/Show output, removed-dependency UI rejection, net-three equivalence
+and independent rereads. The additional session sequence is:
+
+1. From the coherent five-enabled queue with restored output ready, save v2
+   `hii-menu-actions`. Assert exact top-level/source keys and all five operation
+   objects: the existing Ref move, mapped Security flags and suppression override,
+   then root index 4 hidden and root index 4 visible. Only identities, selectors,
+   desired values and enabled flags are exported, not source/decoded bytes,
+   patches, offsets, labels, history or Apply/output state.
+2. Clear the queue and require output invalidation. Load the exported session,
+   require all five titles/order/enabled flags and no restored output. Re-export
+   is JSON-value identical. Fresh Apply/Check/download equals the previously
+   checked five-entry result byte for byte and matches the independent engine hash.
+3. Change only Hide's enabled flag to false in private session metadata, leaving
+   Show enabled; identities and selectors are unchanged. Import rejects with
+   `contains a menu action with no change`: Show cannot regenerate a meaningful
+   restoration against a prefix in which Hide was not selected. The original
+   five-enabled queue/order, Check, download and details remain intact. Export
+   after this rejection exactly equals the original valid session.
+4. Repeat with both Hide and Show paused. Import still rejects with the same
+   semantic diagnostic and retains the full queue/output. Pausing Show does not
+   exempt it from regeneration against the selected prefix. This is not schema,
+   missing-root or source-identity rejection; no validator is changed to accept it.
+5. Without closing the dialog to hide that error, load the valid variant with
+   Hide enabled and only Show paused. Observe the actual five-entry/four-selected
+   projection, cleared alert and invalidated output. Re-export equals that exact
+   paused session. Fresh Apply/Check/download matches the known four-edit full
+   SPI with Boot hidden. Reselect Show through its checkbox: output invalidates
+   again; fresh Apply/Check/download equals the restored five-entry result.
+6. The existing removal of Show and Hide still yields the identical three-edit
+   result. Independently reopen five actual downloads: original restored,
+   net-three, session-restored, paused-Show and reselected-Show. All retain 70 Forms,
+   Security `00`, the empty suppression scope and the unique Ref moved to Form 5.
+   Paused Show retains root vector `1111011`; the other four have `1111111`.
+   Source replacement resets output/details. No application page errors occurred.
+   The complete checker passed first attempt.
+
+All six downloads are complete 8,388,608-byte SPIs. The two hidden-Boot outputs
+retain SHA-256 `264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changes. The four restored/net-three outputs retain SHA-256
+`d9c22589b68884e973af22f87f718b7fc9fb130bfbdcca3871a55c12d294f3be`
+and 49,938 changes. Every changed byte remains inside the original FFS owners
+`[3239384, 3419918)` and `[4612464, 4781106)`; every non-BIOS byte is identical.
+Expected hashes/counts, allocation, codec, checksum, ownership, independent
+reconstruction and 15-minute Check guards remain unchanged. The checker now waits
+for the actual first row before inspecting a mounted dialog's order, under the
+unchanged timeout. Firefox installation recovered through its normal fallback
+mirror after the primary archive failed; this was not an application failure.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-boot-restore-firefox-acceptance.mjs
+```
+
+Private firmware, decoded/editor/session JSON and outputs stay local and are
+removed on exit; public CI has no private input. This adds exact-source real
+Firefox acceptance, not a standalone engine rerun or new synthetic acceptance.
+Other dependent selections, five-entry session Undo/Redo, reordering, asynchronous
+session races, combined v1, distinct sources and hardware remain separate gates.
+Uncompressed AMI/mixed HII still lack qualifying real-source acceptance; no
+format, allocation-growth, capsule, new BIOS or P53 dynamic-root allowance is added.
