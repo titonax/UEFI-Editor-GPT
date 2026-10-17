@@ -1138,6 +1138,72 @@ async function openSource(page, source) {
     assert.deepEqual(afterStaleRootOutput, hashReplacementOutput);
     assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
 
+    // The same genuine domain rejection across dialog closure plus same-byte
+    // source unmount/reset. No newer session request masks the old delivery.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await assertFullSelection();
+    await armSessionLoadHash();
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(path.join(work, "invalid-paused-root.json"));
+    await page.waitForFunction(() => window.__sessionLoadHashProbe.state.held);
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionLoadHashProbe.state),
+      heldLoadHash,
+    );
+    assert.match(await queue.innerText(), /Validating queue session/);
+    assert.equal(await output.isDisabled(), false);
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await reopenOriginalWithEmptyHistory();
+    await stageFullQueue();
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await assertFullSelection();
+    await invalidated();
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const rootReplacementOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "root-rejection-replacement-current.bin"),
+    );
+    assert.deepEqual(rootReplacementOutput, afterStaleRootOutput);
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionLoadHashProbe.state),
+      heldLoadHash,
+    );
+    await page.evaluate(() => window.__sessionLoadHashProbe.release());
+    await page.waitForFunction((expected) => {
+      const state = window.__sessionLoadHashProbe.state;
+      return state.delivered === expected && !state.held;
+    }, currentLoadDigests.calls);
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(await page.evaluate(() => window.__sessionLoadHashProbe.state), {
+      ...heldLoadHash,
+      delivered: currentLoadDigests.calls,
+      held: false,
+    });
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await assertFullSelection();
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal((await queue.innerText()).includes("Queue session loaded."), false);
+    assert.equal(await output.isDisabled(), false);
+    assert.equal(await details.isDisabled(), false);
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const rootRetainedDownload = page.waitForEvent("download", (download) =>
+      download.suggestedFilename().endsWith(".bin"),
+    );
+    await output.click();
+    const rootRetainedFile = path.join(work, "root-rejection-replacement-retained.bin");
+    await (await rootRetainedDownload).saveAs(rootRetainedFile);
+    assert.deepEqual(verifyOutput(rootRetainedFile), rootReplacementOutput);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    console.log(
+      "LATE_PAUSED_ROOT_REJECTION_AFTER_SOURCE_REPLACEMENT_NO_STALE_ALERT_NEW_QUEUE_AND_SPI_RETAINED",
+    );
+
     // Positive control: the unchanged invalid file must still reject visibly
     // in the current context and preserve this newly checked full queue/output.
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
@@ -1234,6 +1300,7 @@ async function openSource(page, source) {
       ["load-hash-after-clear-undo.bin", "full"],
       ["load-hash-replacement-retained.bin", "full"],
       ["after-stale-root-rejection.bin", "full"],
+      ["root-rejection-replacement-retained.bin", "full"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })
