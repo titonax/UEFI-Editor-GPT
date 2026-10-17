@@ -617,3 +617,71 @@ It does not isolate internal reference/token details or establish rejection acro
 source replacement, other rejection causes, ordinary scheduling, actual I/O or
 hardware. Combined v1, missing qualifying uncompressed AMI/mixed sources, P53
 dynamic roots and new BIOS retain their existing separate gates.
+
+## Controlled late paused-root rejection across source close/reopen
+
+Reproduced on 2026-10-17 (Europe/Madrid) against deployed main
+`70ba29a1a16a5f7dc1a1d7df49df4c07ef0fd451` (PR #189), after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38949298007)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/38949297820)
+success. Firefox 153.0 / Playwright 1.62.1, headless Linux, 1600 × 1000 used the
+documented container/certificate settings and `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm`, `ifrextractor.wasm`. The existing
+authorized original SPI was size/SHA-256 checked afresh. Private firmware,
+decoded/editor/session JSON and outputs remain local and are removed by the
+checker on exit. Public CI has no private input.
+
+This extends the same genuine missing-root semantic rejection, not an injected
+browser error. The schema-valid session retains root index `999`, paused, and
+unchanged source/context identities. Reuse the existing final-native-load-hash
+gate: the normal current load measures five completed native hashes, zero pending;
+the gate forwards unchanged receiver, arguments and digest bytes, holding only
+delivery of the final result. All five native calls complete, four results deliver,
+and the original digest method is restored when the final call starts. File.text
+is native and unheld. No production editor, codec, writer or guard changes.
+
+1. From a ready four-enabled queue/output, load that invalid paused-root file.
+   Require final hash held, validating status visible and existing output ready.
+2. Close the dialog and Load another firmware. Reopen the same original full SPI
+   without document navigation. Require empty queue, disabled Undo/Redo and
+   invalidated Apply/output; fresh base export proves 70 Forms, Security `01`,
+   seven enabled roots, original Ref placement and active nonempty suppression.
+3. Stage the four supported edits again. Apply/Check/download a new full SPI;
+   compare it byte for byte with the known earlier full result. Require the old
+   final digest still held throughout. No Clear/Undo or newer session request
+   occurs in this replacement sequence before delivery.
+4. Release the unchanged final hash, require all five results delivered and no
+   held result, then drain two animation frames. Before any newer session action,
+   the new queue retains its four selected entries/order, no stale loaded message
+   or alert, and ready output/details. The exact AMI replay reaches root validation
+   after the last hash without a further external await; the old React operation's
+   full return is not separately exposed or claimed.
+5. Download the cached SPI without another Check: it equals the fresh replacement
+   result. Document time origin remains unchanged. Load the exact same invalid
+   file ungated: the current missing/ambiguous-root alert is visible and the full
+   queue/output remain ready. In that same open dialog, valid paused-session retry
+   clears the alert, invalidates output and passes single-mutation Undo/Redo plus
+   fresh known subset/full rebuilding.
+6. Independently reopen the retained post-rejection-replacement SPI and the eight
+   earlier history/retained outputs. Nine reanalyses confirm 70 Forms, a unique
+   moved Ref and correct full/paused Security, Boot and suppression states.
+   Changed-image session rejection leaves an empty queue and disabled output.
+   No application page errors occurred. The complete checker passed first attempt.
+
+All seventeen downloads are complete 8,388,608-byte SPIs: three move-only results,
+SHA-256 `b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`,
+12,295 changes only in Setup FFS `[4612464, 4781106)`; fourteen full results,
+SHA-256 `264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`,
+140,913 changes only inside that FFS and companion `[3239384, 3419918)`.
+Every non-BIOS and outside-owner byte is unchanged. Expected hashes/counts,
+allocation, codec, checksum, buffer ownership, independent reconstruction and
+15-minute Check guards remain unchanged. The opt-in command above reproduces
+this extension. No standalone engine rerun or new synthetic acceptance is claimed.
+Firefox installation recovered from a primary archive failure through its normal
+fallback mirror before testing; that was not an application failure.
+
+This establishes controlled semantic-rejection timing across dialog closure plus
+same-byte source unmount/reset, not isolated source cancellation, distinct-image
+replacement, other rejection causes, ordinary scheduling, actual I/O or hardware.
+Combined v1, other save/load races/hash boundaries, missing qualifying uncompressed
+AMI/mixed sources, P53 dynamic roots and new BIOS retain their separate gates.

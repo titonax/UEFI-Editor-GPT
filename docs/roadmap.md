@@ -17,9 +17,9 @@ producing a flashable image are separate capabilities.
 | Transactional editing     | Shared selectable queue gates AMI, UEFI HII and Phoenix exports                                     |
 | Full-image writing        | Phoenix legacy, fixed-size uncompressed UEFI paths and exact accepted LZMA/Tiano sources            |
 
-## Progress at 2026-10-16
+## Progress at 2026-10-17
 
-PRs #119–#123 and #128–#188 are integrated. This status distinguishes implemented
+PRs #119–#123 and #128–#189 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -178,6 +178,11 @@ A deployed PR #188 probe separately delays a genuine invalid paused-root rejecti
 at its final native load hash across open-dialog Clear/Undo. The stale alert is
 discarded; the same invalid file rejects visibly when current, retaining checked
 output, and valid retry clears that alert. Fresh full-SPI output independently rereads.
+A deployed PR #189 extension also delays the same rejection across dialog closure
+and same-byte source close/reopen. Original base/empty history reset, a freshly
+checked full queue/SPI survives old delivery without a stale alert, and the cached
+retained SPI independently rereads. Dialog/source cancellation are combined;
+distinct-image replacement and other rejection causes remain separate.
 Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
@@ -672,8 +677,12 @@ list the blocker for every unsupported case.
   The deployed PR #188 semantic-rejection probe keeps dialog/source open across
   Clear/Undo and final hash delivery for an invalid paused root: no stale alert,
   visible current rejection with output retained, valid retry clears the alert,
-  and fresh exact full-SPI output independently rereads. Other rejection causes
-  and rejection across source replacement remain separate.
+  and fresh exact full-SPI output independently rereads. The deployed PR #189
+  extension also passes this rejection across same-byte source close/reopen:
+  original base/history reset, freshly checked full queue/SPI retained without
+  a stale alert, current rejection/retry and independent retained-output reread.
+  Dialog closure and source reset are combined. Other rejection causes and
+  distinct-image replacement remain separate.
   Other selections/dependencies,
   history sequences, remaining save/load races and combined v1 stay separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
