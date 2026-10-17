@@ -754,46 +754,49 @@ async function openSource(page, source) {
     // the native method as soon as that call starts, before other source work.
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     const downloadsBeforeOldSave = sessionDownloads.length;
-    await page.evaluate((lastCall) => {
-      const original = crypto.subtle.digest;
-      const createObjectURL = URL.createObjectURL;
-      let release;
-      const gate = new Promise((resolve) => {
-        release = resolve;
-      });
-      const state = {
-        calls: 0,
-        nativeCompleted: 0,
-        delivered: 0,
-        held: false,
-        jsonUrls: 0,
-      };
-      URL.createObjectURL = function (...args) {
-        if (args[0]?.type === "application/json") state.jsonUrls += 1;
-        return createObjectURL.apply(this, args);
-      };
-      crypto.subtle.digest = function (...args) {
-        const call = ++state.calls;
-        if (call === lastCall) crypto.subtle.digest = original;
-        return original.apply(this, args).then(async (result) => {
-          state.nativeCompleted += 1;
-          if (call === lastCall) {
-            state.held = true;
-            await gate;
-            state.held = false;
-          }
-          state.delivered += 1;
-          return result;
+    async function armSessionSaveHash() {
+      await page.evaluate((lastCall) => {
+        const original = crypto.subtle.digest;
+        const createObjectURL = URL.createObjectURL;
+        let release;
+        const gate = new Promise((resolve) => {
+          release = resolve;
         });
-      };
-      window.__sessionSaveProbe = {
-        state,
-        release,
-        restore: () => {
-          URL.createObjectURL = createObjectURL;
-        },
-      };
-    }, currentSaveDigests.calls);
+        const state = {
+          calls: 0,
+          nativeCompleted: 0,
+          delivered: 0,
+          held: false,
+          jsonUrls: 0,
+        };
+        URL.createObjectURL = function (...args) {
+          if (args[0]?.type === "application/json") state.jsonUrls += 1;
+          return createObjectURL.apply(this, args);
+        };
+        crypto.subtle.digest = function (...args) {
+          const call = ++state.calls;
+          if (call === lastCall) crypto.subtle.digest = original;
+          return original.apply(this, args).then(async (result) => {
+            state.nativeCompleted += 1;
+            if (call === lastCall) {
+              state.held = true;
+              await gate;
+              state.held = false;
+            }
+            state.delivered += 1;
+            return result;
+          });
+        };
+        window.__sessionSaveProbe = {
+          state,
+          release,
+          restore: () => {
+            URL.createObjectURL = createObjectURL;
+          },
+        };
+      }, currentSaveDigests.calls);
+    }
+    await armSessionSaveHash();
     await queue
       .getByRole("button", { name: "Save queue session", exact: true })
       .click();
@@ -895,6 +898,92 @@ async function openSource(page, source) {
       "LATE_SESSION_SAVE_AFTER_SOURCE_REPLACEMENT_NO_STALE_DOWNLOAD_NEW_QUEUE_AND_SPI_RETAINED",
       await page.evaluate(() => window.__sessionSaveProbe.state),
     );
+
+    // Isolate save cancellation on queue/history context changes. Keep the
+    // dialog/source open and deliver before Apply or any newer session request.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await assertFullSelection();
+    const downloadsBeforeHistorySave = sessionDownloads.length;
+    await armSessionSaveHash();
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    await page.waitForFunction(() => window.__sessionSaveProbe.state.held);
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionSaveProbe.state),
+      heldSaveState,
+    );
+    assert.match(await queue.innerText(), /Validating queue session/);
+    assert.equal(await output.isDisabled(), false);
+    assert.equal(await details.isDisabled(), false);
+    assert.equal(sessionDownloads.length, downloadsBeforeHistorySave);
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    await invalidated();
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    await assertFullSelection();
+    await invalidated();
+    assert.deepEqual(
+      await page.evaluate(() => window.__sessionSaveProbe.state),
+      heldSaveState,
+    );
+    await page.evaluate(() => window.__sessionSaveProbe.release());
+    await page.waitForFunction((expected) => {
+      const state = window.__sessionSaveProbe.state;
+      return state.delivered === expected && !state.held;
+    }, currentSaveDigests.calls);
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(await page.evaluate(() => window.__sessionSaveProbe.state), {
+      ...heldSaveState,
+      delivered: currentSaveDigests.calls,
+      held: false,
+    });
+    assert.equal(sessionDownloads.length, downloadsBeforeHistorySave);
+    await assertFullSelection();
+    await invalidated();
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal((await queue.innerText()).includes("Queue session saved."), false);
+    assert.equal(await apply.isDisabled(), false);
+    console.log(
+      "LATE_SESSION_SAVE_AFTER_OPEN_DIALOG_CLEAR_UNDO_NO_JSON_URL_OR_DOWNLOAD",
+    );
+
+    // Positive control only after observing cancellation, in the same dialog.
+    const currentHistorySave = page.waitForEvent(
+      "download",
+      (download) => download.suggestedFilename() === "firmware-session.json",
+    );
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    const historySaveFile = path.join(work, "save-history-current-session.json");
+    await (await currentHistorySave).saveAs(historySaveFile);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(historySaveFile, "utf8")),
+      expectedFullSession,
+    );
+    assert.equal(sessionDownloads.length, downloadsBeforeHistorySave + 1);
+    assert.equal(
+      await page.evaluate(() => window.__sessionSaveProbe.state.jsonUrls),
+      1,
+    );
+    await assertFullSelection();
+    await invalidated();
+    assert.match(await queue.innerText(), /Queue session saved\./);
+    await page.evaluate(() => window.__sessionSaveProbe.restore());
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const saveHistoryOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "save-after-clear-undo.bin"),
+    );
+    assert.deepEqual(saveHistoryOutput, saveReplacementOutput);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    console.log("CURRENT_HISTORY_SAVE_SUCCEEDS_FRESH_FULL_SPI_IDENTICAL");
 
     // Isolate queue/history cancellation from dialog/source replacement and
     // newer requests. File.text is native/unheld; only the last successful
@@ -1301,6 +1390,7 @@ async function openSource(page, source) {
       ["load-hash-replacement-retained.bin", "full"],
       ["after-stale-root-rejection.bin", "full"],
       ["root-rejection-replacement-retained.bin", "full"],
+      ["save-after-clear-undo.bin", "full"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })
