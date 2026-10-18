@@ -885,3 +885,60 @@ engine rerun or new synthetic acceptance. Other five-entry histories/selections,
 reordering, session races, combined v1, distinct sources and hardware remain
 separate. Missing uncompressed AMI/mixed sources and unsupported formats,
 allocation growth, capsules, new BIOS and P53 dynamic roots retain their gates.
+
+## Dependent session order and atomic rejection
+
+Reproduced on 2026-10-18 (Europe/Madrid) against deployed main
+`9af4668100878394413245bd979962213837fec7` (PR #198), after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39090130804)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39090130848)
+success. Firefox 153.0 / Playwright 1.62.1, headless Linux, 1600 × 1000 used the
+documented container/certificate settings and `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm`, `ifrextractor.wasm`.
+The authorized original SPI was size/SHA-256 checked afresh. No browser API,
+queue, codec or writer was mocked, timing-gated or fault-injected.
+
+The Boot restore checker retains the preceding session/history/output sequence
+and now adds the following after five-enabled restored output is ready:
+
+1. Swap only the final Hide and Show operation objects in private v2 metadata;
+   leave identity, selectors and the first three operations unchanged. With Show
+   enabled, load rejects with `contains a menu action with no change`: Show runs
+   before its prerequisite Hide against the selected prefix. The exact original
+   five titles/order/selections and enabled Check/download/details remain intact.
+   Re-export equals the original full session exactly and clears the alert.
+2. Repeat with the earlier Show paused. It still rejects semantically, with the
+   same retained queue/ready controls and exact original re-export. Each attempt
+   starts without an alert, so an earlier rejection cannot satisfy the next wait.
+   No schema or validator is relaxed to accept a paused no-op.
+3. Load the valid order move, SetupData, Hide Boot, Show Boot, suppression. All
+   five actual titles/order/checkbox flags must change to that exact sequence;
+   re-export equals the reordered metadata. Apply remains available but Check,
+   download and details invalidate. Fresh Apply/Check/download reproduces the
+   known restored SPI byte for byte. Removing Show and Hide still produces the
+   identical net-three output.
+4. Independently reopen the new reordered output and the seven earlier variants.
+   All eight reanalyses retain 70 Forms, Security `00`, the unique Ref moved to
+   Form 5 and the empty suppression scope. The reordered image has all seven
+   roots visible; both hidden post-session/history variants retain `1111011`.
+   Source replacement resets output/details. No application page errors occur.
+   The complete checker passed on its first attempt.
+
+All nine downloads are complete 8,388,608-byte SPIs: three hidden outputs retain
+SHA-256 `264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changes; six restored/net-three outputs retain
+`d9c22589b68884e973af22f87f718b7fc9fb130bfbdcca3871a55c12d294f3be`
+and 49,938 changes. All changes stay inside original FFS owners
+`[3239384, 3419918)` and `[4612464, 4781106)`; every non-BIOS byte is identical.
+No expected hash/count, codec, checksum, allocation, ownership, independent
+reconstruction or 15-minute Check guard changed. No production code changes.
+The normal Firefox/FFmpeg installer fallback recovered from invalid primary
+archives before application testing.
+
+Use the same Boot restore opt-in command above. Private firmware, decoded/editor/
+session JSON and outputs remain local and are removed on exit; CI has no private
+input. This is exact-source Firefox acceptance, not a standalone engine rerun,
+new synthetic acceptance or hardware validation. Other dependent selections,
+permutations/histories, session races, distinct-source replacement, combined v1
+and hardware remain separate. Uncompressed AMI/mixed missing-source gates,
+unsupported formats, growth, capsules, new BIOS and P53 dynamic roots are unchanged.

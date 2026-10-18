@@ -494,6 +494,75 @@ async function openSource(page, source) {
     );
     console.log("DEPENDENT_SHOW_RESELECTED_FRESH_RESTORED_SPI_IDENTICAL");
     await page.getByRole("button", { name: "Change queue (5)", exact: true }).click();
+    for (const restoreEnabled of [true, false]) {
+      const reordered = structuredClone(fullSession);
+      reordered.operations[4].enabled = restoreEnabled;
+      [reordered.operations[3], reordered.operations[4]] = [
+        reordered.operations[4],
+        reordered.operations[3],
+      ];
+      const file = path.join(work, `show-before-hide-${restoreEnabled}.json`);
+      fs.writeFileSync(file, JSON.stringify(reordered));
+      await queue.getByLabel("Load queue session file").setInputFiles(file);
+      const rejection = queue.getByRole("alert");
+      await rejection.waitFor();
+      assert.match(
+        await rejection.innerText(),
+        /contains a menu action with no change/,
+      );
+      await assertFiveSelection(true);
+      assert.equal(await output.isDisabled(), false);
+      assert.equal(await check.isDisabled(), false);
+      assert.equal(await details.isDisabled(), false);
+      assert.deepEqual(
+        await saveSession(path.join(work, `after-reorder-${restoreEnabled}.json`)),
+        fullSession,
+      );
+      // Each rejection must be observed afresh, not confused with a prior alert.
+      assert.equal(await queue.getByRole("alert").count(), 0);
+      console.log("SHOW_BEFORE_HIDE_REJECTED_ATOMICALLY_ENABLED", restoreEnabled);
+    }
+    const permutation = [0, 1, 3, 4, 2];
+    const reordered = structuredClone(fullSession);
+    reordered.operations = permutation.map((index) => fullSession.operations[index]);
+    const reorderedFile = path.join(work, "dependent-valid-order.json");
+    fs.writeFileSync(reorderedFile, JSON.stringify(reordered));
+    await queue.getByLabel("Load queue session file").setInputFiles(reorderedFile);
+    const reorderedTitles = permutation.map((index) => fiveTitles[index]);
+    await page.waitForFunction((expected) => {
+      const boxes = [
+        ...document.querySelectorAll('[role="dialog"] input[type="checkbox"]'),
+      ];
+      return (
+        boxes.length === expected.length &&
+        boxes.every(
+          (box, index) =>
+            box.checked &&
+            box.getAttribute("aria-label") === "Select " + expected[index],
+        )
+      );
+    }, reorderedTitles);
+    assert.deepEqual(await order(), reorderedTitles);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal(await apply.isDisabled(), false);
+    await invalidated();
+    assert.deepEqual(
+      await saveSession(path.join(work, "dependent-valid-order-reexport.json")),
+      reordered,
+    );
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await downloadVerifiedOutput(
+      page,
+      path.join(work, "session-reordered-restored.bin"),
+      "restored",
+    );
+    assert.deepEqual(
+      fs.readFileSync(path.join(work, "session-reordered-restored.bin")),
+      fs.readFileSync(path.join(work, "restored.bin")),
+    );
+    console.log("DEPENDENT_VALID_SESSION_ORDER_EXACT_REEXPORT_FRESH_RESTORED_SPI");
+    await page.getByRole("button", { name: "Change queue (5)", exact: true }).click();
     await queue
       .getByRole("button", {
         name: "Remove Show root menu Boot from change queue",
@@ -528,6 +597,7 @@ async function openSource(page, source) {
       ["session-show-reselected.bin", "reselected"],
       ["history-undo-restored.bin", "history-undo"],
       ["history-redo-hidden.bin", "full"],
+      ["session-reordered-restored.bin", "session-reordered"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })
