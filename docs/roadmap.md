@@ -708,6 +708,12 @@ list the blocker for every unsupported case.
   implemented. AMITSE menu reassignment is also implemented. Version-2 exports
   use explicit actions, while strict version-1 files migrate in memory before
   normal validation and replay; unknown future versions remain rejected. The
+  shared controls now stop obsolete file-read completions before starting adapter
+  hashing/replay, while retaining the final guard for validation already in flight.
+  React/jsdom regressions reproduce context replacement, dialog close, unmount,
+  newer-load retention and late-validation rejection; this does not extend the
+  separate real-source/browser acceptance. See [Queue sessions](queue-sessions.md).
+  The
   [exact Z03 session acceptance](phoenix/z03-session-firefox-acceptance.md)
   reproduces v2 export/import and v1 migration in deployed Firefox, with fresh
   complete-image checks and source-identity rejection.

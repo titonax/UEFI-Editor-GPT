@@ -90,6 +90,7 @@ describe("queue session controls", () => {
       });
       expect(commit).not.toHaveBeenCalled();
       expect(saveAs).not.toHaveBeenCalled();
+      expect(session.load).not.toHaveBeenCalled();
     },
   );
   it("rejects oversized or invalid sessions without calling the commit action", async () => {
@@ -120,7 +121,66 @@ describe("queue session controls", () => {
       await task.promise;
     });
     expect(commit).not.toHaveBeenCalled();
+    expect(session.load).not.toHaveBeenCalled();
     rerender(view(session, true));
+    expect(screen.getByRole("button", { name: "Load queue session" })).toBeEnabled();
+  });
+  it("does not start session validation after unmount during file reading", async () => {
+    const task = deferred<string>();
+    const load = vi.fn().mockResolvedValue(vi.fn());
+    const { unmount } = render(view({ context: {}, save: vi.fn(), load }));
+    upload(file(() => task.promise));
+    unmount();
+    await act(async () => {
+      task.resolve("{}");
+      await task.promise;
+    });
+    expect(load).not.toHaveBeenCalled();
+    expect(saveAs).not.toHaveBeenCalled();
+  });
+  it("keeps a newer successful load when the old file read completes", async () => {
+    const task = deferred<string>();
+    const commit = vi.fn();
+    const load = vi.fn().mockResolvedValue(commit);
+    const session = { context: {}, save: vi.fn(), load };
+    const { rerender } = render(view(session));
+    upload(file(() => task.promise));
+    rerender(view({ ...session, context: {} }));
+    upload(file(() => Promise.resolve("new session")));
+    await waitFor(() => {
+      expect(commit).toHaveBeenCalledTimes(1);
+    });
+    await act(async () => {
+      task.resolve("obsolete session");
+      await task.promise;
+    });
+    expect(load).toHaveBeenCalledExactlyOnceWith("new session");
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText("Queue session loaded. Apply and check the restored plan."),
+    ).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("still discards a validation already in flight when the context changes", async () => {
+    const validation = deferred<() => void>();
+    const commit = vi.fn();
+    const session = {
+      context: {},
+      save: vi.fn(),
+      load: vi.fn().mockReturnValue(validation.promise),
+    };
+    const { rerender } = render(view(session));
+    upload(file(() => Promise.resolve("{}")));
+    await waitFor(() => {
+      expect(session.load).toHaveBeenCalledTimes(1);
+    });
+    rerender(view({ ...session, context: {} }));
+    await act(async () => {
+      validation.resolve(commit);
+      await validation.promise;
+    });
+    expect(commit).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load queue session" })).toBeEnabled();
   });
 });
