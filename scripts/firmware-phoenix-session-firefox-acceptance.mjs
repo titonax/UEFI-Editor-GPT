@@ -27,15 +27,23 @@ const expectedOutputSha =
 const readProbeMode = process.env.FIRMWARE_BROWSER_SESSION_READ_PROBE;
 assert(
   readProbeMode === undefined ||
-    ["1", "close", "source", "reject", "reject-close"].includes(readProbeMode),
-  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1, close, source, reject or reject-close when supplied.",
+    ["1", "close", "source", "reject", "reject-close", "reject-source"].includes(
+      readProbeMode,
+    ),
+  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1, close, source, reject, reject-close or reject-source when supplied.",
 );
 const probeSessionRead = readProbeMode !== undefined;
-const probeRejection = ["reject", "reject-close"].includes(readProbeMode);
-const probeClosedRejection = readProbeMode === "reject-close";
-const probeReadyOutput = ["close", "source", "reject", "reject-close"].includes(
+const probeRejection = ["reject", "reject-close", "reject-source"].includes(
   readProbeMode,
 );
+const probeClosedRejection = ["reject-close", "reject-source"].includes(readProbeMode);
+const probeReadyOutput = [
+  "close",
+  "source",
+  "reject",
+  "reject-close",
+  "reject-source",
+].includes(readProbeMode);
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "uefi-phoenix-session-firefox-"));
 fs.writeFileSync(path.join(work, "source.bin"), sourceBytes);
 
@@ -256,6 +264,68 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       console.log("READY_OUTPUT_BEFORE_HELD_READ_VERIFIED");
     }
 
+    // Both native-text and native-digest probes use the same explicit source
+    // reset and fresh direct edit. No newer session request masks old delivery.
+    async function reopenOriginalWithFreshOutput() {
+      const navigationBaseline = navigations;
+      await page
+        .getByRole("button", { name: "Load another firmware", exact: true })
+        .click();
+      await page
+        .locator("input[type=file]")
+        .first()
+        .setInputFiles(path.join(work, "source.bin"));
+      await page
+        .getByRole("button", { name: "Start Phoenix Setup analysis", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Change queue (0)", exact: true })
+        .waitFor({ timeout: 240000 });
+      await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+      assert.match(await queue.innerText(), /The queue is empty/);
+      for (const name of ["Undo queue change", "Redo queue change"])
+        assert.equal(
+          await queue.getByRole("button", { name, exact: true }).isDisabled(),
+          true,
+        );
+      for (const name of ["Modified firmware image", "Output details"])
+        assert.equal(
+          await page.getByRole("button", { name, exact: true }).isDisabled(),
+          true,
+        );
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      await page
+        .getByRole("button")
+        .filter({ hasText: /^Cache Ram/ })
+        .first()
+        .click();
+      const show = page.getByRole("button", {
+        name: "Queue Show for Cache Ram Phoenix item",
+        exact: true,
+      });
+      assert.equal(await show.isDisabled(), false);
+      await show.click();
+      await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+      await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      const fresh = await downloadVerifiedOutput(
+        page,
+        path.join(work, "output-reopened.bin"),
+      );
+      assert(
+        fresh.equals(readyOutput),
+        "Fresh reopened output must match without logging bytes.",
+      );
+      assert.equal(
+        navigations,
+        navigationBaseline,
+        "Source replacement must stay in the same document.",
+      );
+      console.log(
+        "SAME_BYTE_SOURCE_REOPEN_FRESH_BASE_HISTORY_OUTPUT_RESET_AND_REBUILD",
+      );
+    }
+
     if (probeSessionRead && !probeRejection) {
       let before = await page.evaluate(() => {
         window.sessionReadProbe.armed = true;
@@ -273,69 +343,8 @@ async function downloadVerifiedOutput(page, destination, check = true) {
         await queue.getByRole("button", { name: "Close", exact: true }).click();
         await queue.waitFor({ state: "hidden" });
         if (readProbeMode === "source") {
-          const navigationBaseline = navigations;
-          await page
-            .getByRole("button", { name: "Load another firmware", exact: true })
-            .click();
-          await page
-            .locator("input[type=file]")
-            .first()
-            .setInputFiles(path.join(work, "source.bin"));
-          await page
-            .getByRole("button", { name: "Start Phoenix Setup analysis", exact: true })
-            .click();
-          await page
-            .getByRole("button", { name: "Change queue (0)", exact: true })
-            .waitFor({ timeout: 240000 });
-          await page
-            .getByRole("button", { name: "Change queue (0)", exact: true })
-            .click();
-          for (const name of ["Undo queue change", "Redo queue change"])
-            assert.equal(
-              await queue.getByRole("button", { name, exact: true }).isDisabled(),
-              true,
-            );
-          for (const name of ["Modified firmware image", "Output details"])
-            assert.equal(
-              await page.getByRole("button", { name, exact: true }).isDisabled(),
-              true,
-            );
-          await queue.getByRole("button", { name: "Close", exact: true }).click();
-          await page
-            .getByRole("button")
-            .filter({ hasText: /^Cache Ram/ })
-            .first()
-            .click();
-          const show = page.getByRole("button", {
-            name: "Queue Show for Cache Ram Phoenix item",
-            exact: true,
-          });
-          assert.equal(await show.isDisabled(), false);
-          await show.click();
-          await page
-            .getByRole("button", { name: "Change queue (1)", exact: true })
-            .click();
-          await queue
-            .getByRole("button", { name: "Apply selected", exact: true })
-            .click();
-          await queue.getByRole("button", { name: "Close", exact: true }).click();
-          const fresh = await downloadVerifiedOutput(
-            page,
-            path.join(work, "output-reopened.bin"),
-          );
-          assert(
-            fresh.equals(readyOutput),
-            "Fresh reopened output must match without logging bytes.",
-          );
-          assert.equal(
-            navigations,
-            navigationBaseline,
-            "Source replacement must stay in the same document.",
-          );
+          await reopenOriginalWithFreshOutput();
           before = await page.evaluate(() => window.sessionReadProbe.hashes);
-          console.log(
-            "SAME_BYTE_SOURCE_REOPEN_FRESH_BASE_HISTORY_OUTPUT_RESET_AND_REBUILD",
-          );
         }
       } else {
         await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
@@ -417,6 +426,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       if (probeClosedRejection) {
         await queue.getByRole("button", { name: "Close", exact: true }).click();
         await queue.waitFor({ state: "hidden" });
+        if (readProbeMode === "reject-source") await reopenOriginalWithFreshOutput();
       } else {
         await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
         assert.match(await queue.innerText(), /The queue is empty/);
@@ -462,9 +472,11 @@ async function downloadVerifiedOutput(page, destination, check = true) {
           !probeClosedRejection,
         );
       console.log(
-        probeClosedRejection
-          ? "CLOSED_DIALOG_OLD_NATIVE_HASH_NO_STALE_REJECTION_READY_OUTPUT_RETAINED"
-          : "OLD_NATIVE_HASH_DELIVERED_NO_STALE_REJECTION_OUTPUT_STAYS_INVALIDATED",
+        readProbeMode === "reject-source"
+          ? "REOPENED_SOURCE_OLD_NATIVE_HASH_NO_STALE_REJECTION_FRESH_OUTPUT_RETAINED"
+          : probeClosedRejection
+            ? "CLOSED_DIALOG_OLD_NATIVE_HASH_NO_STALE_REJECTION_READY_OUTPUT_RETAINED"
+            : "OLD_NATIVE_HASH_DELIVERED_NO_STALE_REJECTION_OUTPUT_STAYS_INVALIDATED",
       );
       if (!probeClosedRejection)
         assert.equal(

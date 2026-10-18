@@ -750,6 +750,14 @@ list the blocker for every unsupported case.
   Closing and component lifetime are combined; source-reset rejection,
   distinct-image replacement, other causes and hardware remain separate. See
   [the closed-dialog rejection record](phoenix/z03-session-firefox-acceptance.md#closed-dialog-late-rejection-with-retained-verified-output).
+  A deployed PR #210 Z03 extension holds that same rejection across same-byte
+  source close/reopen in one document: original base/empty history/no output,
+  fresh direct rebuilding, then retained new ROM after old digest delivery
+  without a newer session request. Current rejection/retry, fresh v2/v1 and
+  actual retained-output reread pass; six known-hash downloads remain confined
+  to TEMPLAT. Dialog/source lifetime cancellation are combined; distinct-image
+  replacement, other rejection causes and hardware remain separate. See
+  [the source-reset rejection record](phoenix/z03-session-firefox-acceptance.md#same-byte-source-reopen-during-late-paused-item-rejection).
   The
   [exact Z03 session acceptance](phoenix/z03-session-firefox-acceptance.md)
   reproduces v2 export/import and v1 migration in deployed Firefox, with fresh
