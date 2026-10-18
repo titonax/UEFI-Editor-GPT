@@ -25,6 +25,22 @@ reports. Saving or rejecting a session does not alter the current queue or its
 verified result. Queue/source changes and closing the dialog cancel delayed
 save/load completions.
 
+After a delayed session file read, the shared controls recheck the request before
+calling the source-bound adapter. Closing the dialog, changing the queue/source
+context or unmounting therefore skips obsolete hashing and semantic replay rather
+than merely discarding their final commit. Validation already in flight still
+uses the final request guard. The 1 MiB file limit and all adapter identity,
+selector, ownership and output checks are unchanged.
+
+On 2026-10-18, React/jsdom regressions in
+`src/components/ChangeQueue/QueueSessionControls.test.tsx` reproduced three
+obsolete-read validation calls before the fix (context replacement, dialog close
+and unmount), then passed with the early guard. A newer successful load is retained
+after old text delivery, and an already-started validation cannot commit after
+context replacement. These use controlled promises and synthetic session text;
+they do not establish real Firefox, real-source reconstruction or hardware
+acceptance for this boundary. Existing real-source records below remain separate.
+
 The import treats JSON as untrusted. It rejects unknown fields/formats/versions,
 malformed SHA-256 identities, unsafe/negative offsets, non-boolean selections,
 duplicate selectors, text/files above 1 MiB and more than 1000 operations. Every

@@ -38,13 +38,16 @@ export default function QueueSessionControls({
     [context],
   );
   const current = active && state?.context === context ? state : null;
-  const run = async (operation: () => Promise<() => void>, message: string) => {
+  const run = async (
+    operation: (isCurrent: () => boolean) => Promise<(() => void) | undefined>,
+    message: string,
+  ) => {
     if (!active) return;
     const id = ++request.current;
     setState({ context, busy: true });
     try {
-      const commit = await operation();
-      if (request.current !== id) return;
+      const commit = await operation(() => request.current === id);
+      if (request.current !== id || !commit) return;
       commit();
       setState({ context, message });
     } catch (reason: unknown) {
@@ -84,10 +87,14 @@ export default function QueueSessionControls({
           inputProps={{ "aria-label": "Load queue session file" }}
           onChange={(file) => {
             if (!file) return;
-            void run(async () => {
+            void run(async (isCurrent) => {
               if (file.size > queueSessionTextLimit)
                 throw new Error("Queue session exceeds the 1 MiB file limit.");
-              return session.load(await file.text());
+              const text = await file.text();
+              // Do not hash or replay an obsolete source after a delayed read.
+              // Validation already in flight still needs the final commit guard.
+              if (!isCurrent()) return;
+              return session.load(text);
             }, "Queue session loaded. Apply and check the restored plan.");
           }}
         >
