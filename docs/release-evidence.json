@@ -44,7 +44,7 @@
           "docs/ami/lzma-firefox-output-acceptance.md",
           "docs/ami/lzma-session-firefox-acceptance.md"
         ],
-        "note": "Firefox 153.0 headless deployed PR #153 revision: exact first LZMA source, source-bound JSON suppression import, Apply/Check/report, explicit download, removal invalidation and fresh reload passed. Deployed PR #161 revision separately passed metadata-only v2 suppression-session export/clear/import, fresh exact complete-BIOS output, removal invalidation, independent empty-scope reload and original-session rejection on the changed image. Direct question-row toggles, v1 replay, other operations and hardware are not established."
+        "note": "Firefox 153.0 headless deployed PR #153 revision: exact first LZMA source, source-bound JSON suppression import, Apply/Check/report, explicit download, removal invalidation and fresh reload passed. Deployed PR #161 revision separately passed metadata-only v2 suppression-session export/clear/import, fresh exact complete-BIOS output, removal invalidation, independent empty-scope reload and original-session rejection on the changed image. Deployed main 65adaa2 separately matches the v2-restored complete-BIOS byte report to an independent scan of the actual download: exact changed/unchanged totals, 19,458 ranges, all 64 displayed physical boundaries and bounded 16-byte samples, with owner confinement; removal invalidation, fresh empty-scope reread and changed-image session rejection also pass. This BIOS-only input has zero bytes outside BIOS. Direct question-row toggles, v1 replay, other operations and hardware are not established."
       },
       "hardware": {
         "status": "pending",

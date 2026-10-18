@@ -79,3 +79,44 @@ output on this source, desktop file-picker behavior, hardware or recovery.
 Synthetic and React/jsdom tests remain separate. Other hashes/codecs, growth,
 capsules and unsupported roots remain blocked; P53 dynamic roots and new BIOS
 remain parked.
+
+## Complete-BIOS byte report against the actual download
+
+Reproduced on 2026-10-18 against deployed main
+`65adaa2f9b680ef34352c413dfa15e91b9814b53`.
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39114927783)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39115181300)
+were successful for that exact SHA before this run. Firefox 153.0 with
+Playwright 1.62.1 build 1538 loaded `index-LM6CCH_b.js`, `index-D4JOsfQ5.css`
+and the three deployed WASM readers listed above. The same explicit container
+and certificate settings were used; no application behavior or response was mocked.
+
+The extended opt-in checker scans the actual v2-restored download independently
+of the production comparison helper and rendered data. It checks the exact
+complete-image totals and every displayed physical start, exclusive end, length,
+original sample and rebuilt sample. Sample bytes stay private, including assertion
+diagnostics; only numeric totals are logged.
+
+| Independently measured field       | Result                 |
+| ---------------------------------- | ---------------------- |
+| Complete image                     | 16,777,216 bytes       |
+| Changed / unchanged bytes          | 4,987,327 / 11,789,889 |
+| Contiguous changed ranges          | 19,458                 |
+| Displayed ranges, all matched      | 64                     |
+| Maximum bytes per displayed sample | 16                     |
+| Changes outside owning FFS         | 0                      |
+
+The real image exercises both omitted ranges and truncation of long displayed
+samples. The dialog states complete physical-image offsets and matches the
+BIOS interval `[0x0, 0x1000000)`, zero outside-BIOS bytes and the accepted packed,
+rebuilt and remaining sizes. Closing the report retains enabled Check, details
+and download controls. The known output hash and owner confinement still pass.
+Removing the operation again invalidated output and details. A fresh reload of
+the actual download reopened 277 Forms with the empty condition body and unchanged
+expression. The original session was rejected on that changed source, with an
+empty queue and disabled download. There were no page errors.
+
+This is the complete BIOS-only source, not evidence for Descriptor/ME preservation
+on a descriptor-bearing SPI. Other operations, v1 replay and hardware remain
+outside this acceptance. The reproduction command above now includes these
+independent report assertions.
