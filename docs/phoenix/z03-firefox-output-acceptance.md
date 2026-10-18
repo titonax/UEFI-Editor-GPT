@@ -75,3 +75,64 @@ allocation/directory growth, other ROMs or physical flashing/recovery. The Cache
 Ram screen remains structurally unlinked; changing its item callback is a
 separate operation from registering a new root. The other release scopes keep
 their own evidence gates.
+
+## Complete-ROM byte report against actual downloads
+
+Reproduced on 2026-10-18 (Europe/Madrid) against deployed main
+`7c84f509f4b34e300e1730e3e67fe1581454f029` (PR #200), after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39097324616)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39097324631)
+success. Pages returned HTTP 200. Firefox 153.0 / Playwright 1.62.1, headless
+Linux, 1600 × 1000 used the documented container/certificate settings and
+`index-LM6CCH_b.js`, `index-D4JOsfQ5.css`. The normal Phoenix LH5 implementation
+was used; no UEFI WASM decoder loaded. No browser API, queue, codec or writer
+was mocked, delayed or fault-injected.
+
+The exact existing Z03 member was recovered from the authorized ChatGPT archive
+and size/SHA-256 checked afresh. Only that member was extracted; the completed
+source inventory was not repeated and no new firmware was acquired. Firefox
+installation recovered through its normal fallback mirror after invalid primary
+archives, before application testing.
+
+The extended `firmware-phoenix-history-firefox-acceptance.mjs` retains its
+staging Undo/Redo, Clear/Undo, ready-output Redo/Undo, new-mutation Redo discard
+and page-reload reset sequence. After each of its two Apply/Check/downloads:
+
+1. Scan the original and actual downloaded complete ROM locally, independently
+   of the production comparison helper or rendered values. Compute every
+   contiguous changed interval and the exact changed/unchanged totals.
+2. Open Verified Phoenix output. Require 13,032 changed and 1,035,544 unchanged
+   bytes in 1,048,576 bytes, 70 total changed ranges and exactly 64 displayed rows.
+   Every row must match its physical start/exclusive end, full interval length
+   and original/rebuilt first `min(length, 16)` bytes. Omitted ranges and truncated
+   samples are both exercised. Sampling/physical-offset labels must be present.
+   Raw samples are not logged or committed, including mismatch diagnostics.
+3. Require LH5 payload/allocation 13,074/13,112, 38 remaining bytes, one verified
+   requested item, changed allocation `[0x6ED30, 0x72068)` and 1,035,464 bytes
+   preserved outside it. These UI fields match the existing bounded writer
+   evidence and the actual byte-preservation check.
+4. Close the report; Check/download/details remain enabled. Clear/Undo still
+   invalidates Apply/output/details and requires fresh reconstruction before
+   checking the second report. No old verified output is revived by history.
+
+Both downloads are complete 1 MiB ROMs with the unchanged known SHA-256
+`bbc4671779479575ec3fcb104e83e54242b09cb2e2da46655bc9d7d81b780134`;
+they are byte-identical to each other. Every changed byte is inside the original
+TEMPLAT packed allocation; all other bytes, including FFV/header boundaries,
+are intact. This is a legacy complete-ROM source, not a descriptor-bearing SPI.
+After fresh page reloads, both actual files independently reopen with an empty
+queue and Cache Ram's Show disabled because its callback already returns visible.
+Neither reopening inherits a verified result. No application page errors occurred;
+the complete checker passed first attempt. The five-minute Check limit, expected
+hash/count, allocation, deterministic LH5 round trip and independent writer reread
+guards remain unchanged. No production code changed.
+
+Use the history checker's opt-in command in
+[the history record](z03-history-firefox-acceptance.md#reproduce-and-limits).
+Private firmware and temporary downloads stay local; the checker removes its
+private intermediates on exit and CI has no private input. This is exact-source
+real-Firefox report acceptance, not a new standalone engine rerun, synthetic or
+hardware result. Other sources/families, zero-change reports, pending-build races,
+root registration, structural edits, growth and broader codecs remain separate;
+P53 dynamic roots and new BIOS remain parked. Missing uncompressed AMI/mixed
+real-source gates and physical flashing/recovery are not promoted by this run.

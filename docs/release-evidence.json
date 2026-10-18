@@ -189,7 +189,7 @@
           "docs/phoenix/z03-session-firefox-acceptance.md",
           "docs/phoenix/z03-history-firefox-acceptance.md"
         ],
-        "note": "Deployed Firefox 153.0 headless PR #152 revision passed the exact Z03 Cache Ram Show/output flow. Deployed PR #157 revision then passed metadata-only v2 export/import, strict v1 migration, fresh Apply/Check/download, identical complete-image output and source-identity rejection. Deployed PR #162 revision separately passed exact Z03 staging Undo/Redo, Clear/Undo and ready-output Redo/Undo invalidation, new-mutation Redo discard, a fresh byte-identical complete-image rebuild, page-reload history reset and output reopen. Root registration, structural edits, other session actions and hardware are not established."
+        "note": "Deployed Firefox 153.0 headless PR #152 revision passed the exact Z03 Cache Ram Show/output flow. Deployed PR #157 revision then passed metadata-only v2 export/import, strict v1 migration, fresh Apply/Check/download, identical complete-image output and source-identity rejection. Deployed PR #162 revision separately passed exact Z03 staging Undo/Redo, Clear/Undo and ready-output Redo/Undo invalidation, new-mutation Redo discard, a fresh byte-identical complete-image rebuild, page-reload history reset and output reopen. Deployed PR #200 revision separately matches both pre/post-Clear-Undo byte-report totals, all 64 displayed ranges/16-byte samples and LH5 allocation fields against actual ROM downloads; both independently reopen. Root registration, structural edits, other session actions and hardware are not established."
       },
       "hardware": {
         "status": "pending",

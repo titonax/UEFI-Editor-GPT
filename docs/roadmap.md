@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-18
 
-PRs #119–#123, #128–#189 and #195–#199 are integrated. This status distinguishes implemented
+PRs #119–#123, #128–#189 and #195–#200 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -279,6 +279,11 @@ PR #199 Tiano run now compares all rendered byte-report totals and the first
 downloads, including dependent session/history variants. Hidden/restored reports
 have 737/252 ranges; eight output rereads pass. Other sources and hardware remain
 separate. See [the report acceptance](ami/tiano-firefox-output-acceptance.md#complete-image-byte-report-against-actual-downloads).
+A separate deployed PR #200 Z03 run also matches both original/post-Clear-Undo
+Phoenix byte reports against independent complete-ROM scans: all 64 displayed
+ranges/samples, 70 total ranges and LH5 allocation/preservation fields. Both
+downloads independently reopen with Cache Ram's proven callback visible.
+See [the Z03 report acceptance](phoenix/z03-firefox-output-acceptance.md#complete-rom-byte-report-against-actual-downloads).
 New queue exports now use
 version 2 with explicit action discriminators; strict version-1 Phoenix and
 AMI/HII files migrate in memory before unchanged identity and replay checks.
@@ -670,6 +675,10 @@ list the blocker for every unsupported case.
   reselection, valid reordering and root-pair removal. All 64 displayed ranges
   and the 16-byte sample bound pass; eight independent semantic rereads pass.
   This accepts those exact reports, not other sources or physical flashing.
+  A separate deployed PR #200 Z03 run verifies the Phoenix report before and
+  after Clear/Undo: exact totals, all 64 displayed ranges/samples, LH5 capacity
+  and unchanged outer allocation bytes match both actual ROM downloads. Both
+  independently reopen correctly; other source/family reports remain separate.
 - Portable Phoenix and individual AMI/HII Ref move and supported menu visibility sessions plus mapped AMI values, suppression overrides and proven AMI roots are
   implemented. AMITSE menu reassignment is also implemented. Version-2 exports
   use explicit actions, while strict version-1 files migrate in memory before
