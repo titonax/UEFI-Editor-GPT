@@ -24,6 +24,7 @@ assert.equal(
 
 const expectedOutputSha =
   "bbc4671779479575ec3fcb104e83e54242b09cb2e2da46655bc9d7d81b780134";
+const probeSessionRead = process.env.FIRMWARE_BROWSER_SESSION_READ_PROBE === "1";
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "uefi-phoenix-session-firefox-"));
 fs.writeFileSync(path.join(work, "source.bin"), sourceBytes);
 
@@ -144,6 +145,35 @@ async function downloadVerifiedOutput(page, destination) {
       if (/\.wasm|assets\/index-/.test(response.url()))
         assets.add(response.url().split("/").pop());
     });
+    if (probeSessionRead)
+      await page.addInitScript(() => {
+        const probe = {
+          armed: false,
+          held: false,
+          delivered: false,
+          hashes: 0,
+          release: null,
+        };
+        window.sessionReadProbe = probe;
+        const nativeText = File.prototype.text;
+        File.prototype.text = async function () {
+          const text = await nativeText.call(this);
+          if (probe.armed && this.name === "session-v2.json") {
+            probe.armed = false;
+            probe.held = true;
+            await new Promise((resolve) => {
+              probe.release = resolve;
+            });
+            probe.delivered = true;
+          }
+          return text;
+        };
+        const nativeDigest = crypto.subtle.digest;
+        crypto.subtle.digest = function (...args) {
+          probe.hashes++;
+          return nativeDigest.apply(this, args);
+        };
+      });
 
     await page.goto("https://titonax.github.io/UEFI-Editor-GPT/");
     await page
@@ -184,8 +214,53 @@ async function downloadVerifiedOutput(page, destination) {
     assertMetadataOnly(v2);
     console.log("V2_EXPORTED_METADATA_ONLY");
 
+    if (probeSessionRead) {
+      const before = await page.evaluate(() => {
+        window.sessionReadProbe.armed = true;
+        return window.sessionReadProbe.hashes;
+      });
+      await queue
+        .getByLabel("Load queue session file")
+        .setInputFiles(path.join(work, "session-v2.json"));
+      await page.waitForFunction(() => window.sessionReadProbe.held);
+      assert.equal(
+        await queue.getByText("Validating queue session…").isVisible(),
+        true,
+      );
+      await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+      assert.match(await queue.innerText(), /The queue is empty/);
+      await queue
+        .getByRole("button", { name: "Undo queue change", exact: true })
+        .click();
+      assert.match(await queue.innerText(), /SHOW[\s\S]*Cache Ram/);
+      assert.equal(await queue.getByRole("alert").count(), 0);
+      await page.evaluate(() => window.sessionReadProbe.release());
+      await page.waitForFunction(() => window.sessionReadProbe.delivered);
+      // A second browser task observes after native text delivery/microtasks.
+      // Session identity() starts both native digests before its first await.
+      assert.equal(
+        await page.evaluate(() => window.sessionReadProbe.hashes),
+        before,
+        "Cancelled text delivery must not initiate source/template digests.",
+      );
+      assert.match(await queue.innerText(), /SHOW[\s\S]*Cache Ram/);
+      assert.equal(await queue.getByRole("alert").count(), 0);
+      assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+      assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Modified firmware image", exact: true })
+          .isDisabled(),
+        true,
+      );
+      console.log("HELD_NATIVE_TEXT_CLEAR_UNDO_CANCELLED_WITHOUT_HASHING");
+    }
+
     await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
     const sessionInput = queue.getByLabel("Load queue session file");
+    const hashesBeforeLoad = probeSessionRead
+      ? await page.evaluate(() => window.sessionReadProbe.hashes)
+      : 0;
     await sessionInput.setInputFiles(path.join(work, "session-v2.json"));
     await queue.getByRole("button", { name: "Apply selected", exact: true }).waitFor();
     await waitForDisabled(
@@ -193,6 +268,14 @@ async function downloadVerifiedOutput(page, destination) {
       false,
     );
     assert.match(await queue.innerText(), /SHOW[\s\S]*Cache Ram/);
+    if (probeSessionRead) {
+      assert.equal(
+        await page.evaluate(() => window.sessionReadProbe.hashes),
+        hashesBeforeLoad + 2,
+        "Current load must run both real source/template digests.",
+      );
+      console.log("CURRENT_LOAD_TWO_NATIVE_DIGESTS_POSITIVE_CONTROL");
+    }
     await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     await downloadVerifiedOutput(page, path.join(work, "output-v2.bin"));
@@ -214,9 +297,11 @@ async function downloadVerifiedOutput(page, destination) {
     await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     await downloadVerifiedOutput(page, path.join(work, "output-v1.bin"));
-    assert.deepEqual(
-      fs.readFileSync(path.join(work, "output-v1.bin")),
-      fs.readFileSync(path.join(work, "output-v2.bin")),
+    assert(
+      fs
+        .readFileSync(path.join(work, "output-v1.bin"))
+        .equals(fs.readFileSync(path.join(work, "output-v2.bin"))),
+      "The v1 and v2 complete images must match without logging private bytes.",
     );
     console.log("V1_MIGRATED_OUTPUT_IDENTICAL_AND_VERIFIED");
 
@@ -231,6 +316,21 @@ async function downloadVerifiedOutput(page, destination) {
     await page
       .getByRole("button", { name: "Change queue (0)", exact: true })
       .waitFor({ timeout: 240000 });
+    await page
+      .getByRole("button")
+      .filter({ hasText: /^Cache Ram/ })
+      .first()
+      .click();
+    assert.equal(
+      await page
+        .getByRole("button", {
+          name: "Queue Show for Cache Ram Phoenix item",
+          exact: true,
+        })
+        .isDisabled(),
+      true,
+    );
+    console.log("ACTUAL_DOWNLOAD_REOPENED_CACHE_RAM_SHOW_ALREADY_APPLIED");
     await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
     const reopenedQueue = page.getByRole("dialog", {
       name: "Change queue",
