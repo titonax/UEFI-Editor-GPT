@@ -204,3 +204,54 @@ ordinary scheduling, an actual I/O failure, a late rejection or observation of
 the old React handler's full return. Other sources/families, distinct-image
 replacement and hardware remain separate gates. No codec, allocation, checksum,
 source ownership, reconstruction limit or independent reader guard is changed.
+
+## Late paused-item rejection with the source and dialog kept open
+
+Reproduced on 2026-10-18 against deployed PR #208 main
+`d46c0904a4ee48964f320672108501054bfbdcd8`.
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39149670760)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39149670954)
+passed for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux, viewport 1600 by 1000, loaded `index-DvYis56o.js` and
+`index-D4JOsfQ5.css`, with the same explicit container/certificate settings.
+
+Use `FIRMWARE_BROWSER_SESSION_READ_PROBE=reject`. This derives a private negative
+session from the actual v2 export: retain its valid source/template identities,
+but set the sole item selector to `Number.MAX_SAFE_INTEGER` and pause it. This
+passes schema/hash checks but cannot identify an inventoried item. It is an
+intentionally invalid metadata test, not a corrupted firmware or native failure.
+
+1. Stage/export the real Cache Ram Show queue, then Apply/Check/download its known
+   output. Start loading the negative session. Both identity digests are real;
+   hold delivery of the second native result (template digest), unchanged, so
+   identity validation cannot finish. Observe the validating status.
+2. Keep the source and queue dialog open. Clear and Undo to the same Show entry.
+   Output/details are invalidated and Redo is available. No newer session request,
+   dialog closure or source replacement masks the old completion.
+3. Deliver the held result. After delivery and a further browser task, there is
+   no stale rejection or busy status; output remains invalidated and Redo remains
+   available. This is queue-revision cancellation, without dialog/source reset.
+4. Load the exact same negative file as a current request. Exactly two native
+   hashes run, followed by the visible `targets a missing or ambiguous item`
+   rejection. The valid Show queue and Redo remain intact, and output/details stay
+   disabled. Pausing an invalid selector does not evade validation.
+5. Load the original valid v2 file: both native hashes run, the alert disappears
+   and the busy state finishes. Redo is discarded by this new queue replacement;
+   output is still unavailable until fresh Apply/Check. The new download matches
+   the known ROM. The checker does not require a transient success message across
+   that context replacement.
+6. Fresh v2/v1 round trips also reproduce the known ROM. All four downloads
+   (initial, recovery, v2 and v1) have 1,048,576 bytes, the accepted output hash,
+   13,032 changed bytes and no changes outside `[0x6ED30, 0x72068)`. Reopen the
+   actual recovery download: Cache Ram Show is already applied; the original
+   session rejects changed image/template identity with an empty queue and
+   disabled output. No page errors occur.
+
+Only native digest delivery timing is controlled; the results, source bytes,
+validator, editor, queue, codec, writer, responses and download adapter are not
+mocked. This does not observe the old React handler's full return or establish
+ordinary scheduling, an I/O/hash failure, another rejection cause, source-close
+rejection, distinct-image replacement or hardware. Clear/Undo deliberately
+invalidates the earlier output; this run does not claim ready-output retention
+through that mutation. Private sessions/ROMs stay local; existing limits and
+binary reconstruction/ownership/allocation/re-read guards are unchanged.
