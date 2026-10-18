@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-18
 
-PRs #119–#123, #128–#189 and #195–#200 are integrated. This status distinguishes implemented
+PRs #119–#123, #128–#189 and #195–#201 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -284,6 +284,11 @@ Phoenix byte reports against independent complete-ROM scans: all 64 displayed
 ranges/samples, 70 total ranges and LH5 allocation/preservation fields. Both
 downloads independently reopen with Cache Ram's proven callback visible.
 See [the Z03 report acceptance](phoenix/z03-firefox-output-acceptance.md#complete-rom-byte-report-against-actual-downloads).
+A separate deployed PR #201 nested-LZMA run also matches both direct-queue and
+v2-restored byte reports against complete-SPI download scans: exact totals,
+3,369 ranges and all 64 displayed ranges/16-byte samples. Both known outputs
+independently reread all four edits with non-BIOS preservation intact.
+See [the nested report acceptance](ami/nested-lzma-session-firefox-acceptance.md#complete-spi-byte-reports-before-and-after-session-load).
 New queue exports now use
 version 2 with explicit action discriminators; strict version-1 Phoenix and
 AMI/HII files migrate in memory before unchanged identity and replay checks.
@@ -679,6 +684,10 @@ list the blocker for every unsupported case.
   after Clear/Undo: exact totals, all 64 displayed ranges/samples, LH5 capacity
   and unchanged outer allocation bytes match both actual ROM downloads. Both
   independently reopen correctly; other source/family reports remain separate.
+  A deployed PR #201 nested-LZMA run also matches direct-queue and v2-restored
+  report totals, physical ranges and bounded samples to two actual known SPIs;
+  both independently reread all four edits. Clear/load/removal invalidation and
+  changed-source session rejection still pass. Other reports remain separate.
 - Portable Phoenix and individual AMI/HII Ref move and supported menu visibility sessions plus mapped AMI values, suppression overrides and proven AMI roots are
   implemented. AMITSE menu reassignment is also implemented. Version-2 exports
   use explicit actions, while strict version-1 files migrate in memory before

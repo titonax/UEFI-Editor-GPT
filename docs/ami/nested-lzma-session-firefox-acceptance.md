@@ -99,3 +99,66 @@ Combined v1 replay, AMITSE retargeting, other sources/codecs and human desktop
 file-picker behavior are not established. Root-only output still exceeds the
 existing compressed allocation and remains blocked. Growth, capsules, unsupported
 compression, P53 dynamic roots and new BIOS cases retain their prior boundaries.
+
+## Complete-SPI byte reports before and after session load
+
+Reproduced on 2026-10-18 (Europe/Madrid) against deployed main
+`2526c6af951fae84223e0791870ab83770014d5a` (PR #201), after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39108176433)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39108176471)
+success. Pages returned HTTP 200. Firefox 153.0 / Playwright 1.62.1, headless
+Linux, 1600 × 1000 used the documented container/certificate settings and
+`index-LM6CCH_b.js`, `index-D4JOsfQ5.css`, `firmware-decompress.wasm`,
+`tiano-decompress.wasm`, `ifrextractor.wasm`. The exact accepted source was
+recovered by size/SHA-256 from the existing authorized ChatGPT archive; no new
+BIOS or semantic corpus inventory was added. No browser API, editor, queue,
+codec or writer was mocked, timing-gated or fault-injected.
+
+The extended session checker now applies the original four-selected queue and
+downloads a verified baseline before Clear. Clear disables Check/download/details.
+Loading the saved metadata-only v2 session restores the same four actions, not
+Apply or checked bytes; fresh Apply/Check produces the second download. Both
+must retain the known combined hash and be byte-identical to each other.
+
+After each download, a separate local run-based scan of original and actual SPI
+bytes computes every contiguous changed interval without importing the production
+comparison helper or using rendered values as expectations. Output details must
+match the exact totals and every one of its 64 displayed rows: physical
+start/exclusive end, full interval length, and the original/rebuilt first
+`min(length, 16)` bytes. Omitted ranges and truncated samples are both exercised;
+labels must identify the physical image and sampling limit. Raw byte samples are
+not printed or committed, including new mismatch diagnostics.
+
+| Independently reproduced field           |  Both outputs/reports |
+| ---------------------------------------- | --------------------: |
+| Complete SPI bytes                       |             4,194,304 |
+| Changed / unchanged bytes                |   850,394 / 3,343,910 |
+| Total / displayed changed ranges         |            3,369 / 64 |
+| Preserved non-BIOS bytes                 |             1,572,864 |
+| Original packed capacity / rebuilt bytes | 1,494,108 / 1,493,440 |
+| Remaining bytes in the same allocation   |                   668 |
+
+Both SPI files retain SHA-256
+`014af11ec7d614471d873974b83b90c1ae5583adb51beeeda68d3c6940bd64e6`.
+Every changed byte is inside outer FFS `[1704008, 3198149)`; every non-BIOS byte
+is identical. Report inspection leaves Check/download/details enabled. Removing
+an operation still invalidates output/details.
+
+Both actual files are independently reopened after page reloads and analysed
+afresh. Each retains 68 Forms, the expected source/destination Ref counts and
+moved Ref at `0x2B49B`, empty suppression at `0x2B14F`, System Language flags
+`00` and eight visible roots. Neither inherits verified output. Loading the
+original session on the final changed image still rejects with the image/context
+diagnostic, empty queue and disabled download. No application page errors occur;
+the complete checker passed first attempt.
+
+Use the same opt-in command above. The existing 15-minute Check limit, expected
+hash/count, allocation, codecs, ownership, checksum and independent writer reread
+guards are unchanged. No production code changed. Private source, editor/session
+JSON and downloaded firmware remain local; checker intermediates are removed on
+exit and CI has no private input. This is exact-source Firefox report acceptance,
+not a standalone engine rerun, new synthetic acceptance or hardware validation.
+Other report sources/families, zero-change output, combined v1 and session races
+remain separate. Root-only allocation failure, unsupported formats/growth/capsules,
+missing uncompressed AMI/mixed-source gates, new BIOS and P53 dynamic roots retain
+their existing limits.
