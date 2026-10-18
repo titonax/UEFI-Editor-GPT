@@ -423,3 +423,58 @@ failure, other rejection causes or hardware. No app module, source/hash result,
 codec, response or download adapter is mocked. Private sessions/ROMs remain local;
 all existing time, allocation, checksum, ownership and independent-reader guards
 are unchanged.
+
+## Early native-text cancellation across distinct downloaded bytes
+
+Reproduced on 2026-10-19 against deployed PR #212 main
+`f99c934f32f9e0f2bf5c7284cf6787ec0159afbf`.
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39168680187)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39168680152)
+passed for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux, viewport 1600 by 1000, loaded `index-DvYis56o.js` and
+`index-D4JOsfQ5.css`, with the same explicit container/certificate settings.
+The original source was rehashed; the missing cached Firefox executable was
+reinstalled normally before the successful run. The failed launch was not an
+acceptance result.
+
+Use `FIRMWARE_BROWSER_SESSION_READ_PROBE=read-distinct`. This is a valid exported
+v2 session and a held successful native File.text result, not invalid metadata or
+a native read failure. Text and digest results remain unchanged. The replacement
+is the actual freshly verified Show download, with its known output hash and
+explicit byte inequality to the original; no new BIOS is acquired.
+
+1. Export Cache Ram Show as metadata-only v2, Apply/Check/download its known ROM,
+   then start loading the valid session. Hold successful native text delivery
+   before the app receives it and observe the validating status.
+2. Close the dialog, wait until hidden and open the actual downloaded ROM through
+   **Load another firmware**, in the same document. Cache Ram Show independently
+   rereads as already applied; queue/history/output reset and all Undo/Redo and
+   output/details controls are disabled. No newer session request masks delivery.
+3. Snapshot the native digest counter after replacement analysis, then release
+   the old text. **Zero new native source/template hashes** start. The new queue
+   remains empty with no stale loaded message, busy status or alert; history and
+   output/details stay disabled. Both identity hashes start before this adapter's
+   first await, so this observes the early cancellation before adapter hashing,
+   not only a final commit rejection. No cached output is retained across sources.
+4. Load that same original session as a current request on the modified image.
+   Exactly two real digests run; the different-image/template rejection becomes
+   visible without changing the empty queue/history or disabled output. This
+   current rejection control is shared with the separate late-digest probe.
+5. Return to the original bytes. The original base, empty history and unavailable
+   output are restored; Show is available. Stage it directly and freshly
+   Apply/Check/download. Current v2 loading runs both native hashes and freshly
+   reproduces the known ROM; strict v1 migration also freshly reproduces it.
+6. All four actual downloads (replacement ROM, returned-original rebuild, v2 and
+   v1) are 1,048,576 bytes with the accepted output SHA-256, 13,032 changed bytes
+   and zero outside `[0x6ED30, 0x72068)`. Reopen the actual **returned-original
+   rebuild**: Cache Ram Show is already applied, and the original session rejects
+   changed identity with an empty queue and disabled output. No page errors
+   occur; byte-equality failures never print private buffers.
+
+This accepts early text cancellation for this exact original-to-modified Z03
+pair. Dialog/source component lifetimes remain combined. It does not isolate
+those mechanisms, observe the old handler's full return or establish ordinary
+scheduling, true I/O/hash failures, other sources/families, structural editing,
+roots or hardware. No production module, native result, codec, response or
+download adapter is mocked. Private sessions/ROMs remain local and all existing
+time, allocation, ownership, checksum and independent-reader guards are intact.
