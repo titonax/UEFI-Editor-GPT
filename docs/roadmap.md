@@ -733,6 +733,14 @@ list the blocker for every unsupported case.
   Dialog/source lifetime cancellation are combined, not isolated; distinct-image
   replacement, late failures, ordinary scheduling and hardware remain separate.
   See [the source-reopen record](phoenix/z03-session-firefox-acceptance.md#same-byte-source-reopen-during-a-held-session-read).
+  A deployed PR #208 Z03 rejection probe keeps source/dialog open across Clear/Undo
+  and held native template-hash delivery for a paused missing item: no stale
+  alert, Redo retained and output still invalidated. Current rejection is visible
+  and atomic after both real hashes; valid retry clears the alert, discards Redo
+  and freshly rebuilds the known ROM with independent recovery-output reread.
+  This isolates revision cancellation from closing/source reset; other rejection
+  causes, close/replacement failures, ordinary scheduling and hardware remain
+  separate. See [the late rejection record](phoenix/z03-session-firefox-acceptance.md#late-paused-item-rejection-with-the-source-and-dialog-kept-open).
   The
   [exact Z03 session acceptance](phoenix/z03-session-firefox-acceptance.md)
   reproduces v2 export/import and v1 migration in deployed Firefox, with fresh
