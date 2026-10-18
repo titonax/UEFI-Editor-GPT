@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-18
 
-PRs #119–#123, #128–#189 and #195–#196 are integrated. This status distinguishes implemented
+PRs #119–#123, #128–#189 and #195–#197 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -196,6 +196,11 @@ reselection. Pausing the prerequisite Hide rejects import with Show enabled or
 paused, preserving the prior full queue/output; valid retry clears the alert.
 Five independent rereads confirm the requested roots and other three edits.
 This accepts those exact dependent selections, not arbitrary dependencies.
+A deployed PR #197 history extension now passes single-step Undo/Redo of loading
+the dependent paused-Show session, exact full/paused metadata re-export and output
+invalidation. Undo from ready hidden-Boot output and Redo from ready restored output
+both require fresh Apply/Check; the known restored/hidden SPIs independently reread.
+This accepts that five-entry history sequence, not all session histories.
 Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
@@ -705,6 +710,9 @@ list the blocker for every unsupported case.
   Hide/Show v2 round trip and exact re-export, valid paused Show with Hide selected,
   fresh known hidden/restored full SPIs, atomic rejection without the selected
   prerequisite Hide even when Show is paused, valid retry and independent rereads.
+  The deployed PR #197 history extension separately verifies single-step load
+  Undo/Redo, exact full/paused exports, invalidation from both ready-output variants
+  and fresh known restored/hidden full SPIs with independent rereads.
   Other selections/dependencies,
   history sequences, remaining save/load races and combined v1 stay separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)

@@ -827,3 +827,61 @@ Other dependent selections, five-entry session Undo/Redo, reordering, asynchrono
 session races, combined v1, distinct sources and hardware remain separate gates.
 Uncompressed AMI/mixed HII still lack qualifying real-source acceptance; no
 format, allocation-growth, capsule, new BIOS or P53 dynamic-root allowance is added.
+
+## Dependent paused-session Undo/Redo and fresh output
+
+Reproduced on 2026-10-18 (Europe/Madrid) against deployed main
+`17a84c89e4f149e3bfe28e0ac67ca6503c2b5016` (PR #197), after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39079090307)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39079090306)
+success. Firefox 153.0 / Playwright 1.62.1, headless Linux, 1600 × 1000 used the
+documented container/certificate settings and `index-LM6CCH_b.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm`, `ifrextractor.wasm`. The original
+authorized complete SPI was size/SHA-256 checked afresh. No browser API, editor,
+queue, codec or writer was mocked, timing-gated or fault-injected in this run.
+
+The same Boot restore checker above retains the complete preceding dependency
+session flow, including both missing-Hide rejections and valid paused-Show retry.
+After loading that valid five-entry session over the five-enabled queue:
+
+1. Undo once restores all five entries selected, in the exact same physical
+   order, without restoring Apply/output. Export equals the original full v2
+   session exactly. Redo once returns the first four selected and Show paused;
+   export equals the paused session exactly. Check/download/details remain
+   invalidated throughout. One load is one undoable replacement, not five edits.
+   The wait observes all five actual checkbox flags before checking titles/order;
+   it does not mistake an already enabled Apply button for load completion.
+2. Apply/Check/download the post-Redo queue afresh: it equals the known hidden-Boot
+   SPI. Undo from this ready-output state returns the five selected entries and
+   invalidates Check/download/details again. Redo remains available. Fresh Apply/
+   Check/download equals the known restored five-entry SPI byte for byte.
+3. Redo is still available after Apply/Check. Redo once from ready restored output
+   returns Show paused and invalidates output again, rather than reviving old
+   checked bytes. Redo is now exhausted. Fresh Apply/Check/download equals the
+   earlier hidden-Boot result byte for byte. The existing Show reselection and
+   net-three removal/rebuilding sequence then still passes.
+4. Independently reopen the two new post-history downloads and the five earlier
+   restored/net-three/session variants: seven reanalyses confirm 70 Forms,
+   Security `00`, the empty suppression scope and unique Ref moved to Form 5.
+   The post-Redo image has exact vector `1111011`; post-Undo has `1111111`.
+   Source replacement resets output/details. No application page errors occurred.
+   The complete checker passed on its first attempt.
+
+All eight downloads are complete 8,388,608-byte SPIs. Three hidden-Boot outputs
+retain SHA-256 `264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changes; five restored/net-three outputs retain SHA-256
+`d9c22589b68884e973af22f87f718b7fc9fb130bfbdcca3871a55c12d294f3be`
+and 49,938 changes. All changes remain within the original FFS owners
+`[3239384, 3419918)` and `[4612464, 4781106)`; every non-BIOS byte is identical.
+Expected hashes/counts, allocation, codec, checksum, buffer ownership, independent
+reconstruction and 15-minute Check guards remain unchanged. No production code
+changes. Firefox installation recovered through its normal fallback mirror after
+the primary archive failed, before application testing.
+
+Use the same Boot restore opt-in command above. Private source, decoded/editor/
+session JSON and output files stay local and are removed on exit; CI has no
+private input. This is exact-source real-Firefox acceptance, not a standalone
+engine rerun or new synthetic acceptance. Other five-entry histories/selections,
+reordering, session races, combined v1, distinct sources and hardware remain
+separate. Missing uncompressed AMI/mixed sources and unsupported formats,
+allocation growth, capsules, new BIOS and P53 dynamic roots retain their gates.

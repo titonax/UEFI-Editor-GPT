@@ -285,6 +285,18 @@ async function openSource(page, source) {
       assert.equal(await selected(fiveTitles[4]).isChecked(), lastEnabled);
       assert.match(await queue.innerText(), lastEnabled ? /5 SELECTED/ : /4 SELECTED/);
     }
+    async function waitFiveSelection(lastEnabled) {
+      await page.waitForFunction((enabled) => {
+        const boxes = [
+          ...document.querySelectorAll('[role="dialog"] input[type="checkbox"]'),
+        ];
+        return (
+          boxes.length === 5 &&
+          boxes.every((box, index) => box.checked === (index < 4 || enabled))
+        );
+      }, lastEnabled);
+      await assertFiveSelection(lastEnabled);
+    }
     const fullSessionFile = path.join(work, "dependent-full-session.json");
     const fullSession = await saveSession(fullSessionFile);
     assert.deepEqual(Object.keys(fullSession).sort(), [
@@ -397,19 +409,31 @@ async function openSource(page, source) {
     fs.writeFileSync(pausedFile, JSON.stringify(pausedSession));
     await queue.getByLabel("Load queue session file").setInputFiles(pausedFile);
     // Apply was already enabled: observe the actual selected projection instead.
-    await page.waitForFunction(() => {
-      const boxes = [
-        ...document.querySelectorAll('[role="dialog"] input[type="checkbox"]'),
-      ];
-      return boxes.length === 5 && boxes.filter((item) => item.checked).length === 4;
-    });
-    await assertFiveSelection(false);
+    await waitFiveSelection(false);
     assert.equal(await queue.getByRole("alert").count(), 0);
     await invalidated();
     assert.deepEqual(
       await saveSession(path.join(work, "dependent-paused-reexport.json")),
       pausedSession,
     );
+    const undo = queue.getByRole("button", { name: "Undo queue change", exact: true });
+    const redo = queue.getByRole("button", { name: "Redo queue change", exact: true });
+    await undo.click();
+    await waitFiveSelection(true);
+    await invalidated();
+    assert.equal(await apply.isDisabled(), false);
+    assert.deepEqual(
+      await saveSession(path.join(work, "dependent-history-undo.json")),
+      fullSession,
+    );
+    await redo.click();
+    await waitFiveSelection(false);
+    await invalidated();
+    assert.deepEqual(
+      await saveSession(path.join(work, "dependent-history-redo.json")),
+      pausedSession,
+    );
+    console.log("DEPENDENT_SESSION_LOAD_SINGLE_UNDO_REDO_EXACT_METADATA_NO_OUTPUT");
     await apply.click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     await downloadVerifiedOutput(page, path.join(work, "session-show-paused.bin"));
@@ -418,6 +442,41 @@ async function openSource(page, source) {
       fs.readFileSync(path.join(work, "original-order.bin")),
     );
     console.log("DEPENDENT_SHOW_PAUSED_VALID_SESSION_EXACT_HIDDEN_BOOT_SPI");
+    await page.getByRole("button", { name: "Change queue (5)", exact: true }).click();
+    await undo.click();
+    await waitFiveSelection(true);
+    await invalidated();
+    assert.equal(await redo.isDisabled(), false);
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await downloadVerifiedOutput(
+      page,
+      path.join(work, "history-undo-restored.bin"),
+      "restored",
+    );
+    assert.deepEqual(
+      fs.readFileSync(path.join(work, "history-undo-restored.bin")),
+      fs.readFileSync(path.join(work, "restored.bin")),
+    );
+    console.log(
+      "DEPENDENT_SESSION_UNDO_FROM_READY_HIDDEN_SPI_FRESH_RESTORED_IDENTICAL",
+    );
+    await page.getByRole("button", { name: "Change queue (5)", exact: true }).click();
+    assert.equal(await redo.isDisabled(), false);
+    await redo.click();
+    await waitFiveSelection(false);
+    await invalidated();
+    assert.equal(await redo.isDisabled(), true);
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await downloadVerifiedOutput(page, path.join(work, "history-redo-hidden.bin"));
+    assert.deepEqual(
+      fs.readFileSync(path.join(work, "history-redo-hidden.bin")),
+      fs.readFileSync(path.join(work, "session-show-paused.bin")),
+    );
+    console.log(
+      "DEPENDENT_SESSION_REDO_FROM_READY_RESTORED_SPI_FRESH_HIDDEN_IDENTICAL",
+    );
     await page.getByRole("button", { name: "Change queue (5)", exact: true }).click();
     await selected(fiveTitles[4]).check();
     await assertFiveSelection(true);
@@ -467,6 +526,8 @@ async function openSource(page, source) {
       ["session-restored.bin", "session-restored"],
       ["session-show-paused.bin", "full"],
       ["session-show-reselected.bin", "reselected"],
+      ["history-undo-restored.bin", "history-undo"],
+      ["history-redo-hidden.bin", "full"],
     ]) {
       await page
         .getByRole("button", { name: "Load another firmware", exact: true })
