@@ -67,3 +67,50 @@ recovery, root registration, structural menu editing, allocation growth, other
 session actions, other firmware sources or broader Firefox compatibility. The
 existing unsupported callback, compression, capsule, growth and dynamic-root
 gates are unchanged.
+
+## Native session-read cancellation before hashing
+
+Reproduced on 2026-10-18 against deployed PR #205 main
+`c4a10a43b41d8f2deb181f58ac0ba7dd4f1c13e8`.
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39135980166)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39135980016)
+had passed for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux, viewport 1600 by 1000, loaded `index-DvYis56o.js` and
+`index-D4JOsfQ5.css`. The same explicit container sandbox setting and a
+certificate-error override were used. This Phoenix flow loaded no WASM asset.
+
+The opt-in runner now accepts `FIRMWARE_BROWSER_SESSION_READ_PROBE=1` in addition
+to the original private-source/browser settings. It wraps native `File.text`
+delivery and counts calls to native `crypto.subtle.digest`; actual text and
+digest results are unchanged. The app, queue, session validator, codecs, network
+responses and download adapter are not mocked. Only native text delivery timing
+is controlled. Firmware, session files and rebuilt images remain private/local.
+
+1. Stage the original Cache Ram Show and export its metadata-only v2 session.
+2. Start loading that real session. After native reading succeeds, hold its text
+   before the application receives it; observe the validating status.
+3. Keep the source and queue dialog open. Clear the queue, then Undo to the same
+   Show entry. No newer session request supersedes the held load.
+4. Release the original text. After delivery and a further browser task, the
+   native digest call count remains unchanged: **zero new source/template hashes**.
+   The restored Show queue remains present, without a stale loaded message,
+   validating status or error; firmware download remains disabled. In this
+   adapter both identity digests start before its first await, so this observes
+   the new early-cancellation boundary, not only final commit cancellation.
+5. Clear and load the current v2 session normally. Exactly **two native digests**
+   run as the positive control. Apply/Check/download freshly produces the known
+   1,048,576-byte ROM. The strict v1 migration also freshly produces identical
+   bytes. Each independently scanned download has 13,032 changed bytes, all
+   inside `[0x6ED30, 0x72068)`, and the existing accepted output SHA-256 above.
+6. Reload the actual v2 download: Cache Ram Show is already applied and cannot
+   be queued again. Loading the original session rejects the changed image/
+   template, leaves the queue empty and keeps download disabled. No page errors
+   occur.
+
+This is controlled native timing in real Firefox with the exact existing Z03
+source, not ordinary scheduling, a read/I/O failure, observation of the old
+React handler's full return, or acceptance of another family/source. The probe
+starts with an unapplied queue; it does not establish retention of a ready output
+across cancellation. Dialog-close/source-replacement cases, late failures and
+hardware remain separate gates. The existing 5-minute reconstruction limit,
+allocation, codec, ownership and independent reader guards are unchanged.

@@ -713,6 +713,12 @@ list the blocker for every unsupported case.
   React/jsdom regressions reproduce context replacement, dialog close, unmount,
   newer-load retention and late-validation rejection; this does not extend the
   separate real-source/browser acceptance. See [Queue sessions](queue-sessions.md).
+  A controlled deployed PR #205 Z03 Firefox probe now separately holds native
+  session text across open-dialog Clear/Undo: old delivery starts zero new identity
+  hashes, while a current load starts both native hashes. Fresh v2/v1 known ROMs,
+  owner confinement, actual-download reopen and changed-image rejection pass.
+  This is native timing control, not ordinary scheduling, ready-output retention,
+  other families/boundaries or hardware. See [the Z03 cancellation record](phoenix/z03-session-firefox-acceptance.md#native-session-read-cancellation-before-hashing).
   The
   [exact Z03 session acceptance](phoenix/z03-session-firefox-acceptance.md)
   reproduces v2 export/import and v1 migration in deployed Firefox, with fresh
