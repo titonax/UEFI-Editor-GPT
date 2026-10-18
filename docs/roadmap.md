@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-18
 
-PRs #119–#123, #128–#189 and #195–#198 are integrated. This status distinguishes implemented
+PRs #119–#123, #128–#189 and #195–#199 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -273,7 +273,13 @@ the entire physical image; the UI limits samples to 64 ranges and 16 byte pairs
 per range. Unequal sizes fail preflight and queue/source revisions invalidate
 comparison and download together. Synthetic tests verify bounds, sparse/dense
 masks, exact samples, source snapshotting and all three family reports. This
-adds no real-source/browser/flash acceptance claim. New queue exports now use
+alone adds no real-source/browser/flash acceptance claim. A separate deployed
+PR #199 Tiano run now compares all rendered byte-report totals and the first
+64 physical ranges/16-byte samples against independent scans of nine actual
+downloads, including dependent session/history variants. Hidden/restored reports
+have 737/252 ranges; eight output rereads pass. Other sources and hardware remain
+separate. See [the report acceptance](ami/tiano-firefox-output-acceptance.md#complete-image-byte-report-against-actual-downloads).
+New queue exports now use
 version 2 with explicit action discriminators; strict version-1 Phoenix and
 AMI/HII files migrate in memory before unchanged identity and replay checks.
 Unknown future versions remain blocked. Recovery and release guidance is now documented in
@@ -658,6 +664,12 @@ list the blocker for every unsupported case.
 - Original/selected-plan comparison and bounded queue undo/redo are implemented
   above the transactional queue. Full rebuilt-image byte comparison is implemented for verified AMI/HII/Phoenix
   outputs with exact complete-image totals and bounded physical byte samples.
+  The deployed PR #199 Tiano report acceptance separately matches every displayed
+  boundary, length and original/rebuilt sample against an independent scan of
+  nine known full SPIs, including fresh results after session load, Undo/Redo,
+  reselection, valid reordering and root-pair removal. All 64 displayed ranges
+  and the 16-byte sample bound pass; eight independent semantic rereads pass.
+  This accepts those exact reports, not other sources or physical flashing.
 - Portable Phoenix and individual AMI/HII Ref move and supported menu visibility sessions plus mapped AMI values, suppression overrides and proven AMI roots are
   implemented. AMITSE menu reassignment is also implemented. Version-2 exports
   use explicit actions, while strict version-1 files migrate in memory before

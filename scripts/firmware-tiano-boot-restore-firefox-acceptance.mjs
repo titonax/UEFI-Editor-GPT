@@ -95,7 +95,97 @@ async function downloadVerifiedOutput(page, destination, mode = "full") {
   );
   await button.click();
   await (await downloadPromise).saveAs(destination);
-  return verifyOutput(destination, mode);
+  const output = verifyOutput(destination, mode);
+  await verifyByteComparisonReport(page, output, mode);
+  return output;
+}
+
+async function verifyByteComparisonReport(page, output, mode) {
+  // Independent run-based scan of the downloaded physical image. Do not import
+  // the production comparison helper or derive expectations from rendered data.
+  const hex = (value) => `0x${value.toString(16).toUpperCase()}`;
+  const sample = (bytes, start, end) =>
+    [...bytes.subarray(start, Math.min(end, start + 16))]
+      .map((value) => value.toString(16).toUpperCase().padStart(2, "0"))
+      .join(" ");
+  const expectedRows = [];
+  let changed = 0;
+  let rangeCount = 0;
+  let offset = 0;
+  let truncatedSample = false;
+  while (offset < sourceBytes.length) {
+    if (sourceBytes[offset] === output[offset]) {
+      offset++;
+      continue;
+    }
+    const start = offset;
+    do {
+      offset++;
+    } while (offset < sourceBytes.length && sourceBytes[offset] !== output[offset]);
+    changed += offset - start;
+    rangeCount++;
+    if (expectedRows.length < 64) {
+      expectedRows.push([
+        `${hex(start)} / ${hex(offset)}`,
+        String(offset - start),
+        sample(sourceBytes, start, offset),
+        sample(output, start, offset),
+      ]);
+      truncatedSample ||= offset - start > 16;
+    }
+  }
+  assert.equal(changed, mode === "full" ? 140913 : 49938);
+  assert(rangeCount > 64, "This exact image must exercise omitted ranges.");
+  assert(truncatedSample, "This exact image must exercise bounded byte samples.");
+  await page.getByRole("button", { name: "Output details", exact: true }).click();
+  const report = page.getByRole("dialog", {
+    name: "Verified firmware output",
+    exact: true,
+  });
+  await report.waitFor({ state: "visible" });
+  const text = (await report.innerText()).replace(/\s+/g, " ");
+  assert(
+    text.includes(
+      `${changed} of ${output.length} bytes changed; ${output.length - changed} unchanged. ${rangeCount} contiguous changed ranges.`,
+    ),
+    "Whole-image totals must match an independent scan of the actual download.",
+  );
+  assert(text.includes(`Showing 64 of ${rangeCount} ranges.`));
+  assert(text.includes("at most 16 bytes from the start of its range"));
+  assert(text.includes("Offsets refer to the complete physical image."));
+  assert(text.includes("1572864 bytes outside BIOS preserved exactly."));
+  const rows = await report
+    .getByRole("table", { name: "Complete-image changed bytes", exact: true })
+    .locator("tbody tr")
+    .evaluateAll((items) =>
+      items.map((row) =>
+        [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()),
+      ),
+    );
+  // Do not print source/rebuilt samples, including in assertion diagnostics.
+  assert(
+    JSON.stringify(rows) === JSON.stringify(expectedRows),
+    "Every displayed physical boundary, length and original/rebuilt sample must match.",
+  );
+  await page.keyboard.press("Escape");
+  await report.waitFor({ state: "hidden" });
+  for (const name of [
+    "Output details",
+    "Check firmware output",
+    "Modified firmware image",
+  ])
+    assert.equal(
+      await page.getByRole("button", { name, exact: true }).isDisabled(),
+      false,
+    );
+  console.log("BYTE_REPORT_EXACT_DOWNLOAD_SCAN", {
+    mode,
+    changed,
+    unchanged: output.length - changed,
+    rangeCount,
+    displayedRanges: rows.length,
+    sampleLimit: 16,
+  });
 }
 
 async function openSource(page, source) {
