@@ -19,7 +19,7 @@ producing a flashable image are separate capabilities.
 
 ## Progress at 2026-10-18
 
-PRs #119–#123, #128–#189 and #195–#197 are integrated. This status distinguishes implemented
+PRs #119–#123, #128–#189 and #195–#198 are integrated. This status distinguishes implemented
 support from real-source acceptance and remaining runtime evidence; it is not a global
 compatibility percentage.
 
@@ -201,6 +201,12 @@ the dependent paused-Show session, exact full/paused metadata re-export and outp
 invalidation. Undo from ready hidden-Boot output and Redo from ready restored output
 both require fresh Apply/Check; the known restored/hidden SPIs independently reread.
 This accepts that five-entry history sequence, not all session histories.
+A deployed PR #198 order extension now rejects Show-before-Hide session imports
+with Show enabled or paused, retaining the exact full queue and ready-output controls.
+A valid move/SetupData/Hide/Show/suppression session preserves its exact order on
+load/re-export, invalidates output and freshly rebuilds the known restored full SPI;
+independent reread confirms all roots and the other three edits. This accepts
+that permutation, not arbitrary session reordering.
 Other subsets, dependent paused sessions, permutations/sources
 and asynchronous races remain separate browser gates. The
 [exact Tiano late native-completion probe](ami/tiano-late-firefox-acceptance.md) now
@@ -713,6 +719,11 @@ list the blocker for every unsupported case.
   The deployed PR #197 history extension separately verifies single-step load
   Undo/Redo, exact full/paused exports, invalidation from both ready-output variants
   and fresh known restored/hidden full SPIs with independent rereads.
+  A deployed PR #198 order extension also rejects Show-before-Hide imports with
+  Show enabled or paused without replacing the full queue or ready-output controls.
+  The valid move/SetupData/Hide/Show/suppression order loads/re-exports exactly,
+  invalidates output and freshly reproduces the known restored SPI with independent
+  reread. Other permutations remain separate.
   Other selections/dependencies,
   history sequences, remaining save/load races and combined v1 stay separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
