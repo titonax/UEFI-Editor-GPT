@@ -21,6 +21,102 @@ assert.equal(
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "uefi-lzma-session-firefox-"));
 fs.writeFileSync(root + "/source.bin", sourceBytes);
 const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
+async function verifyByteComparisonReport(page, output) {
+  // Independent run-based scan of the downloaded physical image. Do not import
+  // the production comparison helper or derive expectations from rendered data.
+  const hex = (value) => `0x${value.toString(16).toUpperCase()}`;
+  const sample = (bytes, start, end) =>
+    [...bytes.subarray(start, Math.min(end, start + 16))]
+      .map((value) => value.toString(16).toUpperCase().padStart(2, "0"))
+      .join(" ");
+  const expectedRows = [];
+  let changed = 0;
+  let rangeCount = 0;
+  let offset = 0;
+  let truncatedSample = false;
+  while (offset < sourceBytes.length) {
+    if (sourceBytes[offset] === output[offset]) {
+      offset++;
+      continue;
+    }
+    const start = offset;
+    do {
+      offset++;
+    } while (offset < sourceBytes.length && sourceBytes[offset] !== output[offset]);
+    changed += offset - start;
+    rangeCount++;
+    if (expectedRows.length < 64) {
+      expectedRows.push([
+        `${hex(start)} / ${hex(offset)}`,
+        String(offset - start),
+        sample(sourceBytes, start, offset),
+        sample(output, start, offset),
+      ]);
+      truncatedSample ||= offset - start > 16;
+    }
+  }
+  assert.equal(changed, 4987327);
+  assert(rangeCount > 64, "This exact image must exercise omitted ranges.");
+  assert(truncatedSample, "This exact image must exercise bounded byte samples.");
+  await page.getByRole("button", { name: "Output details", exact: true }).click();
+  const report = page.getByRole("dialog", {
+    name: "Verified firmware output",
+    exact: true,
+  });
+  await report.waitFor({ state: "visible" });
+  const text = (await report.innerText()).replace(/\s+/g, " ");
+  assert(
+    text.includes(
+      `${changed} of ${output.length} bytes changed; ${output.length - changed} unchanged. ${rangeCount} contiguous changed ranges.`,
+    ),
+    "Whole-image totals must match an independent scan of the actual download.",
+  );
+  assert(text.includes(`Showing 64 of ${rangeCount} ranges.`));
+  assert(text.includes("at most 16 bytes from the start of its range"));
+  assert(text.includes("Offsets refer to the complete physical image."));
+  assert(
+    text.includes(
+      "BIOS region: [0x0, 0x1000000). 0 bytes outside BIOS preserved exactly.",
+    ),
+  );
+  assert(text.includes("16777216 bytes, 4987327 changed bytes"));
+  assert(
+    /5007242[\s\S]*4984931[\s\S]*22311/.test(text),
+    "Accepted allocation and remaining capacity must match.",
+  );
+  const rows = await report
+    .getByRole("table", { name: "Complete-image changed bytes", exact: true })
+    .locator("tbody tr")
+    .evaluateAll((items) =>
+      items.map((row) =>
+        [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()),
+      ),
+    );
+  // Do not print source/rebuilt samples, including in assertion diagnostics.
+  assert(
+    JSON.stringify(rows) === JSON.stringify(expectedRows),
+    "Every displayed physical boundary, length and original/rebuilt sample must match.",
+  );
+  await page.keyboard.press("Escape");
+  await report.waitFor({ state: "hidden" });
+  for (const name of [
+    "Output details",
+    "Check firmware output",
+    "Modified firmware image",
+  ])
+    assert.equal(
+      await page.getByRole("button", { name, exact: true }).isDisabled(),
+      false,
+    );
+  console.log("LZMA_BYTE_REPORT_EXACT_DOWNLOAD_SCAN", {
+    changed,
+    unchanged: output.length - changed,
+    rangeCount,
+    displayedRanges: rows.length,
+    sampleLimit: 16,
+  });
+}
+
 (async () => {
   let browser;
   try {
@@ -196,13 +292,6 @@ const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
       await page.waitForTimeout(1000);
     }
     console.log("BUILD_READY_SECONDS", (Date.now() - started) / 1000);
-    await page.getByRole("button", { name: "Output details", exact: true }).click();
-    const report = page.getByRole("dialog");
-    const reportText = await report.innerText();
-    assert.match(reportText, /16777216 bytes, 4987327 changed bytes/);
-    assert.match(reportText, /5007242[\s\S]*4984931[\s\S]*22311/);
-    console.log("REPORT_SIZE_CHANGED_CAPACITY_MARGIN_VERIFIED");
-    await page.keyboard.press("Escape");
     const imagePromise = page.waitForEvent("download", (d) =>
       d.suggestedFilename().endsWith(".bin"),
     );
@@ -229,6 +318,7 @@ const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
       "DOWNLOAD_VERIFIED",
       JSON.stringify({ size: output.length, sha256: sha(output), changed, outside }),
     );
+    await verifyByteComparisonReport(page, output);
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
