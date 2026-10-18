@@ -307,3 +307,58 @@ I/O/hash failure, other rejection causes/families or hardware. No production
 module, codec, response, source/hash result or download adapter is mocked.
 Private sessions/ROMs remain local; existing limits and binary safeguards are
 unchanged.
+
+## Same-byte source reopen during late paused-item rejection
+
+Reproduced on 2026-10-18 against deployed PR #210 main
+`76867764bdb96c7d211cce02f461b2743c34b0ea`.
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39162168333)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39162168213)
+passed for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux, viewport 1600 by 1000, loaded `index-DvYis56o.js` and
+`index-D4JOsfQ5.css`, with the same explicit container/certificate settings.
+The accepted private source was rehashed against its existing identity above.
+
+Use `FIRMWARE_BROWSER_SESSION_READ_PROBE=reject-source`. The negative metadata
+and native digest-delivery instrumentation are unchanged: valid source/template
+identities, one paused missing-item selector, both real identity digests started,
+only delivery of the second native result (template) held unchanged. No newer
+session request is started before releasing the old result.
+
+1. Save the original Cache Ram Show v2 queue and Apply/Check/download its known
+   ROM. Load the negative file, observe both native hashes and the busy status,
+   then close the queue and wait until hidden with template-result delivery held.
+2. Select **Load another firmware**, reopen/analyse the same original bytes in
+   the same document. Main-frame navigation count stays unchanged. The reopened
+   editor has an empty queue, disabled Undo/Redo and disabled output/details;
+   Cache Ram Show is available again, proving the original base was restored.
+3. Stage Show directly and freshly Apply/Check/download the known ROM. Only
+   then deliver the old native digest result. The new output/details remain
+   enabled and a cached download without another Check exactly matches both
+   ready downloads. Reopen the queue: Show is intact without stale rejection,
+   validating status or loaded message.
+4. Load the same negative file as a current request in the reopened editor.
+   Exactly two native digests run; the missing/ambiguous-item rejection becomes
+   visible. The valid Show queue and ready controls survive. Load the original
+   valid v2 file: two real hashes run, busy ends, the alert clears and output is
+   invalidated. Fresh Apply/Check produces the known ROM. Fresh v2/v1 round trips
+   independently produce identical ROMs as well.
+5. All six actual downloads (old ready, new ready, retained, retry, v2 and v1)
+   have 1,048,576 bytes, the accepted output SHA-256, 13,032 changed bytes and zero
+   changes outside `[0x6ED30, 0x72068)`. Reopen the actual **retained** download:
+   Cache Ram Show is already applied and cannot be queued again; the original
+   session rejects its changed image/template, leaving an empty queue and
+   disabled output. No application page errors occur. Equality failures never
+   print private buffers.
+
+The existing native-text `=source` scenario shares the source-reset/direct-rebuild
+helper; it still snapshots digests after rebuilding, before old text delivery.
+No reconstruction, timeout, checksum, ownership, allocation, codec or independent
+reader guard changes. Private source/session/output files remain local.
+
+This accepts exact-source same-byte close/reopen during semantic rejection, not
+a distinct-image replacement. Dialog closure and source/component reset are
+combined, not isolated cancellation mechanisms. Controlled native timing is not
+ordinary scheduling, a genuine I/O/hash failure, another rejection cause or
+observation of the old React handler's full return. Other sources/families,
+structural editing, dynamic roots and hardware remain unaccepted.
