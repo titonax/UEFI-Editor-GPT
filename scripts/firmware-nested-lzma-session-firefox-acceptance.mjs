@@ -118,6 +118,155 @@ const question = (data, name) =>
     .flatMap((candidate) => flattenItems(candidate.children || []))
     .find((item) => item.name === name);
 
+async function downloadVerifiedOutput(page, destination) {
+  const outputButton = page.getByRole("button", {
+    name: "Modified firmware image",
+    exact: true,
+  });
+  assert.equal(await outputButton.isDisabled(), true);
+  await page
+    .getByRole("button", { name: "Check firmware output", exact: true })
+    .click();
+  console.log("BUILD_STARTED");
+  const started = Date.now();
+  while (await outputButton.isDisabled()) {
+    const body = await page.locator("body").innerText();
+    if (body.includes("Output check failed:"))
+      throw Error(
+        body.slice(
+          body.indexOf("Output check failed:"),
+          body.indexOf("Output check failed:") + 500,
+        ),
+      );
+    if (Date.now() - started > 900000)
+      throw Error("Output check did not finish within 15 minutes");
+    await page.waitForTimeout(1000);
+  }
+  console.log("BUILD_READY_SECONDS", (Date.now() - started) / 1000);
+
+  const imageDownload = page.waitForEvent("download", (download) =>
+    download.suggestedFilename().endsWith(".bin"),
+  );
+  await outputButton.click();
+  await (await imageDownload).saveAs(destination);
+  const output = fs.readFileSync(destination);
+  assert.equal(output.length, sourceBytes.length);
+  assert.equal(sha256(output), expectedOutputSha);
+  let changed = 0;
+  let outsideOwner = 0;
+  let outsideBios = 0;
+  for (let index = 0; index < output.length; index++) {
+    if (output[index] === sourceBytes[index]) continue;
+    changed++;
+    if (index < 1704008 || index >= 3198149) outsideOwner++;
+    if (index < 1572864) outsideBios++;
+  }
+  assert.equal(changed, 850394);
+  assert.equal(outsideOwner, 0);
+  assert.equal(outsideBios, 0);
+  console.log(
+    "DOWNLOAD_VERIFIED",
+    JSON.stringify({
+      size: output.length,
+      sha256: sha256(output),
+      changed,
+      outsideOwner,
+      outsideBios,
+    }),
+  );
+  await verifyByteComparisonReport(page, output);
+  return output;
+}
+
+async function verifyByteComparisonReport(page, output) {
+  // Independent run-based scan of the downloaded physical image. Do not import
+  // the production comparison helper or derive expectations from rendered data.
+  const hex = (value) => `0x${value.toString(16).toUpperCase()}`;
+  const sample = (bytes, start, end) =>
+    [...bytes.subarray(start, Math.min(end, start + 16))]
+      .map((value) => value.toString(16).toUpperCase().padStart(2, "0"))
+      .join(" ");
+  const expectedRows = [];
+  let changed = 0;
+  let rangeCount = 0;
+  let offset = 0;
+  let truncatedSample = false;
+  while (offset < sourceBytes.length) {
+    if (sourceBytes[offset] === output[offset]) {
+      offset++;
+      continue;
+    }
+    const start = offset;
+    do {
+      offset++;
+    } while (offset < sourceBytes.length && sourceBytes[offset] !== output[offset]);
+    changed += offset - start;
+    rangeCount++;
+    if (expectedRows.length < 64) {
+      expectedRows.push([
+        `${hex(start)} / ${hex(offset)}`,
+        String(offset - start),
+        sample(sourceBytes, start, offset),
+        sample(output, start, offset),
+      ]);
+      truncatedSample ||= offset - start > 16;
+    }
+  }
+  assert.equal(changed, 850394);
+  assert(rangeCount > 64, "This exact image must exercise omitted ranges.");
+  assert(truncatedSample, "This exact image must exercise bounded byte samples.");
+  await page.getByRole("button", { name: "Output details", exact: true }).click();
+  const report = page.getByRole("dialog", {
+    name: "Verified firmware output",
+    exact: true,
+  });
+  await report.waitFor({ state: "visible" });
+  const text = (await report.innerText()).replace(/\s+/g, " ");
+  assert(
+    text.includes(
+      `${changed} of ${output.length} bytes changed; ${output.length - changed} unchanged. ${rangeCount} contiguous changed ranges.`,
+    ),
+    "Whole-image totals must match an independent scan of the actual download.",
+  );
+  assert(text.includes(`Showing 64 of ${rangeCount} ranges.`));
+  assert(text.includes("at most 16 bytes from the start of its range"));
+  assert(text.includes("Offsets refer to the complete physical image."));
+  assert(text.includes("1572864 bytes outside BIOS preserved exactly."));
+  assert.match(text, /4194304 bytes, 850394 changed bytes/);
+  assert.match(text, /1494108[\s\S]*1493440[\s\S]*668/);
+  const rows = await report
+    .getByRole("table", { name: "Complete-image changed bytes", exact: true })
+    .locator("tbody tr")
+    .evaluateAll((items) =>
+      items.map((row) =>
+        [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()),
+      ),
+    );
+  // Do not print source/rebuilt samples, including in assertion diagnostics.
+  assert(
+    JSON.stringify(rows) === JSON.stringify(expectedRows),
+    "Every displayed physical boundary, length and original/rebuilt sample must match.",
+  );
+  await page.keyboard.press("Escape");
+  await report.waitFor({ state: "hidden" });
+  for (const name of [
+    "Output details",
+    "Check firmware output",
+    "Modified firmware image",
+  ])
+    assert.equal(
+      await page.getByRole("button", { name, exact: true }).isDisabled(),
+      false,
+    );
+  console.log("NESTED_BYTE_REPORT_EXACT_DOWNLOAD_SCAN", {
+    changed,
+    unchanged: output.length - changed,
+    rangeCount,
+    displayedRanges: rows.length,
+    sampleLimit: 16,
+  });
+}
+
 (async () => {
   let browser;
   try {
@@ -249,8 +398,24 @@ const question = (data, name) =>
     const session = JSON.parse(fs.readFileSync(sessionFile, "utf8"));
     assertMetadataOnly(session);
     console.log("V2_EXPORTED_METADATA_ONLY", JSON.stringify(session.operations));
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const baseline = await downloadVerifiedOutput(
+      page,
+      path.join(work, "baseline.bin"),
+    );
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
     assert.match(await queue.innerText(), /The queue is empty/);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        true,
+      );
     await queue.getByLabel("Load queue session file").setInputFiles(sessionFile);
     const restoredStarted = Date.now();
     while (
@@ -282,65 +447,10 @@ const question = (data, name) =>
       name: "Modified firmware image",
       exact: true,
     });
-    assert.equal(await outputButton.isDisabled(), true);
-    await page
-      .getByRole("button", { name: "Check firmware output", exact: true })
-      .click();
-    console.log("BUILD_STARTED");
-    const started = Date.now();
-    while (await outputButton.isDisabled()) {
-      const body = await page.locator("body").innerText();
-      if (body.includes("Output check failed:"))
-        throw Error(
-          body.slice(
-            body.indexOf("Output check failed:"),
-            body.indexOf("Output check failed:") + 500,
-          ),
-        );
-      if (Date.now() - started > 900000)
-        throw Error("Output check did not finish within 15 minutes");
-      await page.waitForTimeout(1000);
-    }
-    console.log("BUILD_READY_SECONDS", (Date.now() - started) / 1000);
-
-    await page.getByRole("button", { name: "Output details", exact: true }).click();
-    const report = page.getByRole("dialog");
-    const reportText = await report.innerText();
-    assert.match(reportText, /4194304 bytes, 850394 changed bytes/);
-    assert.match(reportText, /1494108[\s\S]*1493440[\s\S]*668/);
-    assert.match(reportText, /1572864 bytes outside BIOS preserved/);
-    console.log("REPORT_SIZE_CHANGED_CAPACITY_MARGIN_SPI_VERIFIED");
-    await page.keyboard.press("Escape");
-
-    const imageDownload = page.waitForEvent("download", (download) =>
-      download.suggestedFilename().endsWith(".bin"),
-    );
-    await outputButton.click();
-    await (await imageDownload).saveAs(path.join(work, "output.bin"));
-    const output = fs.readFileSync(path.join(work, "output.bin"));
-    assert.equal(output.length, sourceBytes.length);
-    assert.equal(sha256(output), expectedOutputSha);
-    let changed = 0;
-    let outsideOwner = 0;
-    let outsideBios = 0;
-    for (let index = 0; index < output.length; index++) {
-      if (output[index] === sourceBytes[index]) continue;
-      changed++;
-      if (index < 1704008 || index >= 3198149) outsideOwner++;
-      if (index < 1572864) outsideBios++;
-    }
-    assert.equal(changed, 850394);
-    assert.equal(outsideOwner, 0);
-    assert.equal(outsideBios, 0);
-    console.log(
-      "DOWNLOAD_VERIFIED",
-      JSON.stringify({
-        size: output.length,
-        sha256: sha256(output),
-        changed,
-        outsideOwner,
-        outsideBios,
-      }),
+    const output = await downloadVerifiedOutput(page, path.join(work, "output.bin"));
+    assert(
+      output.equals(baseline),
+      "Session replay must reproduce the baseline full SPI.",
     );
 
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
@@ -358,37 +468,42 @@ const question = (data, name) =>
     );
     console.log("REMOVAL_INVALIDATED");
 
-    await page.reload();
-    await page
-      .locator("input[type=file]")
-      .first()
-      .setInputFiles(path.join(work, "output.bin"));
-    await page.getByRole("button", { name: "Start HII analysis", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Change queue (0)", exact: true })
-      .waitFor({ timeout: 240000 });
-    const reopenedDownload = page.waitForEvent("download");
-    await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
-    await (await reopenedDownload).saveAs(path.join(work, "reopened.json"));
-    const reopened = JSON.parse(
-      fs.readFileSync(path.join(work, "reopened.json"), "utf8"),
-    );
-    assert.equal(reopened.forms.length, 68);
-    assert.equal(refs(reopened, "0x403").length, 1);
-    assert.equal(refs(reopened, "0x40A").length, 1);
-    assert.equal(refs(reopened, "0x40A")[0].ifrOffset.toLowerCase(), "0x2b49b");
-    const reopenedSuppression = reopened.suppressions.find(
-      (candidate) => candidate.offset.toLowerCase() === "0x2b14b",
-    );
-    assert(reopenedSuppression);
-    assert.equal(reopenedSuppression.start.toLowerCase(), "0x2b14f");
-    assert.equal(reopenedSuppression.start, reopenedSuppression.end);
-    assert.equal(question(reopened, "System Language").accessLevel, "00");
-    assert.deepEqual(
-      reopened.rootVisibility.entries.map((entry) => entry.value),
-      [1, 1, 1, 1, 1, 1, 1, 1],
-    );
-    assert.equal(await outputButton.isDisabled(), true);
+    for (const file of ["baseline.bin", "output.bin"]) {
+      await page.reload();
+      await page
+        .locator("input[type=file]")
+        .first()
+        .setInputFiles(path.join(work, file));
+      await page
+        .getByRole("button", { name: "Start HII analysis", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Change queue (0)", exact: true })
+        .waitFor({ timeout: 240000 });
+      const reopenedDownload = page.waitForEvent("download");
+      await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
+      await (await reopenedDownload).saveAs(path.join(work, "reopened.json"));
+      const reopened = JSON.parse(
+        fs.readFileSync(path.join(work, "reopened.json"), "utf8"),
+      );
+      assert.equal(reopened.forms.length, 68);
+      assert.equal(refs(reopened, "0x403").length, 1);
+      assert.equal(refs(reopened, "0x40A").length, 1);
+      assert.equal(refs(reopened, "0x40A")[0].ifrOffset.toLowerCase(), "0x2b49b");
+      const reopenedSuppression = reopened.suppressions.find(
+        (candidate) => candidate.offset.toLowerCase() === "0x2b14b",
+      );
+      assert(reopenedSuppression);
+      assert.equal(reopenedSuppression.start.toLowerCase(), "0x2b14f");
+      assert.equal(reopenedSuppression.start, reopenedSuppression.end);
+      assert.equal(question(reopened, "System Language").accessLevel, "00");
+      assert.deepEqual(
+        reopened.rootVisibility.entries.map((entry) => entry.value),
+        [1, 1, 1, 1, 1, 1, 1, 1],
+      );
+      assert.equal(await outputButton.isDisabled(), true);
+      console.log("INDEPENDENT_FOUR_EDIT_REREAD", file);
+    }
     await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
     const reopenedQueue = page.getByRole("dialog", {
       name: "Change queue",
@@ -407,18 +522,6 @@ const question = (data, name) =>
     assert.equal(await outputButton.isDisabled(), true);
     console.log("CHANGED_SOURCE_REJECTED_SESSION_EMPTY_QUEUE");
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
-    console.log(
-      "RELOADED_ALL_FOUR_OPERATIONS_EMPTY_QUEUE_DOWNLOAD_DISABLED",
-      JSON.stringify({
-        forms: reopened.forms.length,
-        sourceRefs: refs(reopened, "0x403").length,
-        destinationRefs: refs(reopened, "0x40A").length,
-        destinationOffset: refs(reopened, "0x40A")[0].ifrOffset,
-        suppressionStart: reopenedSuppression.start,
-        accessLevel: question(reopened, "System Language").accessLevel,
-        rootValues: reopened.rootVisibility.entries.map((entry) => entry.value),
-      }),
-    );
     console.log("ASSETS", [...assets]);
   } finally {
     await browser?.close();
