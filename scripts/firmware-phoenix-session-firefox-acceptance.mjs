@@ -27,22 +27,37 @@ const expectedOutputSha =
 const readProbeMode = process.env.FIRMWARE_BROWSER_SESSION_READ_PROBE;
 assert(
   readProbeMode === undefined ||
-    ["1", "close", "source", "reject", "reject-close", "reject-source"].includes(
-      readProbeMode,
-    ),
-  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1, close, source, reject, reject-close or reject-source when supplied.",
+    [
+      "1",
+      "close",
+      "source",
+      "reject",
+      "reject-close",
+      "reject-source",
+      "reject-distinct",
+    ].includes(readProbeMode),
+  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1, close, source, reject, reject-close, reject-source or reject-distinct when supplied.",
 );
 const probeSessionRead = readProbeMode !== undefined;
-const probeRejection = ["reject", "reject-close", "reject-source"].includes(
-  readProbeMode,
-);
-const probeClosedRejection = ["reject-close", "reject-source"].includes(readProbeMode);
+const probeRejection = [
+  "reject",
+  "reject-close",
+  "reject-source",
+  "reject-distinct",
+].includes(readProbeMode);
+const probeClosedRejection = [
+  "reject-close",
+  "reject-source",
+  "reject-distinct",
+].includes(readProbeMode);
+const probeDistinctSource = readProbeMode === "reject-distinct";
 const probeReadyOutput = [
   "close",
   "source",
   "reject",
   "reject-close",
   "reject-source",
+  "reject-distinct",
 ].includes(readProbeMode);
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "uefi-phoenix-session-firefox-"));
 fs.writeFileSync(path.join(work, "source.bin"), sourceBytes);
@@ -326,6 +341,68 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       );
     }
 
+    async function assertEmptyReplacedSource() {
+      assert.match(await queue.innerText(), /The queue is empty/);
+      for (const name of ["Undo queue change", "Redo queue change"])
+        assert.equal(
+          await queue.getByRole("button", { name, exact: true }).isDisabled(),
+          true,
+        );
+      for (const name of ["Modified firmware image", "Output details"])
+        assert.equal(
+          await page.getByRole("button", { name, exact: true }).isDisabled(),
+          true,
+        );
+      assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+      assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    }
+
+    async function openDistinctVerifiedDownload() {
+      const differentPath = path.join(work, "output-ready.bin");
+      const different = fs.readFileSync(differentPath);
+      assert.equal(sha256(different), expectedOutputSha);
+      assert(
+        !different.equals(sourceBytes),
+        "Replacement must have different bytes without logging them.",
+      );
+      const navigationBaseline = navigations;
+      await page
+        .getByRole("button", { name: "Load another firmware", exact: true })
+        .click();
+      await page.locator("input[type=file]").first().setInputFiles(differentPath);
+      await page
+        .getByRole("button", { name: "Start Phoenix Setup analysis", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Change queue (0)", exact: true })
+        .waitFor({ timeout: 240000 });
+      await page
+        .getByRole("button")
+        .filter({ hasText: /^Cache Ram/ })
+        .first()
+        .click();
+      assert.equal(
+        await page
+          .getByRole("button", {
+            name: "Queue Show for Cache Ram Phoenix item",
+            exact: true,
+          })
+          .isDisabled(),
+        true,
+      );
+      await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+      await assertEmptyReplacedSource();
+      assert.equal(await queue.getByRole("alert").count(), 0);
+      assert.equal(
+        navigations,
+        navigationBaseline,
+        "Distinct replacement must stay in the same document.",
+      );
+      console.log(
+        "DISTINCT_DOWNLOADED_SOURCE_REOPENED_SHOW_ALREADY_APPLIED_EMPTY_HISTORY_OUTPUT",
+      );
+    }
+
     if (probeSessionRead && !probeRejection) {
       let before = await page.evaluate(() => {
         window.sessionReadProbe.armed = true;
@@ -427,6 +504,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
         await queue.getByRole("button", { name: "Close", exact: true }).click();
         await queue.waitFor({ state: "hidden" });
         if (readProbeMode === "reject-source") await reopenOriginalWithFreshOutput();
+        if (probeDistinctSource) await openDistinctVerifiedDownload();
       } else {
         await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
         assert.match(await queue.innerText(), /The queue is empty/);
@@ -443,7 +521,37 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       }
       await page.evaluate(() => window.sessionReadProbe.releaseDigest());
       await page.waitForFunction(() => window.sessionReadProbe.digestDelivered);
-      if (probeClosedRejection) {
+      if (probeDistinctSource) {
+        await assertEmptyReplacedSource();
+        assert.equal(await queue.getByRole("alert").count(), 0);
+        console.log(
+          "DISTINCT_SOURCE_OLD_NATIVE_HASH_NO_STALE_REJECTION_OR_OUTPUT_REVIVAL",
+        );
+        const before = await page.evaluate(() => window.sessionReadProbe.hashes);
+        await queue
+          .getByLabel("Load queue session file")
+          .setInputFiles(path.join(work, "session-v2.json"));
+        const rejection = queue.getByRole("alert");
+        await rejection.waitFor();
+        assert.match(
+          await rejection.innerText(),
+          /different firmware image or template/,
+        );
+        assert.equal(
+          await page.evaluate(() => window.sessionReadProbe.hashes),
+          before + 2,
+        );
+        await assertEmptyReplacedSource();
+        console.log(
+          "DISTINCT_SOURCE_CURRENT_ORIGINAL_SESSION_TWO_HASH_IDENTITY_REJECTION",
+        );
+        await queue.getByRole("button", { name: "Close", exact: true }).click();
+        await queue.waitFor({ state: "hidden" });
+        await reopenOriginalWithFreshOutput();
+        await page
+          .getByRole("button", { name: "Change queue (1)", exact: true })
+          .click();
+      } else if (probeClosedRejection) {
         for (const name of ["Modified firmware image", "Output details"])
           assert.equal(
             await page.getByRole("button", { name, exact: true }).isDisabled(),
@@ -472,11 +580,13 @@ async function downloadVerifiedOutput(page, destination, check = true) {
           !probeClosedRejection,
         );
       console.log(
-        readProbeMode === "reject-source"
-          ? "REOPENED_SOURCE_OLD_NATIVE_HASH_NO_STALE_REJECTION_FRESH_OUTPUT_RETAINED"
-          : probeClosedRejection
-            ? "CLOSED_DIALOG_OLD_NATIVE_HASH_NO_STALE_REJECTION_READY_OUTPUT_RETAINED"
-            : "OLD_NATIVE_HASH_DELIVERED_NO_STALE_REJECTION_OUTPUT_STAYS_INVALIDATED",
+        probeDistinctSource
+          ? "ORIGINAL_SOURCE_RECOVERED_FRESH_KNOWN_OUTPUT_BEFORE_CURRENT_REJECTION_RETRY"
+          : readProbeMode === "reject-source"
+            ? "REOPENED_SOURCE_OLD_NATIVE_HASH_NO_STALE_REJECTION_FRESH_OUTPUT_RETAINED"
+            : probeClosedRejection
+              ? "CLOSED_DIALOG_OLD_NATIVE_HASH_NO_STALE_REJECTION_READY_OUTPUT_RETAINED"
+              : "OLD_NATIVE_HASH_DELIVERED_NO_STALE_REJECTION_OUTPUT_STAYS_INVALIDATED",
       );
       if (!probeClosedRejection)
         assert.equal(
@@ -609,7 +719,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       .setInputFiles(
         path.join(
           work,
-          readProbeMode === "reject"
+          readProbeMode === "reject" || probeDistinctSource
             ? "output-retry.bin"
             : probeReadyOutput
               ? "output-retained.bin"

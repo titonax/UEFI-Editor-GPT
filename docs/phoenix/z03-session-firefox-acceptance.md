@@ -362,3 +362,64 @@ combined, not isolated cancellation mechanisms. Controlled native timing is not
 ordinary scheduling, a genuine I/O/hash failure, another rejection cause or
 observation of the old React handler's full return. Other sources/families,
 structural editing, dynamic roots and hardware remain unaccepted.
+
+## Distinct downloaded-image replacement during late rejection
+
+Reproduced on 2026-10-18 against deployed PR #211 main
+`dd7f98a82e12260603888b9b9708e1ea21eba7f9`.
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39163744191)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39163744190)
+passed for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux, viewport 1600 by 1000, loaded `index-DvYis56o.js` and
+`index-D4JOsfQ5.css`, with the same explicit container/certificate settings.
+The authorized original source was rehashed. Firefox was reinstalled with the
+normal Playwright installer after its cached executable was unavailable; no
+browser acceptance was claimed for the failed launch.
+
+Use `FIRMWARE_BROWSER_SESSION_READ_PROBE=reject-distinct`. This does not acquire
+another BIOS: the replacement is the actual freshly checked/downloaded Cache Ram
+Show ROM, verified against the known output hash and explicitly byte-unequal to
+the original input. The session still has valid original identities and the same
+paused missing-item selector; only delivery of its second native identity digest
+result is held unchanged. The firmware and all native hash results are real.
+
+1. Export the real metadata-only Show v2 session, Apply/Check/download its known
+   ROM, then load the negative metadata. Exactly two native identity digests
+   start; hold template-result delivery and observe the busy status.
+2. Close the queue, wait until hidden and select **Load another firmware**. Open
+   the actual downloaded ROM in the same document. Its independently parsed
+   Cache Ram Show is already applied and cannot be queued again. Queue/history
+   are empty; output/details, Undo and Redo are disabled. No newer session load
+   or save masks the pending result.
+3. Deliver the old digest result. The replacement queue remains empty with no
+   stale rejection, validating status or loaded message; output/details and both
+   history controls remain disabled. This discards the old output rather than
+   retaining it across a distinct source.
+4. Load the original valid v2 session as a current request on the changed source.
+   Two native hashes run and the different-image/template rejection becomes
+   visible. Queue/history remain empty and output stays unavailable. This is the
+   current identity-rejection control, not a missing-item semantic rejection on
+   the changed source.
+5. Close and return to the original bytes, again in the same document. Original
+   base/empty history/no output are restored and Show is available. Stage it
+   directly and freshly Apply/Check/download. Current loading of the negative
+   file now performs two hashes and visibly rejects the paused missing item,
+   preserving the valid Show queue and ready controls. Valid v2 retry clears
+   that alert, invalidates output and requires fresh Apply/Check. Fresh v2/v1
+   round trips also pass.
+6. All five downloads (initial replacement ROM, returned-original rebuild,
+   retry, v2 and v1) have 1,048,576 bytes, the accepted output SHA-256, 13,032
+   changes and zero outside `[0x6ED30, 0x72068)`. Independently reopen the actual
+   **retry** download: Show is already applied, and the original session rejects
+   changed identity with empty queue and disabled output. No page errors occur;
+   equality failures never print private buffers.
+
+This adds a distinct-byte replacement within the same accepted Z03 lineage,
+not another OEM/source-family case or a broader writer acceptance. Dialog
+closure and source/component lifetime reset remain combined. It does not isolate
+those mechanisms, hold early File.text delivery across distinct bytes, observe
+the old handler's full return, or establish ordinary scheduling, genuine I/O/hash
+failure, other rejection causes or hardware. No app module, source/hash result,
+codec, response or download adapter is mocked. Private sessions/ROMs remain local;
+all existing time, allocation, checksum, ownership and independent-reader guards
+are unchanged.

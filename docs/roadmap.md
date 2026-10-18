@@ -758,6 +758,16 @@ list the blocker for every unsupported case.
   to TEMPLAT. Dialog/source lifetime cancellation are combined; distinct-image
   replacement, other rejection causes and hardware remain separate. See
   [the source-reset rejection record](phoenix/z03-session-firefox-acceptance.md#same-byte-source-reopen-during-late-paused-item-rejection).
+  A deployed PR #211 extension also switches to the actual verified Z03 download
+  with different bytes while that rejection is held: the new image independently
+  shows the applied edit, resets queue/history/output, and ignores old rejection
+  delivery without reviving output. Current original-session loading rejects
+  changed identity after two native hashes. Returning to the original bytes,
+  current semantic rejection/retry, fresh v2/v1 and actual retry-output reread
+  pass; five known-hash ROMs remain confined to TEMPLAT. This accepts that exact
+  distinct-byte pair, not another BIOS family or early-read cancellation across
+  distinct bytes; dialog/source lifetimes remain combined. See
+  [the distinct-image rejection record](phoenix/z03-session-firefox-acceptance.md#distinct-downloaded-image-replacement-during-late-rejection).
   The
   [exact Z03 session acceptance](phoenix/z03-session-firefox-acceptance.md)
   reproduces v2 export/import and v1 migration in deployed Firefox, with fresh
