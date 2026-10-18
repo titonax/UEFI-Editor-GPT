@@ -289,6 +289,12 @@ v2-restored byte reports against complete-SPI download scans: exact totals,
 3,369 ranges and all 64 displayed ranges/16-byte samples. Both known outputs
 independently reread all four edits with non-BIOS preservation intact.
 See [the nested report acceptance](ami/nested-lzma-session-firefox-acceptance.md#complete-spi-byte-reports-before-and-after-session-load).
+A separate deployed PR #202 P53 static Ref run now matches both pre/post-history
+byte reports to complete 32 MiB SPI scans: exact totals, 35,004 ranges, all 64
+displayed boundaries/16-byte samples, two physical copies and both LZMA allocation
+rows. Both actual downloads independently reopen with the requested Ref parent.
+See [the P53 report acceptance](phoenix/p53-history-firefox-acceptance.md#complete-spi-byte-reports-before-and-after-history-invalidation).
+Other report sources, including first LZMA, remain separate.
 New queue exports now use
 version 2 with explicit action discriminators; strict version-1 Phoenix and
 AMI/HII files migrate in memory before unchanged identity and replay checks.
@@ -687,7 +693,11 @@ list the blocker for every unsupported case.
   A deployed PR #201 nested-LZMA run also matches direct-queue and v2-restored
   report totals, physical ranges and bounded samples to two actual known SPIs;
   both independently reread all four edits. Clear/load/removal invalidation and
-  changed-source session rejection still pass. Other reports remain separate.
+  changed-source session rejection still pass. A deployed PR #202 P53 static Ref
+  run also matches both reports before/after history invalidation to actual complete
+  SPIs: totals, all 64 displayed ranges/samples, two physical copies and LZMA
+  allocation fields; both independent Ref rereads pass. Other reports, including
+  first LZMA, remain separate.
 - Portable Phoenix and individual AMI/HII Ref move and supported menu visibility sessions plus mapped AMI values, suppression overrides and proven AMI roots are
   implemented. AMITSE menu reassignment is also implemented. Version-2 exports
   use explicit actions, while strict version-1 files migrate in memory before

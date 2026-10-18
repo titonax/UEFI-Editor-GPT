@@ -89,7 +89,128 @@ async function downloadVerifiedOutput(page, destination) {
   );
   await button.click();
   await (await downloadPromise).saveAs(destination);
-  return verifyOutput(destination);
+  const bytes = verifyOutput(destination);
+  await verifyByteComparisonReport(page, bytes);
+  return bytes;
+}
+
+async function verifyByteComparisonReport(page, output) {
+  // Independent run-based scan of the downloaded physical image. Do not import
+  // the production comparison helper or derive expectations from rendered data.
+  const hex = (value) => `0x${value.toString(16).toUpperCase()}`;
+  const sample = (bytes, start, end) =>
+    [...bytes.subarray(start, Math.min(end, start + 16))]
+      .map((value) => value.toString(16).toUpperCase().padStart(2, "0"))
+      .join(" ");
+  const expectedRows = [];
+  let changed = 0;
+  let rangeCount = 0;
+  let offset = 0;
+  let truncatedSample = false;
+  while (offset < sourceBytes.length) {
+    if (sourceBytes[offset] === output[offset]) {
+      offset++;
+      continue;
+    }
+    const start = offset;
+    do {
+      offset++;
+    } while (offset < sourceBytes.length && sourceBytes[offset] !== output[offset]);
+    changed += offset - start;
+    rangeCount++;
+    if (expectedRows.length < 64) {
+      expectedRows.push([
+        `${hex(start)} / ${hex(offset)}`,
+        String(offset - start),
+        sample(sourceBytes, start, offset),
+        sample(output, start, offset),
+      ]);
+      truncatedSample ||= offset - start > 16;
+    }
+  }
+  assert.equal(changed, 8991518);
+  assert(rangeCount > 64, "This exact image must exercise omitted ranges.");
+  assert(truncatedSample, "This exact image must exercise bounded byte samples.");
+  await page.getByRole("button", { name: "Output details", exact: true }).click();
+  const report = page.getByRole("dialog", {
+    name: "Verified firmware output",
+    exact: true,
+  });
+  await report.waitFor({ state: "visible" });
+  const text = (await report.innerText()).replace(/\s+/g, " ");
+  assert(
+    text.includes(
+      `${changed} of ${output.length} bytes changed; ${output.length - changed} unchanged. ${rangeCount} contiguous changed ranges.`,
+    ),
+    "Whole-image totals must match an independent scan of the actual download.",
+  );
+  assert(text.includes(`Showing 64 of ${rangeCount} ranges.`));
+  assert(text.includes("at most 16 bytes from the start of its range"));
+  assert(text.includes("Offsets refer to the complete physical image."));
+  assert(text.includes("10485760 bytes outside BIOS preserved exactly."));
+  assert.match(text, /33554432 bytes, 8991518 changed bytes/);
+  assert(text.includes("BIOS region: [0xA00000, 0x2000000)."));
+  for (const [start, end] of [
+    [13238344, 17752012],
+    [21495880, 26009548],
+  ])
+    assert(text.includes(`[${hex(start)}, ${hex(end)})`));
+  assert(text.includes("2 physical copy/copies verified."));
+  for (const buffer of [2, 4])
+    assert(text.includes(`${hex(4127440)} / buffer ${buffer}`));
+  const compressionRows = await report
+    .getByRole("table")
+    .filter({
+      has: page.getByRole("columnheader", { name: "Compression", exact: true }),
+    })
+    .locator("tbody tr")
+    .evaluateAll((items) =>
+      items.map((row) =>
+        [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()),
+      ),
+    );
+  assert.equal(compressionRows.length, 2);
+  for (const row of compressionRows) {
+    assert.equal(row[1], "lzma");
+    assert.equal(row[2], "4513620");
+    assert.equal(row[3], "4491300");
+    assert.match(
+      row[4],
+      /^4513620 \((?:original payload only|terminal padding verified)\)$/,
+    );
+    assert.equal(row[5], "22320");
+  }
+  const rows = await report
+    .getByRole("table", { name: "Complete-image changed bytes", exact: true })
+    .locator("tbody tr")
+    .evaluateAll((items) =>
+      items.map((row) =>
+        [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()),
+      ),
+    );
+  // Do not print source/rebuilt samples, including in assertion diagnostics.
+  assert(
+    JSON.stringify(rows) === JSON.stringify(expectedRows),
+    "Every displayed physical boundary, length and original/rebuilt sample must match.",
+  );
+  await page.keyboard.press("Escape");
+  await report.waitFor({ state: "hidden" });
+  for (const name of [
+    "Output details",
+    "Check firmware output",
+    "Modified firmware image",
+  ])
+    assert.equal(
+      await page.getByRole("button", { name, exact: true }).isDisabled(),
+      false,
+    );
+  console.log("P53_BYTE_REPORT_EXACT_DOWNLOAD_SCAN", {
+    changed,
+    unchanged: output.length - changed,
+    rangeCount,
+    displayedRanges: rows.length,
+    sampleLimit: 16,
+  });
 }
 
 async function openSource(page, source) {
@@ -250,22 +371,27 @@ async function openSource(page, source) {
     await assertInvalidated();
     console.log("PAGE_RELOAD_SAME_SOURCE_EMPTY_HISTORY");
 
-    await page.reload();
-    await openSource(page, path.join(work, "output-after.bin"));
-    const movedRows = page.getByRole("row").filter({
-      has: page.getByRole("button", { name: "Move Debug Settings menu", exact: true }),
-    });
-    assert.equal(await movedRows.count(), 1);
-    const cells = movedRows.getByRole("cell");
-    assert.equal(await cells.nth(0).innerText(), "Debug Settings");
-    assert.equal(await cells.nth(1).innerText(), "0x1006");
-    assert.equal(
-      await cells.nth(2).getByText("PCI Subsystem Settings", { exact: true }).count(),
-      1,
-    );
-    assert.doesNotMatch(await cells.nth(2).innerText(), /Intel Advanced Menu/);
-    assert.equal(await output.isDisabled(), true);
-    console.log("OUTPUT_REOPENED_STATIC_REF_MOVED");
+    for (const file of ["output-before.bin", "output-after.bin"]) {
+      await page.reload();
+      await openSource(page, path.join(work, file));
+      const movedRows = page.getByRole("row").filter({
+        has: page.getByRole("button", {
+          name: "Move Debug Settings menu",
+          exact: true,
+        }),
+      });
+      assert.equal(await movedRows.count(), 1);
+      const cells = movedRows.getByRole("cell");
+      assert.equal(await cells.nth(0).innerText(), "Debug Settings");
+      assert.equal(await cells.nth(1).innerText(), "0x1006");
+      assert.equal(
+        await cells.nth(2).getByText("PCI Subsystem Settings", { exact: true }).count(),
+        1,
+      );
+      assert.doesNotMatch(await cells.nth(2).innerText(), /Intel Advanced Menu/);
+      assert.equal(await output.isDisabled(), true);
+      console.log("OUTPUT_REOPENED_STATIC_REF_MOVED", file);
+    }
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
     console.log("ASSETS", [...assets]);
   } finally {
