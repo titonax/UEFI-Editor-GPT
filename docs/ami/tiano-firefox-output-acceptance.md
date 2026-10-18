@@ -106,3 +106,69 @@ IFR positions changed by the structural move. The correction removes JSON-only
 absence and lost source-analysis noise; it does not turn a structural move into
 four scalar patches or discard its ownership/offset metadata. Defined value
 changes and exact replay preconditions retain their own regression checks.
+
+## Complete-image byte report against actual downloads
+
+Reproduced on 2026-10-18 (Europe/Madrid) against deployed main
+`b65d0889345d95bbe2280f916eb2b92192ff79d0` (PR #199), after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39094106187)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39094106131)
+success. Pages returned HTTP 200. Firefox 153.0 / Playwright 1.62.1, headless Linux,
+1600 × 1000 used the documented container/certificate settings and deployed
+`index-LM6CCH_b.js`, `index-D4JOsfQ5.css`, `tiano-decompress.wasm` and
+`ifrextractor.wasm`. The original authorized SPI was size/SHA-256 checked afresh.
+No browser API, queue, codec or writer was mocked, delayed or fault-injected.
+
+The existing opt-in Boot restore checker now opens Output details after each
+verified download. A separate local run-based scan of the original and downloaded
+physical images computes every contiguous changed interval and exact totals;
+it does not import the production comparison helper or trust rendered values.
+Every one of the 64 displayed rows must have the exact physical start/exclusive
+end, complete interval length and original/rebuilt bytes from that interval's
+first `min(length, 16)` positions. Both variants exercise omitted ranges and
+truncated samples. Byte samples are neither logged nor committed, even in the
+new assertion's failure diagnostics.
+
+| Output variant            | Changed bytes | Unchanged bytes | Total ranges | Displayed ranges |
+| ------------------------- | ------------: | --------------: | -----------: | ---------------: |
+| Boot hidden               |       140,913 |       8,247,695 |          737 |               64 |
+| Boot restored / net-three |        49,938 |       8,338,670 |          252 |               64 |
+
+The report also has to label offsets as complete physical-image positions,
+state its 16-byte sampling bound and report 1,572,864 preserved non-BIOS bytes.
+Closing it leaves Check, download and details enabled. Existing queue mutations
+and history assertions still require output/details invalidation, then fresh
+Apply/Check before the next report: a hidden report cannot satisfy the restored
+report's exact totals/rows, or vice versa.
+
+All nine reports pass: original four-edit hidden, five-entry restored,
+session-restored, paused-Show hidden, post-Undo restored, post-Redo hidden,
+reselected-Show restored, valid reordered session restored and root-pair-removed
+net-three. Their complete 8,388,608-byte downloads retain the existing known
+hashes: three hidden SPIs are
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`;
+six restored/net-three SPIs are
+`d9c22589b68884e973af22f87f718b7fc9fb130bfbdcca3871a55c12d294f3be`.
+All changed bytes stay inside original FFS owners `[3239384, 3419918)` and
+`[4612464, 4781106)`; every non-BIOS byte is identical.
+
+Eight independent reanalyses reopen the restored, net-three and six session/
+history/reselection/reordering outputs. They retain 70 Forms, Security flags
+`00`, the unique moved Ref in Form 5 and empty suppression scope; hidden outputs
+retain vector `1111011`, restored ones `1111111`. Source replacement resets
+output/details. No application page errors occurred. The complete checker passed
+on its first attempt; hashes, counts, allocation, codec, checksum, ownership,
+independent reconstruction and the 15-minute Check limit remain unchanged.
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+node scripts/firmware-tiano-boot-restore-firefox-acceptance.mjs
+```
+
+Private source, decoded/editor/session JSON and output files remain local and
+are removed on exit; CI has no private input. This is real-Firefox exact-source
+report acceptance, not a standalone engine rerun, new synthetic acceptance or
+hardware validation. It does not accept reports from other sources/families,
+zero-change output, further session races or unsupported writer paths. Missing
+uncompressed AMI/mixed real-source gates, unsupported compression, growth,
+capsules, new BIOS and P53 dynamic roots remain unchanged.
