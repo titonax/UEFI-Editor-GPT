@@ -726,6 +726,13 @@ list the blocker for every unsupported case.
   known v2/v1 ROMs pass. Closing and component lifetime are combined; source
   replacement, late failures, ordinary scheduling and hardware remain separate.
   See [the ready-output close record](phoenix/z03-session-firefox-acceptance.md#closed-dialog-cancellation-with-a-ready-output).
+  A deployed PR #207 Z03 extension also passes held native session text across
+  same-byte source close/reopen in one document: fresh original base/empty history,
+  no cached output, fresh known rebuilding, zero new hashes on old delivery and
+  retained new ROM. Current v2/v1 outputs and actual retained-output reread pass.
+  Dialog/source lifetime cancellation are combined, not isolated; distinct-image
+  replacement, late failures, ordinary scheduling and hardware remain separate.
+  See [the source-reopen record](phoenix/z03-session-firefox-acceptance.md#same-byte-source-reopen-during-a-held-session-read).
   The
   [exact Z03 session acceptance](phoenix/z03-session-firefox-acceptance.md)
   reproduces v2 export/import and v1 migration in deployed Firefox, with fresh

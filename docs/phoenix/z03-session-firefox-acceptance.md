@@ -159,3 +159,48 @@ dialog combines closing and its component lifetime; this does not isolate
 cancellation before animated unmount or observe the old handler's full return.
 No app module, text/hash result, codec or network response is mocked; no writer
 guard, timeout or accepted source is changed. Hardware remains unvalidated.
+
+## Same-byte source reopen during a held session read
+
+Reproduced on 2026-10-18 against deployed PR #207 main
+`0eda4d6f566ff1b03971d5e4a9f54c97df618ff9`.
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39145259686)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39145259546)
+passed for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux, viewport 1600 by 1000, loaded `index-DvYis56o.js` and
+`index-D4JOsfQ5.css`. The same explicit container/certificate settings were used.
+
+Use `FIRMWARE_BROWSER_SESSION_READ_PROBE=source` with the existing source/browser
+settings. The earlier `=1` and `=close` modes remain separate scenarios. This
+mode retains the same native text-delivery timing gate and native digest counter;
+source/session content, native results and all app modules remain unchanged.
+
+1. Save the original Show queue's v2 session, Apply/Check and download the known
+   ROM. Begin loading that session and hold the successful native text read.
+2. Close the queue, select **Load another firmware**, then open/analyse the same
+   original bytes. A main-frame navigation counter proves this stays in the same
+   document. The new editor has an empty queue, disabled Undo/Redo and disabled
+   output/details. Cache Ram Show is available again, proving original state.
+3. Stage Show directly, Apply/Check and download a fresh known ROM. No newer
+   session save/load request has superseded the old held read.
+4. Snapshot the digest counter after the new analysis/build, then deliver the old
+   text. After delivery and a further browser task, **zero new native digests**
+   start. The fresh output/details remain enabled. Download without another Check:
+   it matches the ready output. The new Show queue has no stale loaded message,
+   validating status or error.
+5. A current v2 load executes exactly **two native digests** and freshly produces
+   the accepted output. Strict v1 migration also freshly produces it. All five
+   downloads (old ready, new ready, retained, v2 and v1) are 1,048,576 bytes with
+   the known output SHA-256, 13,032 changed bytes and zero changes outside
+   `[0x6ED30, 0x72068)`. Equality failures never log private buffers.
+6. The actual retained download independently reopens with Cache Ram Show
+   already applied. The original session rejects this changed image/template
+   identity, retaining an empty queue and disabled output. No page errors occur.
+
+This is exact-source same-byte close/reopen acceptance, not a different-image
+replacement. Dialog closure and source/component lifetime reset are combined;
+neither cancellation mechanism is isolated. Native timing control is not
+ordinary scheduling, an actual I/O failure, a late rejection or observation of
+the old React handler's full return. Other sources/families, distinct-image
+replacement and hardware remain separate gates. No codec, allocation, checksum,
+source ownership, reconstruction limit or independent reader guard is changed.
