@@ -35,8 +35,9 @@ assert(
       "reject-close",
       "reject-source",
       "reject-distinct",
+      "read-distinct",
     ].includes(readProbeMode),
-  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1, close, source, reject, reject-close, reject-source or reject-distinct when supplied.",
+  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1, close, source, reject, reject-close, reject-source, reject-distinct or read-distinct when supplied.",
 );
 const probeSessionRead = readProbeMode !== undefined;
 const probeRejection = [
@@ -51,6 +52,7 @@ const probeClosedRejection = [
   "reject-distinct",
 ].includes(readProbeMode);
 const probeDistinctSource = readProbeMode === "reject-distinct";
+const probeDistinctRead = readProbeMode === "read-distinct";
 const probeReadyOutput = [
   "close",
   "source",
@@ -58,6 +60,7 @@ const probeReadyOutput = [
   "reject-close",
   "reject-source",
   "reject-distinct",
+  "read-distinct",
 ].includes(readProbeMode);
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "uefi-phoenix-session-firefox-"));
 fs.writeFileSync(path.join(work, "source.bin"), sourceBytes);
@@ -403,6 +406,24 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       );
     }
 
+    async function rejectCurrentOriginalOnChangedSource() {
+      const before = await page.evaluate(() => window.sessionReadProbe.hashes);
+      await queue
+        .getByLabel("Load queue session file")
+        .setInputFiles(path.join(work, "session-v2.json"));
+      const rejection = queue.getByRole("alert");
+      await rejection.waitFor();
+      assert.match(await rejection.innerText(), /different firmware image or template/);
+      assert.equal(
+        await page.evaluate(() => window.sessionReadProbe.hashes),
+        before + 2,
+      );
+      await assertEmptyReplacedSource();
+      console.log(
+        "DISTINCT_SOURCE_CURRENT_ORIGINAL_SESSION_TWO_HASH_IDENTITY_REJECTION",
+      );
+    }
+
     if (probeSessionRead && !probeRejection) {
       let before = await page.evaluate(() => {
         window.sessionReadProbe.armed = true;
@@ -423,6 +444,10 @@ async function downloadVerifiedOutput(page, destination, check = true) {
           await reopenOriginalWithFreshOutput();
           before = await page.evaluate(() => window.sessionReadProbe.hashes);
         }
+        if (probeDistinctRead) {
+          await openDistinctVerifiedDownload();
+          before = await page.evaluate(() => window.sessionReadProbe.hashes);
+        }
       } else {
         await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
         assert.match(await queue.innerText(), /The queue is empty/);
@@ -441,7 +466,21 @@ async function downloadVerifiedOutput(page, destination, check = true) {
         before,
         "Cancelled text delivery must not initiate source/template digests.",
       );
-      if (probeReadyOutput) {
+      if (probeDistinctRead) {
+        await assertEmptyReplacedSource();
+        assert.equal(await queue.getByRole("alert").count(), 0);
+        console.log(
+          "DISTINCT_SOURCE_OLD_NATIVE_TEXT_ZERO_NEW_HASHES_NO_OUTPUT_REVIVAL",
+        );
+        await rejectCurrentOriginalOnChangedSource();
+        await queue.getByRole("button", { name: "Close", exact: true }).click();
+        await queue.waitFor({ state: "hidden" });
+        await reopenOriginalWithFreshOutput();
+        await page
+          .getByRole("button", { name: "Change queue (1)", exact: true })
+          .click();
+        console.log("ORIGINAL_SOURCE_RECOVERED_AFTER_CANCELLED_DISTINCT_READ");
+      } else if (probeReadyOutput) {
         for (const name of ["Modified firmware image", "Output details"])
           assert.equal(
             await page.getByRole("button", { name, exact: true }).isDisabled(),
@@ -527,24 +566,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
         console.log(
           "DISTINCT_SOURCE_OLD_NATIVE_HASH_NO_STALE_REJECTION_OR_OUTPUT_REVIVAL",
         );
-        const before = await page.evaluate(() => window.sessionReadProbe.hashes);
-        await queue
-          .getByLabel("Load queue session file")
-          .setInputFiles(path.join(work, "session-v2.json"));
-        const rejection = queue.getByRole("alert");
-        await rejection.waitFor();
-        assert.match(
-          await rejection.innerText(),
-          /different firmware image or template/,
-        );
-        assert.equal(
-          await page.evaluate(() => window.sessionReadProbe.hashes),
-          before + 2,
-        );
-        await assertEmptyReplacedSource();
-        console.log(
-          "DISTINCT_SOURCE_CURRENT_ORIGINAL_SESSION_TWO_HASH_IDENTITY_REJECTION",
-        );
+        await rejectCurrentOriginalOnChangedSource();
         await queue.getByRole("button", { name: "Close", exact: true }).click();
         await queue.waitFor({ state: "hidden" });
         await reopenOriginalWithFreshOutput();
@@ -721,9 +743,11 @@ async function downloadVerifiedOutput(page, destination, check = true) {
           work,
           readProbeMode === "reject" || probeDistinctSource
             ? "output-retry.bin"
-            : probeReadyOutput
-              ? "output-retained.bin"
-              : "output-v2.bin",
+            : probeDistinctRead
+              ? "output-reopened.bin"
+              : probeReadyOutput
+                ? "output-retained.bin"
+                : "output-v2.bin",
         ),
       );
     await page

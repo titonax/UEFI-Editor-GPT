@@ -768,6 +768,14 @@ list the blocker for every unsupported case.
   distinct-byte pair, not another BIOS family or early-read cancellation across
   distinct bytes; dialog/source lifetimes remain combined. See
   [the distinct-image rejection record](phoenix/z03-session-firefox-acceptance.md#distinct-downloaded-image-replacement-during-late-rejection).
+  A deployed PR #212 early-read probe now holds valid native session text across
+  that exact distinct-byte replacement: after new-source analysis, old delivery
+  starts zero native identity hashes, leaves queue/history empty and cannot
+  revive output. Current loading runs two hashes and rejects changed identity.
+  Return-original rebuilding, current v2/strict v1 and actual recovery-output
+  reread pass; four known ROMs remain confined to TEMPLAT. Dialog/source lifetimes
+  remain combined; other sources, ordinary timing and hardware are not accepted.
+  See [the early distinct-byte cancellation record](phoenix/z03-session-firefox-acceptance.md#early-native-text-cancellation-across-distinct-downloaded-bytes).
   The
   [exact Z03 session acceptance](phoenix/z03-session-firefox-acceptance.md)
   reproduces v2 export/import and v1 migration in deployed Firefox, with fresh
