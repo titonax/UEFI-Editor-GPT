@@ -255,3 +255,55 @@ rejection, distinct-image replacement or hardware. Clear/Undo deliberately
 invalidates the earlier output; this run does not claim ready-output retention
 through that mutation. Private sessions/ROMs stay local; existing limits and
 binary reconstruction/ownership/allocation/re-read guards are unchanged.
+
+## Closed-dialog late rejection with retained verified output
+
+Reproduced on 2026-10-18 against deployed PR #209 main
+`b47f577476f5cbc9badbd1ef3df6cdbae3194499`.
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39159817841)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39159817856)
+passed for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build 1538,
+headless Linux, viewport 1600 by 1000, loaded `index-DvYis56o.js` and
+`index-D4JOsfQ5.css`, with the same explicit container/certificate settings.
+The existing private source was rehashed against the identity above.
+
+Use `FIRMWARE_BROWSER_SESSION_READ_PROBE=reject-close` with the same private
+source/browser settings. It shares the prior negative session: valid identities,
+one paused `Number.MAX_SAFE_INTEGER` item selector. Native text/digest results
+remain unchanged; only delivery of the second native identity digest result
+(template) is held. This is invalid metadata and controlled timing, not failed
+native hashing or corrupted firmware.
+
+1. Save the real Cache Ram Show v2 queue and Apply/Check/download its known ROM.
+   Start loading the negative file. Exactly two native identity digests start;
+   hold the template result and observe the validating status.
+2. Close the queue dialog and wait until hidden. Keep the source and queue
+   unchanged: no Clear/Undo, replacement or newer session request cancels it.
+   Deliver the old native result. Download/details remain enabled; without
+   another Check, the retained download exactly matches the initial ROM.
+3. Reopen the queue. Its Show entry remains, with no stale rejection, loaded
+   message or validating status. Load the same negative file as a current
+   request: exactly two real digests run and the missing/ambiguous-item rejection
+   becomes visible. The valid queue and ready output/details remain available;
+   pausing an invalid selector does not evade semantic validation.
+4. Load the original valid v2 file. Both real digests run, busy finishes and the
+   alert clears. Output is invalidated by the successful queue replacement and
+   becomes available only after fresh Apply/Check; the new ROM matches the known
+   output. Fresh v2/v1 round trips independently produce identical ROMs too.
+5. All five actual downloads (initial, retained, retry, v2 and v1) have
+   1,048,576 bytes, the accepted output SHA-256, 13,032 changed bytes and zero
+   changes outside `[0x6ED30, 0x72068)`. Reopen the actual **retained** download:
+   Cache Ram Show is already applied and cannot be queued again. The original
+   session rejects the changed image/template with an empty queue and disabled
+   download. No application page errors occur. Byte-equality failures do not
+   log private buffers.
+
+This adds exact Z03 ready-output retention across closed-dialog late rejection,
+separate from the earlier revision-only Clear/Undo probe. Waiting for a hidden
+dialog combines closing and component lifetime; it does not isolate cancellation
+before animated unmount or observe the old handler's full return. It does not
+establish source-reset rejection, distinct-image replacement, ordinary timing,
+I/O/hash failure, other rejection causes/families or hardware. No production
+module, codec, response, source/hash result or download adapter is mocked.
+Private sessions/ROMs remain local; existing limits and binary safeguards are
+unchanged.

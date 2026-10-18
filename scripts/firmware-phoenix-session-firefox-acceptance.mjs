@@ -27,11 +27,15 @@ const expectedOutputSha =
 const readProbeMode = process.env.FIRMWARE_BROWSER_SESSION_READ_PROBE;
 assert(
   readProbeMode === undefined ||
-    ["1", "close", "source", "reject"].includes(readProbeMode),
-  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1, close, source or reject when supplied.",
+    ["1", "close", "source", "reject", "reject-close"].includes(readProbeMode),
+  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1, close, source, reject or reject-close when supplied.",
 );
 const probeSessionRead = readProbeMode !== undefined;
-const probeReadyOutput = ["close", "source", "reject"].includes(readProbeMode);
+const probeRejection = ["reject", "reject-close"].includes(readProbeMode);
+const probeClosedRejection = readProbeMode === "reject-close";
+const probeReadyOutput = ["close", "source", "reject", "reject-close"].includes(
+  readProbeMode,
+);
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "uefi-phoenix-session-firefox-"));
 fs.writeFileSync(path.join(work, "source.bin"), sourceBytes);
 
@@ -252,7 +256,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       console.log("READY_OUTPUT_BEFORE_HELD_READ_VERIFIED");
     }
 
-    if (probeSessionRead && readProbeMode !== "reject") {
+    if (probeSessionRead && !probeRejection) {
       let before = await page.evaluate(() => {
         window.sessionReadProbe.armed = true;
         return window.sessionReadProbe.hashes;
@@ -389,52 +393,86 @@ async function downloadVerifiedOutput(page, destination, check = true) {
         console.log("HELD_NATIVE_TEXT_CLEAR_UNDO_CANCELLED_WITHOUT_HASHING");
     }
 
-    if (readProbeMode === "reject") {
+    if (probeRejection) {
       const invalid = structuredClone(v2);
       invalid.operations[0].itemOffset = Number.MAX_SAFE_INTEGER;
       invalid.operations[0].enabled = false;
       const invalidPath = path.join(work, "session-invalid.json");
       fs.writeFileSync(invalidPath, JSON.stringify(invalid));
       const sessionInput = queue.getByLabel("Load queue session file");
-      await page.evaluate(() => {
+      const heldHashes = await page.evaluate(() => {
         window.sessionReadProbe.digestsUntilHold = 2;
+        return window.sessionReadProbe.hashes;
       });
       await sessionInput.setInputFiles(invalidPath);
       await page.waitForFunction(() => window.sessionReadProbe.digestHeld);
       assert.equal(
+        await page.evaluate(() => window.sessionReadProbe.hashes),
+        heldHashes + 2,
+      );
+      assert.equal(
         await queue.getByText("Validating queue session…").isVisible(),
         true,
       );
-      await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
-      assert.match(await queue.innerText(), /The queue is empty/);
-      await queue
-        .getByRole("button", { name: "Undo queue change", exact: true })
-        .click();
-      assert.match(await queue.innerText(), /SHOW[\s\S]*Cache Ram/);
-      assert.equal(
-        await page
-          .getByRole("button", { name: "Modified firmware image", exact: true })
-          .isDisabled(),
-        true,
-      );
+      if (probeClosedRejection) {
+        await queue.getByRole("button", { name: "Close", exact: true }).click();
+        await queue.waitFor({ state: "hidden" });
+      } else {
+        await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+        assert.match(await queue.innerText(), /The queue is empty/);
+        await queue
+          .getByRole("button", { name: "Undo queue change", exact: true })
+          .click();
+        assert.match(await queue.innerText(), /SHOW[\s\S]*Cache Ram/);
+        assert.equal(
+          await page
+            .getByRole("button", { name: "Modified firmware image", exact: true })
+            .isDisabled(),
+          true,
+        );
+      }
       await page.evaluate(() => window.sessionReadProbe.releaseDigest());
       await page.waitForFunction(() => window.sessionReadProbe.digestDelivered);
+      if (probeClosedRejection) {
+        for (const name of ["Modified firmware image", "Output details"])
+          assert.equal(
+            await page.getByRole("button", { name, exact: true }).isDisabled(),
+            false,
+          );
+        const retained = await downloadVerifiedOutput(
+          page,
+          path.join(work, "output-retained.bin"),
+          false,
+        );
+        assert(
+          retained.equals(readyOutput),
+          "Retained output must match without logging bytes.",
+        );
+        await page
+          .getByRole("button", { name: "Change queue (1)", exact: true })
+          .click();
+      }
+      assert.match(await queue.innerText(), /SHOW[\s\S]*Cache Ram/);
       assert.equal(await queue.getByRole("alert").count(), 0);
       assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+      assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
       for (const name of ["Modified firmware image", "Output details"])
         assert.equal(
           await page.getByRole("button", { name, exact: true }).isDisabled(),
-          true,
+          !probeClosedRejection,
         );
       console.log(
-        "OLD_NATIVE_HASH_DELIVERED_NO_STALE_REJECTION_OUTPUT_STAYS_INVALIDATED",
+        probeClosedRejection
+          ? "CLOSED_DIALOG_OLD_NATIVE_HASH_NO_STALE_REJECTION_READY_OUTPUT_RETAINED"
+          : "OLD_NATIVE_HASH_DELIVERED_NO_STALE_REJECTION_OUTPUT_STAYS_INVALIDATED",
       );
-      assert.equal(
-        await queue
-          .getByRole("button", { name: "Redo queue change", exact: true })
-          .isDisabled(),
-        false,
-      );
+      if (!probeClosedRejection)
+        assert.equal(
+          await queue
+            .getByRole("button", { name: "Redo queue change", exact: true })
+            .isDisabled(),
+          false,
+        );
 
       const before = await page.evaluate(() => window.sessionReadProbe.hashes);
       await sessionInput.setInputFiles(invalidPath);
@@ -449,17 +487,18 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       for (const name of ["Modified firmware image", "Output details"])
         assert.equal(
           await page.getByRole("button", { name, exact: true }).isDisabled(),
-          true,
+          !probeClosedRejection,
         );
       console.log(
         "CURRENT_PAUSED_MISSING_ITEM_REJECTED_ATOMICALLY_WITH_TWO_NATIVE_HASHES",
       );
-      assert.equal(
-        await queue
-          .getByRole("button", { name: "Redo queue change", exact: true })
-          .isDisabled(),
-        false,
-      );
+      if (!probeClosedRejection)
+        assert.equal(
+          await queue
+            .getByRole("button", { name: "Redo queue change", exact: true })
+            .isDisabled(),
+          false,
+        );
       const retryHashes = await page.evaluate(() => window.sessionReadProbe.hashes);
       await sessionInput.setInputFiles(path.join(work, "session-v2.json"));
       await page.waitForFunction(
@@ -469,6 +508,10 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       await waitForDisabled(
         queue.getByRole("button", { name: "Save queue session", exact: true }),
         false,
+      );
+      await waitForDisabled(
+        page.getByRole("button", { name: "Modified firmware image", exact: true }),
+        true,
       );
       assert.equal(await queue.getByRole("alert").count(), 0);
       assert.equal(

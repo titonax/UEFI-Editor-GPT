@@ -741,6 +741,15 @@ list the blocker for every unsupported case.
   This isolates revision cancellation from closing/source reset; other rejection
   causes, close/replacement failures, ordinary scheduling and hardware remain
   separate. See [the late rejection record](phoenix/z03-session-firefox-acceptance.md#late-paused-item-rejection-with-the-source-and-dialog-kept-open).
+  A separate deployed PR #209 Z03 run holds the same native template-digest
+  delivery across dialog close without queue/source mutation: the cached ROM
+  survives old rejection delivery and independently rereads. Current paused-item
+  rejection runs both hashes, preserves the valid queue and ready controls;
+  valid retry clears the alert, invalidates output and freshly rebuilds the known
+  ROM. Five downloads pass exact hash/owner confinement, including fresh v2/v1.
+  Closing and component lifetime are combined; source-reset rejection,
+  distinct-image replacement, other causes and hardware remain separate. See
+  [the closed-dialog rejection record](phoenix/z03-session-firefox-acceptance.md#closed-dialog-late-rejection-with-retained-verified-output).
   The
   [exact Z03 session acceptance](phoenix/z03-session-firefox-acceptance.md)
   reproduces v2 export/import and v1 migration in deployed Firefox, with fresh
