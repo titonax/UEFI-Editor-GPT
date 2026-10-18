@@ -719,6 +719,13 @@ list the blocker for every unsupported case.
   owner confinement, actual-download reopen and changed-image rejection pass.
   This is native timing control, not ordinary scheduling, ready-output retention,
   other families/boundaries or hardware. See [the Z03 cancellation record](phoenix/z03-session-firefox-acceptance.md#native-session-read-cancellation-before-hashing).
+  A separate deployed PR #206 Z03 probe now closes the dialog with native session
+  text held and an already verified ROM: old delivery starts no identity hashes,
+  controls and the exact cached download survive without another Check, and its
+  actual download independently reopens. Current-load native hashes and fresh
+  known v2/v1 ROMs pass. Closing and component lifetime are combined; source
+  replacement, late failures, ordinary scheduling and hardware remain separate.
+  See [the ready-output close record](phoenix/z03-session-firefox-acceptance.md#closed-dialog-cancellation-with-a-ready-output).
   The
   [exact Z03 session acceptance](phoenix/z03-session-firefox-acceptance.md)
   reproduces v2 export/import and v1 migration in deployed Firefox, with fresh

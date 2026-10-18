@@ -114,3 +114,48 @@ starts with an unapplied queue; it does not establish retention of a ready outpu
 across cancellation. Dialog-close/source-replacement cases, late failures and
 hardware remain separate gates. The existing 5-minute reconstruction limit,
 allocation, codec, ownership and independent reader guards are unchanged.
+
+## Closed-dialog cancellation with a ready output
+
+Reproduced on 2026-10-18 against deployed PR #206 main
+`4d044d7bfe333fbced7ce44b2b1c37905c9c00e4`.
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39140747065)
+and [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39140747029)
+were successful for that exact SHA. Firefox 153.0 / Playwright 1.62.1 build
+1538, headless Linux, viewport 1600 by 1000, loaded `index-DvYis56o.js` and
+`index-D4JOsfQ5.css`, with the same explicit container/certificate settings.
+The private source identity and native timing instrumentation are unchanged.
+
+Set `FIRMWARE_BROWSER_SESSION_READ_PROBE=close` on the original runner to
+reproduce this distinct scenario; `=1` retains the earlier Clear/Undo probe.
+Other supplied values reject explicitly.
+
+1. Export the original Show queue's metadata-only v2 session. Apply, Check and
+   explicitly download a fresh verified output before starting the held read.
+2. Reopen the queue and load the real session. Hold successful native text
+   delivery after the file is read and observe the validating status.
+3. Close the queue dialog and wait until it is hidden. Do not clear, undo,
+   replace the source or start a newer session request.
+4. Release the old text. After delivery and another browser task, **zero new
+   native identity digests** have started. Download and Output details remain
+   enabled. Without pressing Check again, download the retained image and
+   verify it equals the pre-read output. Reopen the queue: its Show entry is
+   intact, with no stale loaded message, validating status or error.
+5. Clear and load the current v2 file. Exactly **two native identity digests**
+   run as positive control; Apply/Check freshly reproduces the known output.
+   Strict v1 migration also freshly reproduces that output. All four actual ROM
+   downloads (before hold, retained, v2 and v1) have 1,048,576 bytes, the accepted
+   output SHA-256, 13,032 changed bytes and zero changes outside
+   `[0x6ED30, 0x72068)`. Byte-equality assertions never print private buffers.
+6. Reload the actual **retained** download. Cache Ram Show is already applied
+   and cannot be queued again. The original session rejects its changed image/
+   template identity, leaving an empty queue and disabled download. No page
+   errors occur.
+
+This establishes this exact Z03 closed-dialog/ready-output boundary with
+controlled native delivery, not ordinary scheduling, I/O failure, source
+replacement, late rejection or other-family acceptance. Waiting for the hidden
+dialog combines closing and its component lifetime; this does not isolate
+cancellation before animated unmount or observe the old handler's full return.
+No app module, text/hash result, codec or network response is mocked; no writer
+guard, timeout or accepted source is changed. Hardware remains unvalidated.
