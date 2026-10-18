@@ -26,10 +26,11 @@ const expectedOutputSha =
   "bbc4671779479575ec3fcb104e83e54242b09cb2e2da46655bc9d7d81b780134";
 const readProbeMode = process.env.FIRMWARE_BROWSER_SESSION_READ_PROBE;
 assert(
-  readProbeMode === undefined || readProbeMode === "1" || readProbeMode === "close",
-  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1 or close when supplied.",
+  readProbeMode === undefined || ["1", "close", "source"].includes(readProbeMode),
+  "FIRMWARE_BROWSER_SESSION_READ_PROBE must be 1, close or source when supplied.",
 );
 const probeSessionRead = readProbeMode !== undefined;
+const probeReadyOutput = readProbeMode === "close" || readProbeMode === "source";
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "uefi-phoenix-session-firefox-"));
 fs.writeFileSync(path.join(work, "source.bin"), sourceBytes);
 
@@ -144,6 +145,10 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       ignoreHTTPSErrors: process.env.FIRMWARE_BROWSER_IGNORE_HTTPS_ERRORS === "1",
     });
     page.setDefaultTimeout(60000);
+    let navigations = 0;
+    page.on("framenavigated", (frame) => {
+      if (frame === page.mainFrame()) navigations++;
+    });
     const pageErrors = [];
     const assets = new Set();
     page.on("pageerror", (error) => pageErrors.push(error));
@@ -221,7 +226,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
     console.log("V2_EXPORTED_METADATA_ONLY");
 
     let readyOutput;
-    if (readProbeMode === "close") {
+    if (probeReadyOutput) {
       await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
       await queue.getByRole("button", { name: "Close", exact: true }).click();
       readyOutput = await downloadVerifiedOutput(
@@ -233,7 +238,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
     }
 
     if (probeSessionRead) {
-      const before = await page.evaluate(() => {
+      let before = await page.evaluate(() => {
         window.sessionReadProbe.armed = true;
         return window.sessionReadProbe.hashes;
       });
@@ -245,9 +250,74 @@ async function downloadVerifiedOutput(page, destination, check = true) {
         await queue.getByText("Validating queue session…").isVisible(),
         true,
       );
-      if (readProbeMode === "close") {
+      if (probeReadyOutput) {
         await queue.getByRole("button", { name: "Close", exact: true }).click();
         await queue.waitFor({ state: "hidden" });
+        if (readProbeMode === "source") {
+          const navigationBaseline = navigations;
+          await page
+            .getByRole("button", { name: "Load another firmware", exact: true })
+            .click();
+          await page
+            .locator("input[type=file]")
+            .first()
+            .setInputFiles(path.join(work, "source.bin"));
+          await page
+            .getByRole("button", { name: "Start Phoenix Setup analysis", exact: true })
+            .click();
+          await page
+            .getByRole("button", { name: "Change queue (0)", exact: true })
+            .waitFor({ timeout: 240000 });
+          await page
+            .getByRole("button", { name: "Change queue (0)", exact: true })
+            .click();
+          for (const name of ["Undo queue change", "Redo queue change"])
+            assert.equal(
+              await queue.getByRole("button", { name, exact: true }).isDisabled(),
+              true,
+            );
+          for (const name of ["Modified firmware image", "Output details"])
+            assert.equal(
+              await page.getByRole("button", { name, exact: true }).isDisabled(),
+              true,
+            );
+          await queue.getByRole("button", { name: "Close", exact: true }).click();
+          await page
+            .getByRole("button")
+            .filter({ hasText: /^Cache Ram/ })
+            .first()
+            .click();
+          const show = page.getByRole("button", {
+            name: "Queue Show for Cache Ram Phoenix item",
+            exact: true,
+          });
+          assert.equal(await show.isDisabled(), false);
+          await show.click();
+          await page
+            .getByRole("button", { name: "Change queue (1)", exact: true })
+            .click();
+          await queue
+            .getByRole("button", { name: "Apply selected", exact: true })
+            .click();
+          await queue.getByRole("button", { name: "Close", exact: true }).click();
+          const fresh = await downloadVerifiedOutput(
+            page,
+            path.join(work, "output-reopened.bin"),
+          );
+          assert(
+            fresh.equals(readyOutput),
+            "Fresh reopened output must match without logging bytes.",
+          );
+          assert.equal(
+            navigations,
+            navigationBaseline,
+            "Source replacement must stay in the same document.",
+          );
+          before = await page.evaluate(() => window.sessionReadProbe.hashes);
+          console.log(
+            "SAME_BYTE_SOURCE_REOPEN_FRESH_BASE_HISTORY_OUTPUT_RESET_AND_REBUILD",
+          );
+        }
       } else {
         await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
         assert.match(await queue.innerText(), /The queue is empty/);
@@ -266,7 +336,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
         before,
         "Cancelled text delivery must not initiate source/template digests.",
       );
-      if (readProbeMode === "close") {
+      if (probeReadyOutput) {
         for (const name of ["Modified firmware image", "Output details"])
           assert.equal(
             await page.getByRole("button", { name, exact: true }).isDisabled(),
@@ -284,7 +354,11 @@ async function downloadVerifiedOutput(page, destination, check = true) {
         await page
           .getByRole("button", { name: "Change queue (1)", exact: true })
           .click();
-        console.log("CLOSED_DIALOG_OLD_TEXT_NO_HASHES_READY_OUTPUT_RETAINED");
+        console.log(
+          readProbeMode === "source"
+            ? "REOPENED_SOURCE_OLD_TEXT_NO_HASHES_FRESH_OUTPUT_RETAINED"
+            : "CLOSED_DIALOG_OLD_TEXT_NO_HASHES_READY_OUTPUT_RETAINED",
+        );
       }
       assert.match(await queue.innerText(), /SHOW[\s\S]*Cache Ram/);
       assert.equal(await queue.getByRole("alert").count(), 0);
@@ -294,7 +368,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
         await page
           .getByRole("button", { name: "Modified firmware image", exact: true })
           .isDisabled(),
-        readProbeMode !== "close",
+        !probeReadyOutput,
       );
       if (readProbeMode === "1")
         console.log("HELD_NATIVE_TEXT_CLEAR_UNDO_CANCELLED_WITHOUT_HASHING");
@@ -354,10 +428,7 @@ async function downloadVerifiedOutput(page, destination, check = true) {
       .locator("input[type=file]")
       .first()
       .setInputFiles(
-        path.join(
-          work,
-          readProbeMode === "close" ? "output-retained.bin" : "output-v2.bin",
-        ),
+        path.join(work, probeReadyOutput ? "output-retained.bin" : "output-v2.bin"),
       );
     await page
       .getByRole("button", { name: "Start Phoenix Setup analysis", exact: true })
