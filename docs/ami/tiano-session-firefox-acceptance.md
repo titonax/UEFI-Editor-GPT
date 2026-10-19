@@ -1040,3 +1040,63 @@ code changed. Expected hashes/counts, source identity, codec, checksum, allocati
 buffer ownership, coverage, time limits and independent reread guards are unchanged.
 Private firmware/editor/session JSON and downloads remain local; temporary files
 are removed on exit and public CI has no private source.
+
+## Dependent Hide/Show v1 migration, rejection and history
+
+Reproduced on 2026-10-19 (Europe/Madrid) against deployed main
+`e3a391aabe2a9ec568b54c508b26c0ea27c6c613`, after successful exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39194992988)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39194993013).
+Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux, 1600 × 1000 used
+the documented container/certificate settings and `index-DvYis56o.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+The authorized ChatGPT archive supplied the same exact size/SHA-256-verified
+source above; no new BIOS or semantic inventory was added.
+
+The dependency checker now accepts `FIRMWARE_BROWSER_SESSION_VERSION=1` or `2`
+(default `2`), changing only imported session versions. Every expected export
+remains strict v2, deeply equal in kind, source/context hashes, ordered actions,
+selectors and enabled flags. Run the documented dependency-checker command once
+with each version. Both complete runs passed without mocks, timing gates or
+fault injection:
+
+1. From the four-edit hidden baseline, append dependent Show Boot and build the
+   known restored five-enabled SPI. Clear/load the saved session as v1 (then v2
+   in the regression run): restore five exact unapplied entries and re-export v2,
+   then freshly reproduce the same restored SPI.
+2. Reject missing-Hide imports with Show enabled and paused using the existing
+   semantic `contains a menu action with no change` rejection. The five-enabled
+   queue, exact export and ready Check/download/details remain. This is atomic
+   state/control retention, not a new download of retained cached bytes.
+3. Load valid Hide-enabled/Show-paused metadata, invalidating output. A single
+   Undo/Redo restores exact full/paused exports without output. Freshly rebuild
+   hidden, Undo from ready hidden and rebuild restored, Redo from ready restored
+   and rebuild hidden, then reselect Show and rebuild restored.
+4. Reject Show-before-Hide imports with Show enabled and paused, preserving the
+   queue/order/export and ready controls. Load the valid
+   move/SetupData/Hide/Show/suppression order, assert actual titles/flags and exact
+   export, then freshly rebuild restored. Remove Show and Hide and freshly
+   reproduce the same net-three-edit restored SPI.
+
+Each run verifies nine complete 8,388,608-byte downloads: three hidden results
+with 140,913 changed / 8,247,695 unchanged bytes and 737 ranges, and six restored
+results with 49,938 changed / 8,338,670 unchanged bytes and 252 ranges. Every UI
+report matches the actual download scan, including 64 displayed ranges and 16-byte
+samples. Hidden SHA-256 is
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`;
+restored SHA-256 is
+`d9c22589b68884e973af22f87f718b7fc9fb130bfbdcca3871a55c12d294f3be`.
+All changes remain inside the two original FFS owners; all 1,572,864 non-BIOS
+bytes are identical. Eight independent actual-file reload/analysis cycles per
+run reread 70 Forms, Security `00`, the unique moved Ref and empty suppression:
+two hidden outputs retain vector `1111011`, six restored outputs `1111111`.
+Source replacement resets output/details. No application page errors occurred.
+
+This closes only this exact dependent-v1 sequence and retains the v2 regression;
+it does not newly validate changed-image session rejection, other selections,
+orders, histories/races, sources, human file pickers or hardware/recovery.
+The firmware-change-review skill guided the narrow checker/evidence change;
+no production code, source/owner/buffer/codec/checksum/allocation guards,
+15-minute build limit, coverage or independent reread checks changed.
+Private firmware, decoded/editor/session JSON and downloads stay local;
+checker intermediates are removed on exit and public CI has no private source.

@@ -854,7 +854,13 @@ list the blocker for every unsupported case.
   migration with exact flags/re-export, atomic invalid paused-root rejection
   retaining selection/ready controls, fresh move-only SPI, full reselection and
   four independent selection-aware rereads with changed-image rejection.
-  Dependent v1 variants and other sequences remain separate gates.
+  A deployed-main `e3a391a` dependency-checker extension also passes the exact
+  five-entry Hide/Show v1 migration to strict metadata-only v2, paused Show,
+  atomic missing/reordered-Hide rejection with Show enabled or paused, single-step
+  Undo/Redo and fresh hidden/restored complete SPIs. Both v1 and v2 runs verify
+  nine download byte reports and eight independent actual-file reanalyses each,
+  with all non-BIOS/outside-owner bytes intact. Other dependent selections,
+  permutations, histories and races remain separate gates.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed

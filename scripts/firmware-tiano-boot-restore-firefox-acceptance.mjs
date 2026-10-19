@@ -12,6 +12,13 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+const sessionImportVersion = process.env.FIRMWARE_BROWSER_SESSION_VERSION || "2";
+assert(
+  ["1", "2"].includes(sessionImportVersion),
+  "Session import version must be 1 or 2.",
+);
+console.log("SESSION_IMPORT_VERSION", sessionImportVersion);
+
 const sourcePath = process.env.FIRMWARE_ACCEPTANCE_IMAGE;
 assert(sourcePath, "Set FIRMWARE_ACCEPTANCE_IMAGE to the accepted private source.");
 const sourceBytes = fs.readFileSync(sourcePath);
@@ -369,6 +376,16 @@ async function openSource(page, source) {
       await (await download).saveAs(file);
       return JSON.parse(fs.readFileSync(file, "utf8"));
     }
+    async function loadSession(file, session) {
+      // Only the legacy representation changes; expected exports remain strict v2.
+      assert.equal(session.version, 2);
+      assert.equal(session.kind, "hii-menu-actions");
+      fs.writeFileSync(
+        file,
+        JSON.stringify({ ...session, version: Number(sessionImportVersion) }),
+      );
+      await queue.getByLabel("Load queue session file").setInputFiles(file);
+    }
     async function assertFiveSelection(lastEnabled) {
       assert.deepEqual(await order(), fiveTitles);
       for (const title of titles) assert.equal(await selected(title).isChecked(), true);
@@ -444,7 +461,7 @@ async function openSource(page, source) {
     await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
     assert.match(await queue.innerText(), /The queue is empty/);
     await invalidated();
-    await queue.getByLabel("Load queue session file").setInputFiles(fullSessionFile);
+    await loadSession(fullSessionFile, fullSession);
     await selected(fiveTitles[4]).waitFor({ state: "visible" });
     await waitForDisabled(apply, false);
     await assertFiveSelection(true);
@@ -464,7 +481,10 @@ async function openSource(page, source) {
       fs.readFileSync(path.join(work, "session-restored.bin")),
       fs.readFileSync(path.join(work, "restored.bin")),
     );
-    console.log("DEPENDENT_HIDE_SHOW_V2_ROUND_TRIP_EXACT_RESTORED_SPI");
+    console.log(
+      "DEPENDENT_HIDE_SHOW_ROUND_TRIP_EXACT_RESTORED_SPI",
+      sessionImportVersion,
+    );
 
     await page.getByRole("button", { name: "Change queue (5)", exact: true }).click();
     for (const restoreEnabled of [true, false]) {
@@ -472,8 +492,7 @@ async function openSource(page, source) {
       invalidSession.operations[3].enabled = false;
       invalidSession.operations[4].enabled = restoreEnabled;
       const invalidFile = path.join(work, `missing-hide-${restoreEnabled}.json`);
-      fs.writeFileSync(invalidFile, JSON.stringify(invalidSession));
-      await queue.getByLabel("Load queue session file").setInputFiles(invalidFile);
+      await loadSession(invalidFile, invalidSession);
       const rejection = queue.getByRole("alert");
       await rejection.waitFor();
       assert.match(
@@ -496,8 +515,7 @@ async function openSource(page, source) {
     const pausedSession = structuredClone(fullSession);
     pausedSession.operations[4].enabled = false;
     const pausedFile = path.join(work, "dependent-show-paused.json");
-    fs.writeFileSync(pausedFile, JSON.stringify(pausedSession));
-    await queue.getByLabel("Load queue session file").setInputFiles(pausedFile);
+    await loadSession(pausedFile, pausedSession);
     // Apply was already enabled: observe the actual selected projection instead.
     await waitFiveSelection(false);
     assert.equal(await queue.getByRole("alert").count(), 0);
@@ -592,8 +610,7 @@ async function openSource(page, source) {
         reordered.operations[3],
       ];
       const file = path.join(work, `show-before-hide-${restoreEnabled}.json`);
-      fs.writeFileSync(file, JSON.stringify(reordered));
-      await queue.getByLabel("Load queue session file").setInputFiles(file);
+      await loadSession(file, reordered);
       const rejection = queue.getByRole("alert");
       await rejection.waitFor();
       assert.match(
@@ -616,8 +633,7 @@ async function openSource(page, source) {
     const reordered = structuredClone(fullSession);
     reordered.operations = permutation.map((index) => fullSession.operations[index]);
     const reorderedFile = path.join(work, "dependent-valid-order.json");
-    fs.writeFileSync(reorderedFile, JSON.stringify(reordered));
-    await queue.getByLabel("Load queue session file").setInputFiles(reorderedFile);
+    await loadSession(reorderedFile, reordered);
     const reorderedTitles = permutation.map((index) => fiveTitles[index]);
     await page.waitForFunction((expected) => {
       const boxes = [
