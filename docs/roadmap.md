@@ -901,6 +901,10 @@ list the blocker for every unsupported case.
   single Undo/Redo, invalidated output in both directions and fresh known
   move-only/full SPIs. Twelve downloads and twelve independent reanalyses retain
   all non-BIOS bytes; other histories and asynchronous races remain separate.
+  Deployed main `eb2da65` additionally passes save preserving Redo/ready output,
+  a new root selection discarding the old Redo branch, exact new-branch Undo/Redo
+  exports and fresh known full-SPI recovery. Thirteen downloads/reanalyses pass;
+  the intermediate three-selected plan does not gain writer acceptance.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This

@@ -888,6 +888,71 @@ async function verifyByteComparisonReport(page, output, expected) {
       console.log("SESSION_LOAD_SINGLE_UNDO_REDO_READY_UNDO_FRESH_OUTPUTS", version);
     }
 
+    // The final Undo above leaves the old paused session on Redo. Saving is
+    // read-only; a genuinely new selection must replace that future branch.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    const redoButton = queue.getByRole("button", {
+      name: "Redo queue change",
+      exact: true,
+    });
+    assert.equal(await redoButton.isDisabled(), false);
+    await saveExactSession(session, [true, true, true, true], "before-new-edit.json");
+    assert.equal(await redoButton.isDisabled(), false);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        false,
+      );
+    const branchFlags = [false, true, true, true];
+    const branchSession = {
+      ...session,
+      operations: session.operations.map((op, index) => ({
+        ...op,
+        enabled: branchFlags[index],
+      })),
+    };
+    await queue.getByRole("checkbox").nth(0).uncheck();
+    await assertSelection(branchFlags);
+    await assertOutputDisabled();
+    assert.equal(await redoButton.isDisabled(), true);
+    await saveExactSession(branchSession, branchFlags, "new-edit-branch.json");
+    assert.equal(await redoButton.isDisabled(), true);
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    await saveExactSession(session, [true, true, true, true], "new-edit-undo.json");
+    assert.equal(await redoButton.isDisabled(), false);
+    await redoButton.click();
+    await assertSelection(branchFlags);
+    await assertOutputDisabled();
+    await saveExactSession(branchSession, branchFlags, "new-edit-redo.json");
+    assert.equal(await redoButton.isDisabled(), true);
+    // Three-selected state is planning evidence only: do not infer allocation
+    // fit or introduce another accepted output combination from this history.
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    await saveExactSession(
+      session,
+      [true, true, true, true],
+      "new-edit-final-undo.json",
+    );
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const branchedOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "new-edit-history.bin"),
+    );
+    assert(
+      branchedOutput.equals(baseline),
+      "Discarding old Redo must still permit a fresh known full SPI",
+    );
+    console.log("SAVE_RETAINS_REDO_NEW_SELECTION_DISCARDS_OLD_BRANCH_FRESH_FULL_SPI");
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -916,6 +981,7 @@ async function verifyByteComparisonReport(page, output, expected) {
       "full-load-history-v2.bin",
       "move-only-load-history-v1.bin",
       "full-load-history-v1.bin",
+      "new-edit-history.bin",
     ]) {
       await page.reload();
       await page

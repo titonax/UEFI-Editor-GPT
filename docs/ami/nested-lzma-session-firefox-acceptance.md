@@ -376,3 +376,53 @@ or hardware/recovery acceptance is claimed. No production code, timeout,
 coverage, allocation, ownership, codec, checksum or independent reread guard
 changed. Root-only fit, unsupported formats/growth/capsules, missing qualifying
 uncompressed AMI/mixed sources, new BIOS and P53 dynamic roots retain their limits.
+
+## New selection discards the previous Redo branch
+
+Reproduced on 2026-10-19 against deployed main
+`eb2da65b1a7d668167ca6ece9e6a4cf3798ab717`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39320754738)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39320754689)
+success. Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux,
+1600 × 1000 used the explicit documented container/certificate/proxy settings,
+`index-DvYis56o.js`, `index-D4JOsfQ5.css` and all three WASM readers. The exact
+4 MiB size/hash-bound source was freshly recovered from the authorized ChatGPT
+archive only, without new BIOS acquisition or another semantic corpus inventory.
+
+After the preceding v2/v1 load-history regressions, the full four-selected queue
+has freshly verified output and its previous move-only paused session is on
+Redo. Saving the full metadata-only session preserves both Redo and the ready
+Check/download/details controls. Unchecking only the root action then creates a
+new selection `[false, true, true, true]`, immediately disables Redo and
+invalidates Check/download/details. An exact v2 export preserves all selectors,
+identities and this new selection, and saving cannot restore the old future.
+
+One Undo restores the original full export without Apply or output. Redo returns
+the exact new three-selected export, not the old one-selected paused session;
+Redo is exhausted there. Another Undo again restores the full export unapplied.
+Fresh Apply/Check/download must reproduce the known combined baseline byte for
+byte. The three-selected intermediate is planning/history evidence only: the
+checker never invokes its writer or claims that combination fits allocation.
+
+The complete checker exited zero with thirteen actual downloads and thirteen
+independent reload/analyses: eight combined and five move-only outputs, twelve
+fresh builds plus the existing one retained cached download. Every complete
+4,194,304-byte SPI retains its known hash, allocation and physical byte totals
+listed above. Each report's totals and all 64 physical range boundaries/lengths
+and bounded 16-byte samples match a separate scan of the actual output. All
+1,572,864 non-BIOS bytes are identical, with zero changes outside outer FFS/BIOS.
+Eight rereads confirm all four edits; five confirm the moved Ref and unchanged
+paused root/value/suppression states, with 68 Forms and the expected Ref owners,
+counts and `0x2B49B` offset. Removal invalidation, both-version changed-image
+rejection and the prior atomic paused-root rejection still pass. No application
+page errors or requests outside the static-GET-only boundary occurred.
+
+Use the same opt-in command above. Private source, modules, editor/session JSON
+and downloaded firmware stay local; checker intermediates are removed on exit.
+Only checker code and technical records change. This closes the exact new-edit
+Redo-discard gate, not every history, asynchronous race, source, engine rerun or
+hardware/recovery gate. Synthetic and React/jsdom checks remain separate.
+Production behavior, timeouts, coverage, ownership, allocation, codec, checksum
+and independent reread guards are unchanged. Root-only fit, unsupported formats,
+growth/capsules, missing qualifying uncompressed AMI/mixed sources, new BIOS and
+P53 dynamic roots retain their existing boundaries.
