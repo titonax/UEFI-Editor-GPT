@@ -202,3 +202,59 @@ Other report sources/families, zero-change output, combined v1 and session races
 remain separate. Root-only allocation failure, unsupported formats/growth/capsules,
 missing uncompressed AMI/mixed-source gates, new BIOS and P53 dynamic roots retain
 their existing limits.
+
+## Clear/Undo/Redo recovery without cached output
+
+Reproduced on 2026-10-19 (Europe/Madrid) against deployed main
+`a23321499592d5e8c5d2ec6fdb5720120f31ee5f` after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39231271707)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39231271633)
+success. The public index returned HTTP 200. Firefox 153.0 / Playwright 1.62.1
+build 1538, headless Linux, 1600 × 1000 loaded `index-DvYis56o.js`,
+`index-D4JOsfQ5.css` and the three WASM readers listed above. The exact authorized
+4 MiB source was recovered by size/hash, without adding a BIOS or repeating
+the semantic corpus inventory. Container/certificate settings remain explicit;
+the configured network proxy was needed for this environment.
+
+After direct, v2 and v1 reconstruction, the checker clears the verified
+four-operation queue. Apply, Check, download and details are disabled. One Undo
+restores four selected operations and enables Apply, but not Check/output/details.
+The exported metadata-only v2 session must deeply equal the original session:
+same ordered selectors, enabled flags and image/context identities. One Redo
+returns to the empty disabled state; another Undo restores the same exact v2
+intent, again without applied or checked output. Fresh Apply/Check/download is
+required, and its actual full SPI must equal the baseline byte for byte.
+
+All four downloads (direct, v2, v1 and post-history) passed the known
+`014af11ec7d614471d873974b83b90c1ae5583adb51beeeda68d3c6940bd64e6`
+hash and 4,194,304-byte size. Independent scans and displayed reports agree on
+850,394 changed bytes, 3,343,910 unchanged bytes, 3,369 ranges, every one of the
+64 displayed boundaries/lengths and bounded 16-byte samples. Packed capacity,
+rebuilt size and remaining bytes remain 1,494,108 / 1,493,440 / 668. Every change
+stays inside outer FFS `[1704008, 3198149)` and BIOS; all 1,572,864 non-BIOS bytes
+remain identical. Removal still invalidates output/details.
+
+Four separate page reloads independently analyse the actual downloaded SPIs,
+confirming 68 Forms, both Ref counts and moved Ref at `0x2B49B`, empty suppression
+body at `0x2B14F`, System Language `00` and eight visible roots. Both original
+session versions reject on the final changed image with empty queue and no
+download. There were no application page errors.
+
+The checker now installs a fail-closed browser network boundary before supplying
+private input. It resolves the public index's exact JS/CSS URLs first, permits
+only bodyless GETs to that index and its public static assets/readers, and blocks
+other methods/URLs and WebSockets; service workers are disabled. The completed
+run requested only those static resources. Firmware/editor/session/output bytes
+stay local. No editor, queue, codec, writer or download is mocked or timing-gated.
+Partial/interrupted runs and an earlier public-index DNS failure are not counted
+as acceptance. The completed protected run exited successfully.
+
+Use the opt-in command above. `FIRMWARE_BROWSER_PROXY_SERVER` optionally supplies
+an already configured network proxy; never put private firmware in a request.
+Public CI still receives no source. No production code, 15-minute build limit,
+coverage threshold, ownership, allocation, codec, checksum or independent reread
+guard changed. This closes the exact combined Clear/Undo/Redo recovery gate, not
+paused/reordered variants, new-edit Redo discard, asynchronous races, other
+sources, standalone engine reruns or hardware/recovery. Root-only allocation
+failure, unaccepted formats/growth/capsules, missing AMI uncompressed/mixed sources,
+new BIOS and P53 dynamic roots retain their existing boundaries.
