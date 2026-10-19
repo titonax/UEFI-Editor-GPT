@@ -241,6 +241,69 @@ async function openSource(page, source) {
     console.log("FRESH_CHECK_OUTPUT_IDENTICAL_AND_VERIFIED");
 
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    async function saveSession(name) {
+      const downloaded = page.waitForEvent("download");
+      await queue
+        .getByRole("button", { name: "Save queue session", exact: true })
+        .click();
+      const file = path.join(work, name);
+      await (await downloaded).saveAs(file);
+      return JSON.parse(fs.readFileSync(file, "utf8"));
+    }
+    const fullSession = await saveSession("history-limit-before.json");
+    assert.equal(fullSession.version, 2);
+    assert.equal(fullSession.kind, "hii-menu-actions");
+    assert.equal(fullSession.source.sha256, sha256(sourceBytes));
+    assert.equal(fullSession.operations.length, 4);
+    assert.deepEqual(
+      fullSession.operations.map((operation) => operation.enabled),
+      [true, true, true, true],
+    );
+    async function assertSelection(rootEnabled) {
+      assert.deepEqual(
+        await queue
+          .getByRole("checkbox")
+          .evaluateAll((boxes) => boxes.map((box) => box.checked)),
+        [true, true, true, rootEnabled],
+      );
+      assert.equal(await apply.isDisabled(), false);
+      await assertInvalidated();
+    }
+    // Fifty retained transitions must replace all earlier staging/Clear history.
+    for (let index = 0; index < 52; index++) {
+      const rootEnabled = index % 2 === 1;
+      await queue.getByRole("checkbox").last().setChecked(rootEnabled);
+      await assertSelection(rootEnabled);
+      assert.equal(await redo.isDisabled(), true);
+    }
+    for (let step = 1; step <= 50; step++) {
+      assert.equal(await undo.isDisabled(), false);
+      await undo.click();
+      await assertSelection(step % 2 === 0);
+    }
+    assert.equal(await undo.isDisabled(), true);
+    assert.equal(await redo.isDisabled(), false);
+    assert.deepEqual(await saveSession("history-limit-oldest.json"), fullSession);
+    for (let step = 1; step <= 50; step++) {
+      assert.equal(await redo.isDisabled(), false);
+      await redo.click();
+      await assertSelection(step % 2 === 0);
+    }
+    assert.equal(await redo.isDisabled(), true);
+    assert.equal(await undo.isDisabled(), false);
+    assert.deepEqual(await saveSession("history-limit-newest.json"), fullSession);
+    verifyTitles(await queue.innerText());
+    console.log("HISTORY_LIMIT_52_MUTATIONS_EXACT_50_UNDO_50_REDO_NO_OUTPUT");
+    await apply.click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    assert(
+      (
+        await downloadVerifiedOutput(page, path.join(work, "output-history-limit.bin"))
+      ).equals(fs.readFileSync(path.join(work, "output-before.bin"))),
+    );
+    console.log("HISTORY_LIMIT_FRESH_COMPLETE_SPI_IDENTICAL_AND_VERIFIED");
+
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
     await assertInvalidated();
     await undo.click();
@@ -275,32 +338,34 @@ async function openSource(page, source) {
     await assertInvalidated();
     console.log("PAGE_RELOAD_SAME_SOURCE_EMPTY_HISTORY");
 
-    await page.reload();
-    await openSource(page, path.join(work, "output-after.bin"));
-    const readDownload = page.waitForEvent("download");
-    await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
-    await (await readDownload).saveAs(path.join(work, "reopened.json"));
-    const reopened = JSON.parse(
-      fs.readFileSync(path.join(work, "reopened.json"), "utf8"),
-    );
-    assert.equal(reopened.forms.length, 70);
-    assert.equal(reopened.forms[0].children[1].accessLevel, "00");
-    assert.equal(reopened.rootVisibility.entries[4].value, 0);
-    const flatten = (items) =>
-      items.flatMap((item) => [item, ...flatten(item.children || [])]);
-    const moved = (index) =>
-      flatten(reopened.forms[index].children).filter(
-        (item) => item.type === "Ref" && item.name === "DRAM Timing Control",
+    for (const variant of ["before", "after", "history-limit"]) {
+      await page.reload();
+      await openSource(page, path.join(work, `output-${variant}.bin`));
+      const readDownload = page.waitForEvent("download");
+      await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
+      await (await readDownload).saveAs(path.join(work, "reopened.json"));
+      const reopened = JSON.parse(
+        fs.readFileSync(path.join(work, "reopened.json"), "utf8"),
       );
-    assert.equal(moved(3).length, 0);
-    assert.equal(moved(5).length, 1);
-    const suppression = reopened.suppressions.find(
-      (item) => item.offset.toLowerCase() === "0x8b359",
-    );
-    assert(suppression);
-    assert.equal(suppression.start, suppression.end);
-    assert.equal(await output.isDisabled(), true);
-    console.log("OUTPUT_REOPENED_ALL_FOUR_EDITS");
+      assert.equal(reopened.forms.length, 70);
+      assert.equal(reopened.forms[0].children[1].accessLevel, "00");
+      assert.equal(reopened.rootVisibility.entries[4].value, 0);
+      const flatten = (items) =>
+        items.flatMap((item) => [item, ...flatten(item.children || [])]);
+      const moved = (index) =>
+        flatten(reopened.forms[index].children).filter(
+          (item) => item.type === "Ref" && item.name === "DRAM Timing Control",
+        );
+      assert.equal(moved(3).length, 0);
+      assert.equal(moved(5).length, 1);
+      const suppression = reopened.suppressions.find(
+        (item) => item.offset.toLowerCase() === "0x8b359",
+      );
+      assert(suppression);
+      assert.equal(suppression.start, suppression.end);
+      assert.equal(await output.isDisabled(), true);
+      console.log("OUTPUT_REOPENED_ALL_FOUR_EDITS", variant);
+    }
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
     console.log("ASSETS", [...assets]);
   } finally {
