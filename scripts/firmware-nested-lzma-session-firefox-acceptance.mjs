@@ -821,6 +821,73 @@ async function verifyByteComparisonReport(page, output, expected) {
     );
     console.log("PAUSED_V2_V1_MOVE_ONLY_AND_FULL_RESELECTION_VERIFIED");
 
+    // Loading a different selection is one undoable replacement, not four
+    // checkbox mutations. Neither direction may restore Apply or checked bytes.
+    for (const [version, file] of [
+      [2, pausedV2],
+      [1, pausedV1],
+    ]) {
+      await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+      const assertRestoredIntent = async (expected, flags, label) => {
+        await assertSelection(flags);
+        await assertOutputDisabled();
+        assert.equal(
+          await queue
+            .getByRole("button", {
+              name: "Apply selected",
+              exact: true,
+            })
+            .isDisabled(),
+          false,
+        );
+        await saveExactSession(
+          expected,
+          flags,
+          `load-history-v${version}-${label}.json`,
+        );
+      };
+      await queue.getByLabel("Load queue session file").setInputFiles(file);
+      await page.waitForFunction(() => {
+        const input = document.querySelector(
+          'input[aria-label="Load queue session file"]',
+        );
+        return input && input.files.length === 0;
+      });
+      await assertRestoredIntent(expectedPaused, pausedFlags, "loaded");
+      await queue
+        .getByRole("button", { name: "Undo queue change", exact: true })
+        .click();
+      await assertRestoredIntent(session, [true, true, true, true], "undo");
+      await queue
+        .getByRole("button", { name: "Redo queue change", exact: true })
+        .click();
+      await assertRestoredIntent(expectedPaused, pausedFlags, "redo");
+      await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      const subset = await downloadVerifiedOutput(
+        page,
+        path.join(work, `move-only-load-history-v${version}.bin`),
+        moveOnlyOutput,
+      );
+      assert(
+        subset.equals(moveOnlyResults[0]),
+        "Post-Redo SPI must equal the accepted subset",
+      );
+      await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+      await queue
+        .getByRole("button", { name: "Undo queue change", exact: true })
+        .click();
+      await assertRestoredIntent(session, [true, true, true, true], "ready-undo");
+      await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      const full = await downloadVerifiedOutput(
+        page,
+        path.join(work, `full-load-history-v${version}.bin`),
+      );
+      assert(full.equals(baseline), "Post-Undo SPI must equal the combined baseline");
+      console.log("SESSION_LOAD_SINGLE_UNDO_REDO_READY_UNDO_FRESH_OUTPUTS", version);
+    }
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -845,6 +912,10 @@ async function verifyByteComparisonReport(page, output, expected) {
       "move-only-retained.bin",
       "move-only-v1.bin",
       "reselected.bin",
+      "move-only-load-history-v2.bin",
+      "full-load-history-v2.bin",
+      "move-only-load-history-v1.bin",
+      "full-load-history-v1.bin",
     ]) {
       await page.reload();
       await page

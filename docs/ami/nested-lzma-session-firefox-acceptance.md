@@ -323,3 +323,56 @@ standalone engine rerun, other subsets/orders/session histories or races, broad
 compatibility or hardware/recovery validation. Root-only allocation failure,
 unsupported formats/growth/capsules, missing uncompressed AMI/mixed sources,
 new BIOS and P53 dynamic roots retain their existing limits.
+
+## Session load as one undoable replacement
+
+Reproduced on 2026-10-19 against deployed main
+`2d6d93b1a7af0503c30fef3f665fc20576e203a1`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39310961287)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39310960764)
+success and HTTP 200. This run uses Firefox 157.0 / Playwright 1.64.1 build 1555,
+headless Linux, 1600 × 1000, the documented explicit container/certificate/proxy
+settings, `index-DvYis56o.js`, `index-D4JOsfQ5.css` and all three WASM readers.
+The exact size/hash-bound 4 MiB source was freshly recovered only from the
+authorized ChatGPT archive. No new BIOS or semantic corpus inventory was added.
+
+After the existing direct/session/history/paused regressions, the combined queue
+has ready verified output. Loading the move-only paused session replaces its
+four entries as one undoable mutation. For v2 and strict v1 independently:
+
+1. Load restores flags `[false, true, false, false]`, with Apply available but
+   Check/download/details disabled. A v2 re-export deeply equals the saved
+   paused session, including every selector and both source identities.
+2. One Undo restores all four selected actions and the exact original full v2
+   export, still unapplied with no verified output. One Redo restores the exact
+   paused export, again without Apply state or cached output.
+3. Fresh Apply/Check/download produces the known move-only SPI after Redo.
+   One Undo from that ready state restores the exact full intent, invalidates
+   output again and requires fresh Apply/Check/download of the combined SPI.
+
+Both versions pass through real controls, normal session replay and the unchanged
+writer/codecs. The checker now verifies twelve actual downloads: seven combined
+and five move-only (eleven fresh builds and one retained cached download from
+the existing atomic-rejection regression). Each retains its previously accepted
+hash, size, allocation and byte-report totals listed above: 3,369 combined or
+585 move-only ranges, all 64 displayed physical boundaries/lengths and bounded
+16-byte samples agree with an independent scan. Every output is a complete
+4,194,304-byte SPI with zero changes outside the outer FFS/BIOS and all 1,572,864
+non-BIOS bytes identical.
+
+Twelve separate reloads freshly analyse the actual downloaded files: seven
+confirm all four requested edits and five confirm only the moved Ref, preserving
+the paused root/value/suppression states. Each retains 68 Forms, expected Ref
+owners/counts and moved offset `0x2B49B`. Removal invalidation and both-version
+changed-image/context rejection also pass. No application page errors or requests
+outside the static-GET-only boundary occurred; the complete checker exited zero.
+No source, decoded modules, editor/session JSON or output firmware is uploaded
+or committed. Private checker intermediates are removed on exit.
+
+Use the same opt-in command above. This closes this exact v2/v1 session-load
+Undo/Redo gate only. Synthetic/React-jsdom checks remain separate; no standalone
+engine rerun, asynchronous race, other history/order/source, desktop file-picker
+or hardware/recovery acceptance is claimed. No production code, timeout,
+coverage, allocation, ownership, codec, checksum or independent reread guard
+changed. Root-only fit, unsupported formats/growth/capsules, missing qualifying
+uncompressed AMI/mixed sources, new BIOS and P53 dynamic roots retain their limits.
