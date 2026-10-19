@@ -495,7 +495,9 @@ verifies the four-operation move, SetupData, root and source-bound suppression
 queue, exact accepted output and independent reread. Its separate
 [combined v2 session record](ami/nested-lzma-session-firefox-acceptance.md)
 now passes metadata-only export/import and fresh output with identity rejection.
-Hardware, combined v1 and broader source compatibility remain unestablished.
+The deployed-main `4651eb8` extension separately validates combined v1 migration
+to identical metadata-only v2, fresh identical SPI output and independent reread.
+Hardware and broader source compatibility remain unestablished.
 
 The Pages build also checks [nested browser codec integration](ami/mixed-browser-codec-integration.md)
 with actual WASI assets for LZMA/EFI and LZMA/Tiano in both nesting directions.
@@ -844,7 +846,10 @@ list the blocker for every unsupported case.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed
-  image/context rejection. Combined v1 and hardware remain unclaimed.
+  image/context rejection. A deployed-main `4651eb8` extension also passes combined
+  v1 migration to deeply identical v2 metadata, unapplied restore, fresh exact SPI,
+  all byte-report samples, three independent four-edit rereads and rejection of
+  both session versions on changed bytes. Hardware remains unclaimed.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2 suppression export/import, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This
