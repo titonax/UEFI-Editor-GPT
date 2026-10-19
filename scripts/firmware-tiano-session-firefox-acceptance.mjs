@@ -1,4 +1,4 @@
-// Opt-in deployed Firefox acceptance for the exact Tiano combined queue session.
+// Opt-in deployed Firefox acceptance for exact Tiano combined v2/v1 sessions.
 // Firmware and session JSON remain local; public CI never supplies private input.
 import { createRequire } from "node:module";
 
@@ -150,6 +150,13 @@ function verifyOutput(destination) {
   assert.equal(changed, 140913);
   assert.equal(outsideOwners, 0);
   assert.equal(outsideBios, 0);
+  console.log("COMPLETE_SPI_VERIFIED", {
+    size: output.length,
+    sha256: sha256(output),
+    changed,
+    outsideOwners,
+    outsideBios,
+  });
   return output;
 }
 
@@ -272,46 +279,116 @@ async function openSource(page, source) {
     assertMetadataOnly(v2);
     console.log("V2_EXPORTED_METADATA_ONLY", JSON.stringify(v2.operations));
 
-    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
-    assert.match(await queue.innerText(), /The queue is empty/);
-    const sessionInput = queue.getByLabel("Load queue session file");
-    await sessionInput.setInputFiles(path.join(work, "session-v2.json"));
-    await waitForDisabled(
-      queue.getByRole("button", { name: "Apply selected", exact: true }),
-      false,
+    // Legacy menu-actions v1 retains explicit selectors, not the Ref-only kind.
+    fs.writeFileSync(
+      path.join(work, "session-v1.json"),
+      JSON.stringify({ ...v2, version: 1 }),
     );
-    assert.match(await queue.innerText(), /MOVE[\s\S]*DRAM Timing Control/);
-    assert.match(await queue.innerText(), /Show 1 suppressed item/);
-    assert.match(await queue.innerText(), /Boot/);
-    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
-    await queue.getByRole("button", { name: "Close", exact: true }).click();
-    await downloadVerifiedOutput(page, path.join(work, "output-v2.bin"));
-    console.log("V2_RESTORED_OUTPUT_VERIFIED");
+    let baseline;
+    for (const version of [2, 1]) {
+      await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+      assert.match(await queue.innerText(), /The queue is empty/);
+      const sessionInput = queue.getByLabel("Load queue session file");
+      await sessionInput.setInputFiles(path.join(work, `session-v${version}.json`));
+      await waitForDisabled(
+        queue.getByRole("button", { name: "Apply selected", exact: true }),
+        false,
+      );
+      assert.match(await queue.innerText(), /MOVE[\s\S]*DRAM Timing Control/);
+      assert.match(await queue.innerText(), /Show 1 suppressed item/);
+      assert.match(await queue.innerText(), /Boot/);
+      assert.match(await queue.innerText(), /4 SELECTED/);
+      for (const name of [
+        "Check firmware output",
+        "Modified firmware image",
+        "Output details",
+      ])
+        assert.equal(
+          await page.getByRole("button", { name, exact: true }).isDisabled(),
+          true,
+        );
+      const migratedDownload = page.waitForEvent("download");
+      await queue
+        .getByRole("button", { name: "Save queue session", exact: true })
+        .click();
+      const migratedPath = path.join(work, `migrated-v${version}.json`);
+      await (await migratedDownload).saveAs(migratedPath);
+      const migrated = JSON.parse(fs.readFileSync(migratedPath, "utf8"));
+      assertMetadataOnly(migrated);
+      assert.deepEqual(
+        migrated,
+        v2,
+        "Every ordered selector and identity must survive restore/migration",
+      );
+      console.log("RESTORED_IDENTICAL_METADATA_ONLY_V2_UNAPPLIED", version);
+      await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      const output = await downloadVerifiedOutput(
+        page,
+        path.join(work, `output-v${version}.bin`),
+      );
+      if (baseline)
+        assert(
+          output.equals(baseline),
+          "v1 and v2 must rebuild byte-identical complete SPIs",
+        );
+      else baseline = output;
+      console.log("RESTORED_OUTPUT_VERIFIED", version);
+      await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    }
 
-    await page.reload();
-    await openSource(page, path.join(work, "output-v2.bin"));
-    await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
-    const reopenedQueue = page.getByRole("dialog", {
-      name: "Change queue",
-      exact: true,
-    });
-    await reopenedQueue
-      .getByLabel("Load queue session file")
-      .setInputFiles(path.join(work, "session-v2.json"));
-    const rejection = reopenedQueue.getByRole("alert");
-    await rejection.waitFor();
-    assert.match(
-      await rejection.innerText(),
-      /different firmware image or opened HII context/,
-    );
-    assert.match(await reopenedQueue.innerText(), /The queue is empty/);
-    assert.equal(
-      await page
-        .getByRole("button", { name: "Modified firmware image", exact: true })
-        .isDisabled(),
-      true,
-    );
-    console.log("REOPENED_OUTPUT_REJECTED_ORIGINAL_SESSION_EMPTY_QUEUE");
+    for (const version of [2, 1]) {
+      await page.reload();
+      await openSource(page, path.join(work, `output-v${version}.bin`));
+      const readDownload = page.waitForEvent("download");
+      await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
+      const reopenedPath = path.join(work, `reopened-v${version}.json`);
+      await (await readDownload).saveAs(reopenedPath);
+      const reopened = JSON.parse(fs.readFileSync(reopenedPath, "utf8"));
+      assert.equal(reopened.forms.length, 70);
+      assert.equal(reopened.forms[0].children[1].accessLevel, "00");
+      assert.deepEqual(
+        reopened.rootVisibility.entries.map((entry) => entry.value),
+        [1, 1, 1, 1, 0, 1, 1],
+      );
+      const flatten = (items) =>
+        items.flatMap((item) => [item, ...flatten(item.children || [])]);
+      const moved = (index) =>
+        flatten(reopened.forms[index].children).filter(
+          (item) => item.type === "Ref" && item.name === "DRAM Timing Control",
+        );
+      assert.equal(moved(3).length, 0);
+      assert.equal(moved(5).length, 1);
+      const suppression = reopened.suppressions.find(
+        (item) => item.offset.toLowerCase() === "0x8b359",
+      );
+      assert(suppression);
+      assert.equal(suppression.start, suppression.end);
+      assert.equal(suppression.expression, condition.expression);
+      console.log("INDEPENDENT_FOUR_EDIT_REREAD", version);
+      await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+      const reopenedQueue = page.getByRole("dialog", {
+        name: "Change queue",
+        exact: true,
+      });
+      await reopenedQueue
+        .getByLabel("Load queue session file")
+        .setInputFiles(path.join(work, `session-v${version}.json`));
+      const rejection = reopenedQueue.getByRole("alert");
+      await rejection.waitFor();
+      assert.match(
+        await rejection.innerText(),
+        /different firmware image or opened HII context/,
+      );
+      assert.match(await reopenedQueue.innerText(), /The queue is empty/);
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Modified firmware image", exact: true })
+          .isDisabled(),
+        true,
+      );
+      console.log("REOPENED_OUTPUT_REJECTED_ORIGINAL_SESSION_EMPTY_QUEUE");
+    }
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
     console.log("ASSETS", [...assets]);
   } finally {
