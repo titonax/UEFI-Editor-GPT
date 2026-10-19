@@ -95,7 +95,7 @@ removed on success or failure. Public CI never supplies the firmware.
 
 This establishes the exact-source combined v2 session in Firefox. Synthetic and
 React/jsdom coverage remain separate; this is not hardware or recovery acceptance.
-Combined v1 replay, AMITSE retargeting, other sources/codecs and human desktop
+At that revision, combined v1 replay, AMITSE retargeting, other sources/codecs and human desktop
 file-picker behavior are not established. Root-only output still exceeds the
 existing compressed allocation and remains blocked. Growth, capsules, unsupported
 compression, P53 dynamic roots and new BIOS cases retain their prior boundaries.
@@ -158,6 +158,46 @@ guards are unchanged. No production code changed. Private source, editor/session
 JSON and downloaded firmware remain local; checker intermediates are removed on
 exit and CI has no private input. This is exact-source Firefox report acceptance,
 not a standalone engine rerun, new synthetic acceptance or hardware validation.
+
+## Combined v1 migration and fresh output
+
+Reproduced on 2026-10-19 (Europe/Madrid) against deployed main
+`4651eb8e2b5ed00fda8d7551658527a91d9dd4f2` after successful exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39172224331)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39172224358).
+Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux, 1600 × 1000,
+used the documented container/certificate settings and loaded `index-DvYis56o.js`,
+`index-D4JOsfQ5.css` and all three WASM readers above. The existing authorized
+archive supplied the exact size/hash-bound source. No browser API, queue,
+editor, codec, writer or download was mocked, timing-gated or fault-injected.
+
+After the ordinary direct-queue and v2 round trips, the checker constructs the
+legacy `hii-menu-actions` v1 representation by changing only the version of the
+metadata-only exported session. This is not the older Ref-only kind. Clear
+empties the queue; loading v1 restores four selected operations without Apply
+or verified output. Re-export must be v2 and deeply identical to the original
+session, including every ordered selector and both source identities. Fresh
+Apply/Check/download then rebuilds through the unchanged production pipeline.
+
+All three actual complete SPIs are byte-identical and retain the known
+`014af11ec7d614471d873974b83b90c1ae5583adb51beeeda68d3c6940bd64e6`
+hash. Each independent scan verifies 850,394 changed bytes, 3,343,910 unchanged
+bytes, 3,369 ranges, all 64 displayed boundaries/lengths and bounded 16-byte
+samples, the same allocation fields and zero changes outside owner/BIOS.
+All 1,572,864 non-BIOS bytes remain identical. Removing an operation invalidates
+output/details. Three fresh reloads independently reread all four edits and 68
+Forms. Both original v2 and v1 sessions reject on the changed image, leaving an
+empty queue and disabled download. No application page errors occurred; the
+extended checker passed its first complete run.
+
+`npm ci` and `npm run check` passed: formatting, lint, case/release validation,
+680 tests in 85 files, enforced coverage and production typecheck/build. The
+release inventory still reports its existing missing-source/hardware blockers.
+No production code, timeout, coverage, codec, checksum, allocation, ownership or
+independent reread guard changed. Firmware, editor/session JSON and outputs stay
+private and local; checker intermediates are removed on exit. This closes only
+this exact combined-v1 Firefox gate, not other sources, permutations, desktop
+file-picker behavior, standalone engine reruns or physical flash/recovery.
 Other report sources/families, zero-change output, combined v1 and session races
 remain separate. Root-only allocation failure, unsupported formats/growth/capsules,
 missing uncompressed AMI/mixed-source gates, new BIOS and P53 dynamic roots retain

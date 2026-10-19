@@ -1,4 +1,4 @@
-// Opt-in deployed Firefox acceptance for the exact nested-LZMA combined v2 queue session.
+// Opt-in deployed Firefox acceptance for exact nested-LZMA combined v2/v1 sessions.
 // Firmware, sessions and exported editor JSON remain local; CI never supplies private input.
 import { createRequire } from "node:module";
 
@@ -453,6 +453,59 @@ async function verifyByteComparisonReport(page, output) {
       "Session replay must reproduce the baseline full SPI.",
     );
 
+    // Legacy menu-actions v1 uses the same explicit selectors, not imported patches.
+    const legacyFile = path.join(work, "session-v1.json");
+    fs.writeFileSync(legacyFile, JSON.stringify({ ...session, version: 1 }));
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    await queue.getByLabel("Load queue session file").setInputFiles(legacyFile);
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).waitFor();
+    const legacyStarted = Date.now();
+    while (
+      await queue
+        .getByRole("button", { name: "Apply selected", exact: true })
+        .isDisabled()
+    ) {
+      if (Date.now() - legacyStarted > 60000)
+        throw Error("Legacy session restore did not finish within one minute");
+      await page.waitForTimeout(100);
+    }
+    assert.match(await queue.innerText(), /4 SELECTED/);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        true,
+      );
+    const migratedDownload = page.waitForEvent("download");
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    const migratedFile = path.join(work, "migrated-v2.json");
+    await (await migratedDownload).saveAs(migratedFile);
+    const migrated = JSON.parse(fs.readFileSync(migratedFile, "utf8"));
+    assertMetadataOnly(migrated);
+    assert.deepEqual(
+      migrated,
+      session,
+      "Migration must preserve every ordered selector and identity",
+    );
+    console.log("V1_MIGRATED_TO_IDENTICAL_METADATA_ONLY_V2_UNAPPLIED");
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const legacyOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "legacy.bin"),
+    );
+    assert(
+      legacyOutput.equals(baseline),
+      "Legacy replay must reproduce the baseline full SPI",
+    );
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -468,7 +521,7 @@ async function verifyByteComparisonReport(page, output) {
     );
     console.log("REMOVAL_INVALIDATED");
 
-    for (const file of ["baseline.bin", "output.bin"]) {
+    for (const file of ["baseline.bin", "output.bin", "legacy.bin"]) {
       await page.reload();
       await page
         .locator("input[type=file]")
@@ -509,18 +562,26 @@ async function verifyByteComparisonReport(page, output) {
       name: "Change queue",
       exact: true,
     });
-    await reopenedQueue
-      .getByLabel("Load queue session file")
-      .setInputFiles(sessionFile);
-    const rejection = reopenedQueue.getByRole("alert");
-    await rejection.waitFor();
-    assert.match(
-      await rejection.innerText(),
-      /different firmware image or opened HII context/,
-    );
-    assert.match(await reopenedQueue.innerText(), /The queue is empty/);
-    assert.equal(await outputButton.isDisabled(), true);
-    console.log("CHANGED_SOURCE_REJECTED_SESSION_EMPTY_QUEUE");
+    for (const rejectedFile of [sessionFile, legacyFile]) {
+      await reopenedQueue
+        .getByLabel("Load queue session file")
+        .setInputFiles(rejectedFile);
+      await page.waitForFunction(() => {
+        const input = document.querySelector(
+          'input[aria-label="Load queue session file"]',
+        );
+        return input && input.files.length === 0;
+      });
+      const rejection = reopenedQueue.getByRole("alert");
+      await rejection.waitFor();
+      assert.match(
+        await rejection.innerText(),
+        /different firmware image or opened HII context/,
+      );
+      assert.match(await reopenedQueue.innerText(), /The queue is empty/);
+      assert.equal(await outputButton.isDisabled(), true);
+      console.log("CHANGED_SOURCE_REJECTED_SESSION_EMPTY_QUEUE");
+    }
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
     console.log("ASSETS", [...assets]);
   } finally {
