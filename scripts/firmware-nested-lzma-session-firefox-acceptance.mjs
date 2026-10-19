@@ -953,6 +953,155 @@ async function verifyByteComparisonReport(page, output, expected) {
     );
     console.log("SAVE_RETAINS_REDO_NEW_SELECTION_DISCARDS_OLD_BRANCH_FRESH_FULL_SPI");
 
+    // Isolate queue-revision cancellation: keep this source and dialog open
+    // across Clear/Undo and delivery of the original native File.text result.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    const heldFile = path.join(work, "held-nested-session.json");
+    fs.copyFileSync(pausedV2, heldFile);
+    const documentOrigin = await page.evaluate(() => performance.timeOrigin);
+    await page.evaluate(() => {
+      const textDescriptor = Object.getOwnPropertyDescriptor(File.prototype, "text");
+      const digestDescriptor = Object.getOwnPropertyDescriptor(crypto.subtle, "digest");
+      const nativeText = File.prototype.text;
+      const nativeDigest = crypto.subtle.digest;
+      const state = {
+        calls: 0,
+        nativeCompleted: 0,
+        delivered: 0,
+        hashes: 0,
+        held: false,
+      };
+      let armed = true;
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      File.prototype.text = async function (...args) {
+        const hold = armed && this.name === "held-nested-session.json";
+        if (hold) {
+          armed = false;
+          state.calls++;
+        }
+        const text = await nativeText.apply(this, args);
+        if (hold) {
+          state.nativeCompleted++;
+          state.held = true;
+          await gate;
+          state.held = false;
+          state.delivered++;
+        }
+        return text;
+      };
+      crypto.subtle.digest = function (...args) {
+        state.hashes++;
+        return nativeDigest.apply(this, args);
+      };
+      window.__nestedReadProbe = {
+        state,
+        release,
+        restore: () => {
+          if (textDescriptor)
+            Object.defineProperty(File.prototype, "text", textDescriptor);
+          else delete File.prototype.text;
+          if (digestDescriptor)
+            Object.defineProperty(crypto.subtle, "digest", digestDescriptor);
+          else delete crypto.subtle.digest;
+        },
+      };
+    });
+    await queue.getByLabel("Load queue session file").setInputFiles(heldFile);
+    await page.waitForFunction(() => window.__nestedReadProbe.state.held);
+    assert.deepEqual(await page.evaluate(() => window.__nestedReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 0,
+      hashes: 0,
+      held: true,
+    });
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    await assertInvalidated(true);
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    await page.evaluate(() => window.__nestedReadProbe.release());
+    await page.waitForFunction(() => window.__nestedReadProbe.state.delivered === 1);
+    // Observe in another browser task after the text promise/microtasks. AMI
+    // identity starts native digests before its first await; zero new calls
+    // proves the cancelled text did not enter that validation path. This is
+    // not instrumentation of the old React handler's complete return.
+    assert.deepEqual(await page.evaluate(() => window.__nestedReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 1,
+      hashes: 0,
+      held: false,
+    });
+    assert.equal(await queue.isVisible(), true);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.equal(await redoButton.isDisabled(), false);
+    console.log("OPEN_DIALOG_CLEAR_UNDO_OLD_NATIVE_TEXT_ZERO_VALIDATION_HASHES");
+
+    // Positive control: the same current paused metadata must still hash and
+    // replay normally after cancellation, then full loading permits fresh output.
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedV2);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    await assertSelection(pausedFlags);
+    await assertOutputDisabled();
+    const currentLoadHashes = await page.evaluate(
+      () => window.__nestedReadProbe.state.hashes,
+    );
+    assert(
+      currentLoadHashes >= 3,
+      "Current AMI load must execute its native identity hashes",
+    );
+    assert.equal(await redoButton.isDisabled(), true);
+    await saveExactSession(
+      expectedPaused,
+      pausedFlags,
+      "after-cancel-current-paused.json",
+    );
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionFile);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    await saveExactSession(
+      session,
+      [true, true, true, true],
+      "after-cancel-current-full.json",
+    );
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await page.evaluate(() => window.__nestedReadProbe.restore());
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const recoveredReadOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "cancelled-read-recovery.bin"),
+    );
+    assert(
+      recoveredReadOutput.equals(baseline),
+      "Cancelled text must not prevent fresh current full-SPI recovery",
+    );
+    console.log(
+      "CURRENT_LOAD_AFTER_CANCEL_HASHES_EXACT_EXPORTS_FRESH_FULL_SPI",
+      currentLoadHashes,
+    );
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -982,6 +1131,7 @@ async function verifyByteComparisonReport(page, output, expected) {
       "move-only-load-history-v1.bin",
       "full-load-history-v1.bin",
       "new-edit-history.bin",
+      "cancelled-read-recovery.bin",
     ]) {
       await page.reload();
       await page
