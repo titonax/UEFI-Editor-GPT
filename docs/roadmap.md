@@ -911,6 +911,14 @@ list the blocker for every unsupported case.
   known full SPI. Fourteen downloads/reanalyses pass. Native delivery is
   controlled; ordinary timing, old-handler full return, source/close boundaries
   and failures remain separate gates.
+  Deployed main `a4bf3d8` additionally passes held native text across dialog
+  close without queue/source mutation or a newer request: zero old-delivery
+  hashes, exact full queue/export and cached SPI retained without another Check.
+  Reopened current load executes five hashes, restores exact paused/full exports
+  and requires fresh known full output. Sixteen downloads/reanalyses pass with
+  non-BIOS/outside-owner bytes intact. Dialog/component lifetimes are combined;
+  source replacement, ordinary timing, failures and old-handler full return
+  remain separate gates.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This

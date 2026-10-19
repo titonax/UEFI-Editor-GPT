@@ -959,7 +959,7 @@ async function verifyByteComparisonReport(page, output, expected) {
     const heldFile = path.join(work, "held-nested-session.json");
     fs.copyFileSync(pausedV2, heldFile);
     const documentOrigin = await page.evaluate(() => performance.timeOrigin);
-    await page.evaluate(() => {
+    const installReadProbe = () => {
       const textDescriptor = Object.getOwnPropertyDescriptor(File.prototype, "text");
       const digestDescriptor = Object.getOwnPropertyDescriptor(crypto.subtle, "digest");
       const nativeText = File.prototype.text;
@@ -1008,7 +1008,8 @@ async function verifyByteComparisonReport(page, output, expected) {
           else delete crypto.subtle.digest;
         },
       };
-    });
+    };
+    await page.evaluate(installReadProbe);
     await queue.getByLabel("Load queue session file").setInputFiles(heldFile);
     await page.waitForFunction(() => window.__nestedReadProbe.state.held);
     assert.deepEqual(await page.evaluate(() => window.__nestedReadProbe.state), {
@@ -1102,6 +1103,103 @@ async function verifyByteComparisonReport(page, output, expected) {
       currentLoadHashes,
     );
 
+    // Isolate dialog lifetime cancellation without Clear/Undo, source changes
+    // or a newer request. Closing must retain the already verified full SPI.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await page.evaluate(installReadProbe);
+    await queue.getByLabel("Load queue session file").setInputFiles(heldFile);
+    await page.waitForFunction(() => window.__nestedReadProbe.state.held);
+    assert.deepEqual(await page.evaluate(() => window.__nestedReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 0,
+      hashes: 0,
+      held: true,
+    });
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await queue.waitFor({ state: "hidden" });
+    await page.evaluate(() => window.__nestedReadProbe.release());
+    await page.waitForFunction(() => window.__nestedReadProbe.state.delivered === 1);
+    // As above, a subsequent task with zero native digest calls proves no
+    // adapter validation entry, not the old React handler's complete return.
+    assert.deepEqual(await page.evaluate(() => window.__nestedReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 1,
+      hashes: 0,
+      held: false,
+    });
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    assert.equal(await outputButton.isDisabled(), false);
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Output details", exact: true })
+        .isDisabled(),
+      false,
+    );
+    const retainedClosedOutput = await downloadReadyOutput(
+      page,
+      path.join(work, "closed-dialog-retained.bin"),
+      combinedOutput,
+    );
+    assert(
+      retainedClosedOutput.equals(recoveredReadOutput),
+      "Closing a pending session read must retain the actual checked full SPI",
+    );
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await assertSelection([true, true, true, true]);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    // A current load after reopening is the positive control for this new
+    // probe instance; export is intentionally after the zero-hash assertion.
+    await saveExactSession(session, [true, true, true, true], "after-close-full.json");
+    const hashesBeforeCurrent = await page.evaluate(
+      () => window.__nestedReadProbe.state.hashes,
+    );
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedV2);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    await assertSelection(pausedFlags);
+    await assertOutputDisabled();
+    const reopenedLoadHashes =
+      (await page.evaluate(() => window.__nestedReadProbe.state.hashes)) -
+      hashesBeforeCurrent;
+    assert(reopenedLoadHashes >= 3, "Reopened current load must hash its identity");
+    await saveExactSession(expectedPaused, pausedFlags, "after-close-paused.json");
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionFile);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    await saveExactSession(
+      session,
+      [true, true, true, true],
+      "after-close-reloaded.json",
+    );
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await page.evaluate(() => window.__nestedReadProbe.restore());
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const reopenedReadOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "closed-dialog-recovery.bin"),
+    );
+    assert(reopenedReadOutput.equals(baseline));
+    console.log(
+      "CLOSE_ONLY_OLD_TEXT_ZERO_HASHES_RETAINED_SPI_CURRENT_LOAD_FRESH_RECOVERY",
+      reopenedLoadHashes,
+    );
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -1132,6 +1230,8 @@ async function verifyByteComparisonReport(page, output, expected) {
       "full-load-history-v1.bin",
       "new-edit-history.bin",
       "cancelled-read-recovery.bin",
+      "closed-dialog-retained.bin",
+      "closed-dialog-recovery.bin",
     ]) {
       await page.reload();
       await page
