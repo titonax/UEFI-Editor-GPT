@@ -1,4 +1,4 @@
-# Exact Tiano combined v2 session in deployed Firefox
+# Exact Tiano combined v2/v1 sessions in deployed Firefox
 
 ## Revision and source
 
@@ -75,7 +75,7 @@ The script supports the same optional browser module/executable/container settin
 as the P53 session checker. It bounds reconstruction to 15 minutes and removes its
 temporary firmware/session/editor files on completion. Public CI has no private input.
 
-This establishes exact-source Firefox v2 combined-session acceptance. It does not
+This original run established exact-source Firefox v2 combined-session acceptance. It did not
 establish combined v1 replay, AMITSE menu reassignment, other sources or codecs,
 human desktop file-picker behavior, hardware flashing or recovery. Ref-only v1
 acceptance remains separately recorded for P53; its old format cannot represent
@@ -942,3 +942,48 @@ new synthetic acceptance or hardware validation. Other dependent selections,
 permutations/histories, session races, distinct-source replacement, combined v1
 and hardware remain separate. Uncompressed AMI/mixed missing-source gates,
 unsupported formats, growth, capsules, new BIOS and P53 dynamic roots are unchanged.
+
+## Combined v1 migration and independent four-edit reread
+
+Reproduced on 2026-10-19 (Europe/Madrid) against deployed main
+`d5ca88e449bc7161a6fa8879fc3af309516b0fdf`, after successful exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39185810408)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39185810407).
+Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux, 1600 × 1000 used
+the documented container/certificate settings, `index-DvYis56o.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+The existing authorized archive supplied the exact source, checked by size and
+SHA-256. No new source or semantic inventory was added. No browser API, editor,
+queue, codec, writer, response or download was mocked, timing-gated or fault-injected.
+
+The base combined-session checker above now separately exercises v2 and legacy
+`hii-menu-actions` v1. The latter changes only the exported version, retaining
+the same four explicit action objects and identities; it is not the Ref-only
+kind. For each version, Clear/load restores four selected operations without
+Apply or cached output. Check/download/details remain disabled. Re-export must
+pass the complete metadata-only schema and equal the original v2 deeply,
+including every ordered selector, enabled flag and both identity hashes.
+Fresh Apply/Check is required before each actual download.
+
+Both complete 8,388,608-byte SPI downloads are byte-identical, SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`.
+Each local full-image scan finds 140,913 changed bytes, all inside the two
+original FFS owners above, with zero outside-owner or outside-BIOS changes.
+All 1,572,864 Descriptor/ME bytes are identical. These are independent byte
+comparisons, not a new byte-report UI acceptance or standalone engine rerun.
+
+Each actual downloaded file is independently analysed after a fresh page reload.
+Both retain 70 Forms, Security flags `00`, root vector `1111011`, no DRAM Timing
+Control Ref in source Form index 3 and exactly one in destination Form index 5,
+and the `0x8B359` suppression's unchanged expression with an empty body. Loading
+the corresponding original v2/v1 session rejects with the changed-image/context
+diagnostic, empty queue and disabled download. No application page errors
+occurred; the extended base checker passed its first complete run.
+
+Use the original base-checker command above. This closes only the exact four-enabled
+combined-v1 gate. Paused/dependent v1 variants, other sequences, asynchronous
+races, other sources, human file pickers and hardware/recovery remain separate.
+All source/ownership, buffer, codec, checksum, allocation, 15-minute build and
+independent reconstruction/reread guards are unchanged; no production code changed.
+Private firmware, decoded/editor/session JSON and downloads remain local;
+checker intermediates are removed on exit and public CI has no private input.

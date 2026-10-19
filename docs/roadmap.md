@@ -845,7 +845,12 @@ list the blocker for every unsupported case.
   invalidates output and freshly reproduces the known restored SPI with independent
   reread. Other permutations remain separate.
   Other selections/dependencies,
-  history sequences, remaining save/load races and combined v1 stay separate.
+  history sequences and remaining save/load races stay separate. A deployed-main
+  `d5ca88e` base-checker extension separately validates the exact four-enabled
+  Tiano combined v1 migration to deeply identical metadata-only v2, unapplied
+  restore, two identical complete SPIs with all non-BIOS bytes intact, two
+  independent four-edit rereads and both-version changed-image/context rejection.
+  Paused/dependent v1 variants and other sequences remain separate gates.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed
