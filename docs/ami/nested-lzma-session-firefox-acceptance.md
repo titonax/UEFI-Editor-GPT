@@ -258,3 +258,68 @@ paused/reordered variants, new-edit Redo discard, asynchronous races, other
 sources, standalone engine reruns or hardware/recovery. Root-only allocation
 failure, unaccepted formats/growth/capsules, missing AMI uncompressed/mixed sources,
 new BIOS and P53 dynamic roots retain their existing boundaries.
+
+## Paused v2/v1 selection, atomic rejection and full reselection
+
+Reproduced on 2026-10-19 (Europe/Madrid) against deployed main
+`3cd792166a9267ce7d656b784f27922a243d6636`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39264801210)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39264801302)
+success. Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux,
+1600 × 1000 used the documented explicit container/certificate/proxy settings,
+`index-DvYis56o.js`, `index-D4JOsfQ5.css` and all three WASM readers. The exact
+size/hash-bound source was recovered only from the authorized ChatGPT archive.
+No new source or semantic corpus inventory was added.
+
+After the existing combined/session/history regressions, the real queue controls
+pause Chipset root, System Language and suppression entries while leaving the
+CPU Configuration Ref move selected. Each selection mutation invalidates Check,
+download and details. Export preserves all four ordered actions with enabled
+flags `[false, true, false, false]`, not a reduced one-operation session.
+Clear/load independently exercises v2 and strict v1 menu-actions sessions; both
+restore the same selection unapplied, with no verified output. Their v2
+re-exports must deeply equal the original paused metadata, including every
+selector and image/context identity. Each requires fresh Apply/Check/download.
+
+While the v2 move-only output is ready, both session versions are separately
+given a missing root index in the paused root action. Each rejects with the
+normal missing/ambiguous-root diagnostic, retaining all four entries, exact
+paused metadata and ready controls. A subsequent actual cached download still
+equals the verified move-only SPI. Paused entries are therefore not trusted or
+silently omitted. Successful v1 load then proves recovery from these failures.
+
+Finally, reselecting the three paused actions invalidates output again. The full
+v2 metadata must equal the original combined session, and fresh reconstruction
+must equal the original combined baseline. No root-only build is attempted.
+
+| Actual output profile | Downloads | Fresh builds / retained downloads | SHA-256                                                            | Changed / unchanged bytes | Total changed ranges | Packed bytes / remaining |
+| --------------------- | --------: | --------------------------------: | ------------------------------------------------------------------ | ------------------------: | -------------------: | -----------------------: |
+| Combined four edits   |         5 |                             5 / 0 | `014af11ec7d614471d873974b83b90c1ae5583adb51beeeda68d3c6940bd64e6` |       850,394 / 3,343,910 |                3,369 |          1,493,440 / 668 |
+| Move only             |         3 |                             2 / 1 | `354ca2cef157221679ce55783ff4370e4a9cdd6968415c6b0abf639c0b4514e0` |       140,925 / 4,053,379 |                  585 |            1,494,099 / 9 |
+
+Every output is a complete 4,194,304-byte SPI with all 1,572,864 non-BIOS bytes
+identical and every changed byte inside outer FFS `[1704008, 3198149)` and BIOS.
+Capacity remains 1,494,108 bytes. Each report's exact totals, all 64 displayed
+physical ranges/lengths and bounded 16-byte samples match a separate local scan
+of original and actual output bytes. Expected hashes/counts/allocation values
+come from the prior independent engine acceptance, not rendered UI values.
+
+Eight separate page reloads freshly analyse the eight actual downloads. Each
+has 68 Forms, the expected Ref counts and moved Ref at `0x2B49B`. The five
+combined files reread all four edits. The three move-only files retain Chipset's
+original zero, seven other root bytes equal to one, System Language `01`, and
+the original nonempty active suppression body measured before its override.
+Those paused edits are not applied. Removal invalidation and both original
+combined-session versions' rejection on changed bytes still pass. No application
+page errors or requests outside the static-GET-only network boundary occurred;
+the complete checker exited successfully. Private intermediate files are removed
+on exit and no firmware/editor/session/output bytes are uploaded or committed.
+
+Use the same opt-in command above. Only the checker and technical records change;
+the existing full check suite remains required. Source identity, metadata keys,
+timeouts, coverage, allocation, codecs, checksum, buffer ownership and independent
+reread guards are not relaxed. This is exact-source Firefox acceptance, not a
+standalone engine rerun, other subsets/orders/session histories or races, broad
+compatibility or hardware/recovery validation. Root-only allocation failure,
+unsupported formats/growth/capsules, missing uncompressed AMI/mixed sources,
+new BIOS and P53 dynamic roots retain their existing limits.
