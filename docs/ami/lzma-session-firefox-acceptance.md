@@ -1,4 +1,4 @@
-# Exact first-LZMA v2 suppression session in deployed Firefox
+# Exact first-LZMA v2/v1 suppression sessions in deployed Firefox
 
 Reproduced on 2026-10-14 at <https://titonax.github.io/UEFI-Editor-GPT/> against
 `4df510b0c6c9fa3d7157d98e1a53ee192a41e177` (merged PR #161).
@@ -73,8 +73,8 @@ The optional browser module/executable/container settings match the original
 LZMA checker. Reconstruction is bounded to 15 minutes; private intermediate files
 are removed on success or failure. Public CI never supplies private firmware.
 
-This establishes exact-source v2 suppression-session acceptance in deployed
-Firefox. It does not establish v1 replay, other operations, AMITSE/SetupData
+This original run established exact-source v2 suppression-session acceptance in deployed
+Firefox. It did not establish v1 replay, other operations, AMITSE/SetupData
 output on this source, desktop file-picker behavior, hardware or recovery.
 Synthetic and React/jsdom tests remain separate. Other hashes/codecs, growth,
 capsules and unsupported roots remain blocked; P53 dynamic roots and new BIOS
@@ -117,6 +117,47 @@ expression. The original session was rejected on that changed source, with an
 empty queue and disabled download. There were no page errors.
 
 This is the complete BIOS-only source, not evidence for Descriptor/ME preservation
-on a descriptor-bearing SPI. Other operations, v1 replay and hardware remain
-outside this acceptance. The reproduction command above now includes these
+on a descriptor-bearing SPI. At that revision, other operations, v1 replay and hardware remained
+outside this acceptance. The reproduction command above includes these
 independent report assertions.
+
+## Legacy v1 migration with fresh BIOS output
+
+Reproduced on 2026-10-19 (Europe/Madrid) against deployed main
+`1b83faef543b8bb3b87380dc4a0583fea3c0b766`, after successful exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39181383640)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39181383787).
+Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux, 1600 × 1000 used
+the documented container/certificate settings, `index-DvYis56o.js`,
+`index-D4JOsfQ5.css` and all three deployed WASM readers. The exact source was
+recovered from the existing authorized ChatGPT archive and checked by size/hash;
+no new BIOS or semantic inventory was added. No browser API, editor, queue,
+codec, writer, response or download was mocked, timing-gated or fault-injected.
+
+The extended checker first reproduces the source-bound suppression JSON import
+and metadata-only v2 export above. It constructs the legacy `hii-menu-actions`
+v1 representation by changing only the version, not selectors or identities.
+For each version, Clear/load restores one selected action, unapplied, with
+Check/download/details disabled. Re-export must be deeply identical to the
+original v2 session. Fresh Apply/Check produces an explicit actual download.
+
+Both complete BIOS files are byte-identical and retain the known output hash
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+Separate independent scans match each report: 4,987,327 changed and 11,789,889
+unchanged bytes, 19,458 ranges and all 64 displayed boundaries/lengths/16-byte
+samples, with the unchanged allocation/remaining-capacity assertions. No byte
+outside owning FFS `[2949240, 7956530)` changes. Removing the action invalidates
+output/details. Each downloaded file is independently analysed after a fresh
+reload: 277 Forms, the same expression and empty body at `0x5B2F3`, empty queue
+and disabled download. Its corresponding original v2/v1 session rejects on the
+changed image/context without populating the queue. No application page errors
+occurred; the full extended checker passed its first run.
+
+This closes this exact-source v1 suppression-session gate only. The input is
+BIOS-only, so this does not establish Descriptor/ME preservation on a full SPI,
+other operations/sources, direct question-row controls, hardware or recovery.
+The production pipeline, source/context identities, codecs, checksums,
+allocations, 15-minute build limit and independent reread guards are unchanged.
+Private firmware/editor/session JSON and downloads remain local; intermediates
+are removed on exit. Synthetic and React/jsdom coverage and standalone engine
+acceptance remain separate validation levels.

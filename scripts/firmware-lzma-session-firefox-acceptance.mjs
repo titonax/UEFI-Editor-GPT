@@ -1,4 +1,4 @@
-// Opt-in exact first-LZMA v2 session acceptance. Private firmware/JSON remain local.
+// Opt-in exact first-LZMA v2/v1 session acceptance. Private firmware/JSON stay local.
 // Requires a separately installed Playwright; CI never supplies private firmware.
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -239,87 +239,118 @@ async function verifyByteComparisonReport(page, output) {
       /patches|expected|replacement|ifrBinary|history|applied|fileName|offset|source\.bin/,
     );
     console.log("V2_EXPORTED_METADATA_ONLY", JSON.stringify(session.operations));
-    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
-    assert.match(await queue.innerText(), /The queue is empty/);
-    await queue.getByLabel("Load queue session file").setInputFiles(sessionPath);
-    const restoreStarted = Date.now();
-    while (
-      await queue
-        .getByRole("button", { name: "Apply selected", exact: true })
-        .isDisabled()
-    ) {
-      if (Date.now() - restoreStarted > 60000)
-        throw Error("Session restore did not finish within one minute");
-      await page.waitForTimeout(100);
-    }
-    assert.match(await queue.innerText(), /1 SELECTED/);
-    assert.match(await queue.innerText(), /Disable SuppressIf 0x5B2D9/);
-    assert.equal(
-      await page
-        .getByRole("button", { name: "Check firmware output", exact: true })
-        .isDisabled(),
-      true,
-    );
-    console.log("V2_RESTORED_UNAPPLIED_NO_CACHED_OUTPUT");
-    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
-    await queue.getByRole("button", { name: "Close", exact: true }).click();
-    assert.equal(
-      await page
-        .getByRole("button", { name: "Modified firmware image", exact: true })
-        .isDisabled(),
-      true,
-    );
-    await page
-      .getByRole("button", { name: "Check firmware output", exact: true })
-      .click();
-    console.log("BUILD_STARTED");
+    const legacyPath = root + "/session-v1.json";
+    fs.writeFileSync(legacyPath, JSON.stringify({ ...session, version: 1 }));
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
     });
-    const started = Date.now();
-    while (await button.isDisabled()) {
-      const text = await page.locator("body").innerText();
-      if (text.includes("Output check failed:"))
-        throw Error(
-          text.slice(
-            text.indexOf("Output check failed:"),
-            text.indexOf("Output check failed:") + 400,
-          ),
-        );
-      if (Date.now() - started > 900000)
-        throw Error("Output check did not finish within 15 minutes");
-      await page.waitForTimeout(1000);
-    }
-    console.log("BUILD_READY_SECONDS", (Date.now() - started) / 1000);
-    const imagePromise = page.waitForEvent("download", (d) =>
-      d.suggestedFilename().endsWith(".bin"),
-    );
-    await button.click();
-    const imageDownload = await imagePromise;
-    await imageDownload.saveAs(root + "/output.bin");
-    const original = fs.readFileSync(root + "/source.bin"),
-      output = fs.readFileSync(root + "/output.bin");
-    assert.equal(output.length, original.length);
-    assert.equal(
-      sha(output),
-      "31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543",
-    );
-    let changed = 0,
-      outside = 0;
-    for (let i = 0; i < output.length; i++)
-      if (output[i] !== original[i]) {
-        changed++;
-        if (i < 2949240 || i >= 7956530) outside++;
+    let baseline;
+    for (const version of [2, 1]) {
+      await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+      assert.match(await queue.innerText(), /The queue is empty/);
+      await queue
+        .getByLabel("Load queue session file")
+        .setInputFiles(version === 2 ? sessionPath : legacyPath);
+      const restoreStarted = Date.now();
+      while (
+        await queue
+          .getByRole("button", { name: "Apply selected", exact: true })
+          .isDisabled()
+      ) {
+        if (Date.now() - restoreStarted > 60000)
+          throw Error("Session restore did not finish within one minute");
+        await page.waitForTimeout(100);
       }
-    assert.equal(outside, 0);
-    assert.equal(changed, 4987327);
-    console.log(
-      "DOWNLOAD_VERIFIED",
-      JSON.stringify({ size: output.length, sha256: sha(output), changed, outside }),
-    );
-    await verifyByteComparisonReport(page, output);
-    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+      assert.match(await queue.innerText(), /1 SELECTED/);
+      assert.match(await queue.innerText(), /Disable SuppressIf 0x5B2D9/);
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Check firmware output", exact: true })
+          .isDisabled(),
+        true,
+      );
+      assert.equal(await button.isDisabled(), true);
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Output details", exact: true })
+          .isDisabled(),
+        true,
+      );
+      const migratedPromise = page.waitForEvent("download");
+      await queue
+        .getByRole("button", { name: "Save queue session", exact: true })
+        .click();
+      const migratedPath = root + `/migrated-v${version}.json`;
+      await (await migratedPromise).saveAs(migratedPath);
+      assert.deepEqual(
+        JSON.parse(fs.readFileSync(migratedPath, "utf8")),
+        session,
+        "Restore/migration must retain every selector and identity in metadata-only v2",
+      );
+      console.log("SESSION_RESTORED_IDENTICAL_V2_UNAPPLIED_NO_CACHED_OUTPUT", version);
+      await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Modified firmware image", exact: true })
+          .isDisabled(),
+        true,
+      );
+      await page
+        .getByRole("button", { name: "Check firmware output", exact: true })
+        .click();
+      console.log("BUILD_STARTED");
+      const started = Date.now();
+      while (await button.isDisabled()) {
+        const text = await page.locator("body").innerText();
+        if (text.includes("Output check failed:"))
+          throw Error(
+            text.slice(
+              text.indexOf("Output check failed:"),
+              text.indexOf("Output check failed:") + 400,
+            ),
+          );
+        if (Date.now() - started > 900000)
+          throw Error("Output check did not finish within 15 minutes");
+        await page.waitForTimeout(1000);
+      }
+      console.log("BUILD_READY_SECONDS", (Date.now() - started) / 1000);
+      const imagePromise = page.waitForEvent("download", (d) =>
+        d.suggestedFilename().endsWith(".bin"),
+      );
+      await button.click();
+      const imageDownload = await imagePromise;
+      await imageDownload.saveAs(root + `/output-v${version}.bin`);
+      const original = fs.readFileSync(root + "/source.bin"),
+        output = fs.readFileSync(root + `/output-v${version}.bin`);
+      assert.equal(output.length, original.length);
+      assert.equal(
+        sha(output),
+        "31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543",
+      );
+      let changed = 0,
+        outside = 0;
+      for (let i = 0; i < output.length; i++)
+        if (output[i] !== original[i]) {
+          changed++;
+          if (i < 2949240 || i >= 7956530) outside++;
+        }
+      assert.equal(outside, 0);
+      assert.equal(changed, 4987327);
+      console.log(
+        "DOWNLOAD_VERIFIED",
+        JSON.stringify({ size: output.length, sha256: sha(output), changed, outside }),
+      );
+      await verifyByteComparisonReport(page, output);
+      if (baseline)
+        assert(
+          output.equals(baseline),
+          "v1 and v2 must rebuild identical complete BIOS images",
+        );
+      else baseline = output;
+      await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+    }
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -330,60 +361,64 @@ async function verifyByteComparisonReport(page, output) {
       true,
     );
     console.log("REMOVAL_INVALIDATED");
-    await page.reload();
-    await page
-      .locator("input[type=file]")
-      .first()
-      .setInputFiles(root + "/output.bin");
-    await page.getByRole("button", { name: "Start HII analysis", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Change queue (0)", exact: true })
-      .waitFor({ timeout: 240000 });
-    const reloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
-    const reloadDownload = await reloadPromise;
-    await reloadDownload.saveAs(root + "/reloaded.json");
-    const reopened = JSON.parse(fs.readFileSync(root + "/reloaded.json", "utf8"));
-    assert.equal(reopened.forms.length, 277);
-    const reopenedScope = reopened.suppressions.find(
-      (s) => s.offset.toLowerCase() === "0x5b2d9",
-    );
-    assert(reopenedScope);
-    assert.equal(reopenedScope.start, "0x5B2F3");
-    assert.equal(reopenedScope.end, reopenedScope.start);
-    assert.equal(reopenedScope.expression, scope.expression);
-    assert(Number.parseInt(scope.end, 16) > Number.parseInt(scope.start, 16));
-    assert.equal(
+    for (const version of [2, 1]) {
+      await page.reload();
       await page
-        .getByRole("button", { name: "Modified firmware image", exact: true })
-        .isDisabled(),
-      true,
-    );
-    console.log(
-      "RELOADED_SCOPE_EMPTY_EXPRESSION_UNCHANGED_EMPTY_QUEUE_DOWNLOAD_DISABLED",
-    );
-    await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
-    const reopenedQueue = page.getByRole("dialog", {
-      name: "Change queue",
-      exact: true,
-    });
-    await reopenedQueue
-      .getByLabel("Load queue session file")
-      .setInputFiles(sessionPath);
-    const rejection = reopenedQueue.getByRole("alert");
-    await rejection.waitFor();
-    assert.match(
-      await rejection.innerText(),
-      /different firmware image or opened HII context/,
-    );
-    assert.match(await reopenedQueue.innerText(), /The queue is empty/);
-    assert.equal(
+        .locator("input[type=file]")
+        .first()
+        .setInputFiles(root + `/output-v${version}.bin`);
       await page
-        .getByRole("button", { name: "Modified firmware image", exact: true })
-        .isDisabled(),
-      true,
-    );
-    console.log("CHANGED_SOURCE_REJECTED_SESSION_EMPTY_QUEUE");
+        .getByRole("button", { name: "Start HII analysis", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Change queue (0)", exact: true })
+        .waitFor({ timeout: 240000 });
+      const reloadPromise = page.waitForEvent("download");
+      await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
+      const reloadDownload = await reloadPromise;
+      await reloadDownload.saveAs(root + "/reloaded.json");
+      const reopened = JSON.parse(fs.readFileSync(root + "/reloaded.json", "utf8"));
+      assert.equal(reopened.forms.length, 277);
+      const reopenedScope = reopened.suppressions.find(
+        (s) => s.offset.toLowerCase() === "0x5b2d9",
+      );
+      assert(reopenedScope);
+      assert.equal(reopenedScope.start, "0x5B2F3");
+      assert.equal(reopenedScope.end, reopenedScope.start);
+      assert.equal(reopenedScope.expression, scope.expression);
+      assert(Number.parseInt(scope.end, 16) > Number.parseInt(scope.start, 16));
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Modified firmware image", exact: true })
+          .isDisabled(),
+        true,
+      );
+      console.log(
+        "RELOADED_SCOPE_EMPTY_EXPRESSION_UNCHANGED_EMPTY_QUEUE_DOWNLOAD_DISABLED",
+      );
+      await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+      const reopenedQueue = page.getByRole("dialog", {
+        name: "Change queue",
+        exact: true,
+      });
+      await reopenedQueue
+        .getByLabel("Load queue session file")
+        .setInputFiles(version === 2 ? sessionPath : legacyPath);
+      const rejection = reopenedQueue.getByRole("alert");
+      await rejection.waitFor();
+      assert.match(
+        await rejection.innerText(),
+        /different firmware image or opened HII context/,
+      );
+      assert.match(await reopenedQueue.innerText(), /The queue is empty/);
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Modified firmware image", exact: true })
+          .isDisabled(),
+        true,
+      );
+      console.log("CHANGED_SOURCE_REJECTED_SESSION_EMPTY_QUEUE");
+    }
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
     console.log("ASSETS", [...assets]);
   } finally {

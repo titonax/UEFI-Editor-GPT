@@ -70,9 +70,12 @@ The next work order is:
    now reproduces source-bound JSON suppression import, Apply/Check/report,
    exact accepted download, removal invalidation and fresh reload on PR #153.
    Its engine acceptance was rerun separately with the deployed WASM assets.
-   Its [v2 session gate](ami/lzma-session-firefox-acceptance.md) now passes
+   Its [v2/v1 session gate](ami/lzma-session-firefox-acceptance.md) now passes
    export/clear/import, fresh exact output, invalidation, independent scope reread
-   and source/context rejection. Shared product-hardening acceptance remains next.
+   and source/context rejection. The deployed-main `1b83fae` extension also
+   validates v1 migration to identical v2 metadata, two identical complete-BIOS
+   downloads/reports and independent empty-scope rereads. Shared product-hardening
+   acceptance remains next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -851,9 +854,12 @@ list the blocker for every unsupported case.
   all byte-report samples, three independent four-edit rereads and rejection of
   both session versions on changed bytes. Hardware remains unclaimed.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
-  passes metadata-only v2 suppression export/import, exact complete-BIOS output,
+  passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This
-  BIOS-only source does not establish descriptor-bearing SPI or v1 acceptance.
+  BIOS-only source does not establish descriptor-bearing SPI acceptance. The
+  deployed-main `1b83fae` extension verifies deeply identical v2 re-export from
+  both versions, fresh identical complete BIOS files/reports, two independent
+  empty-scope rereads and both-version changed-image/context rejection.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
