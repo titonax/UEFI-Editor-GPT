@@ -891,7 +891,12 @@ list the blocker for every unsupported case.
   passes Clear/Undo/Redo/Undo with exact v2 selectors/flags, no restored Apply or
   cached output, fresh identical full-SPI rebuilding and four independent
   four-edit rereads. Static-GET-only browser networking keeps private input local.
-  Other nested-LZMA histories and races remain separate; hardware is unclaimed.
+  Deployed main `3cd7921` additionally passes move-only paused v2/v1 loading and
+  exact v2 re-export, invalid paused-root atomic rejection with retained output,
+  fresh known move-only SPIs and full reselection. Eight actual downloads/reports
+  independently reread selected edits and unchanged paused states; all non-BIOS
+  bytes remain intact. Other subsets, histories and races stay separate; hardware
+  is unclaimed.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This

@@ -22,14 +22,25 @@ assert.equal(
   "cd22f87daee0d50bf82520aaa6669a6731bdaaf3692690649533790c8e027f9a",
 );
 
-const expectedOutputSha =
-  "014af11ec7d614471d873974b83b90c1ae5583adb51beeeda68d3c6940bd64e6";
+// Independently accepted exact-source engine results, not values read from UI.
+const combinedOutput = Object.freeze({
+  sha: "014af11ec7d614471d873974b83b90c1ae5583adb51beeeda68d3c6940bd64e6",
+  changed: 850394,
+  packed: 1493440,
+  remaining: 668,
+});
+const moveOnlyOutput = Object.freeze({
+  sha: "354ca2cef157221679ce55783ff4370e4a9cdd6968415c6b0abf639c0b4514e0",
+  changed: 140925,
+  packed: 1494099,
+  remaining: 9,
+});
 const work = fs.mkdtempSync(
   path.join(os.tmpdir(), "uefi-nested-lzma-session-firefox-"),
 );
 fs.writeFileSync(path.join(work, "source.bin"), sourceBytes);
 
-function assertMetadataOnly(session) {
+function assertMetadataOnly(session, enabled = [true, true, true, true]) {
   assert.deepEqual(Object.keys(session).sort(), [
     "format",
     "kind",
@@ -53,7 +64,10 @@ function assertMetadataOnly(session) {
     session.operations.map((op) => op.action),
     ["ami-roots", "move-ref", "ami-values", "suppressions"],
   );
-  for (const op of session.operations) assert.equal(op.enabled, true);
+  assert.deepEqual(
+    session.operations.map((op) => op.enabled),
+    enabled,
+  );
   assert.deepEqual(Object.keys(session.operations[0]).sort(), [
     "action",
     "changes",
@@ -118,7 +132,7 @@ const question = (data, name) =>
     .flatMap((candidate) => flattenItems(candidate.children || []))
     .find((item) => item.name === name);
 
-async function downloadVerifiedOutput(page, destination) {
+async function downloadVerifiedOutput(page, destination, expected = combinedOutput) {
   const outputButton = page.getByRole("button", {
     name: "Modified firmware image",
     exact: true,
@@ -144,6 +158,16 @@ async function downloadVerifiedOutput(page, destination) {
   }
   console.log("BUILD_READY_SECONDS", (Date.now() - started) / 1000);
 
+  return downloadReadyOutput(page, destination, expected);
+}
+
+async function downloadReadyOutput(page, destination, expected) {
+  const outputButton = page.getByRole("button", {
+    name: "Modified firmware image",
+    exact: true,
+  });
+  assert.equal(await outputButton.isDisabled(), false);
+
   const imageDownload = page.waitForEvent("download", (download) =>
     download.suggestedFilename().endsWith(".bin"),
   );
@@ -151,7 +175,7 @@ async function downloadVerifiedOutput(page, destination) {
   await (await imageDownload).saveAs(destination);
   const output = fs.readFileSync(destination);
   assert.equal(output.length, sourceBytes.length);
-  assert.equal(sha256(output), expectedOutputSha);
+  assert.equal(sha256(output), expected.sha);
   let changed = 0;
   let outsideOwner = 0;
   let outsideBios = 0;
@@ -161,7 +185,7 @@ async function downloadVerifiedOutput(page, destination) {
     if (index < 1704008 || index >= 3198149) outsideOwner++;
     if (index < 1572864) outsideBios++;
   }
-  assert.equal(changed, 850394);
+  assert.equal(changed, expected.changed);
   assert.equal(outsideOwner, 0);
   assert.equal(outsideBios, 0);
   console.log(
@@ -174,11 +198,11 @@ async function downloadVerifiedOutput(page, destination) {
       outsideBios,
     }),
   );
-  await verifyByteComparisonReport(page, output);
+  await verifyByteComparisonReport(page, output, expected);
   return output;
 }
 
-async function verifyByteComparisonReport(page, output) {
+async function verifyByteComparisonReport(page, output, expected) {
   // Independent run-based scan of the downloaded physical image. Do not import
   // the production comparison helper or derive expectations from rendered data.
   const hex = (value) => `0x${value.toString(16).toUpperCase()}`;
@@ -212,7 +236,7 @@ async function verifyByteComparisonReport(page, output) {
       truncatedSample ||= offset - start > 16;
     }
   }
-  assert.equal(changed, 850394);
+  assert.equal(changed, expected.changed);
   assert(rangeCount > 64, "This exact image must exercise omitted ranges.");
   assert(truncatedSample, "This exact image must exercise bounded byte samples.");
   await page.getByRole("button", { name: "Output details", exact: true }).click();
@@ -232,8 +256,11 @@ async function verifyByteComparisonReport(page, output) {
   assert(text.includes("at most 16 bytes from the start of its range"));
   assert(text.includes("Offsets refer to the complete physical image."));
   assert(text.includes("1572864 bytes outside BIOS preserved exactly."));
-  assert.match(text, /4194304 bytes, 850394 changed bytes/);
-  assert.match(text, /1494108[\s\S]*1493440[\s\S]*668/);
+  assert(text.includes(`4194304 bytes, ${expected.changed} changed bytes`));
+  assert.match(
+    text,
+    new RegExp(`1494108[\\s\\S]*${expected.packed}[\\s\\S]*${expected.remaining}`),
+  );
   const rows = await report
     .getByRole("table", { name: "Complete-image changed bytes", exact: true })
     .locator("tbody tr")
@@ -400,6 +427,11 @@ async function verifyByteComparisonReport(page, output) {
     );
     assert(suppression);
     assert.equal(suppression.active, true);
+    const unchangedSuppression = {
+      start: suppression.start,
+      end: suppression.end,
+      active: suppression.active,
+    };
     suppression.active = false;
     fs.writeFileSync(path.join(work, "combined.json"), JSON.stringify(projected));
     const jsonInput = page.locator('input[type=file][accept=".json"]').first();
@@ -613,6 +645,182 @@ async function verifyByteComparisonReport(page, output) {
     );
     console.log("HISTORY_FRESH_FULL_SPI_MATCH");
 
+    // Preserve paused intent through both session versions; only the accepted
+    // Ref move is selected. Root-only output is not claimed by this subset.
+    const pausedFlags = [false, true, false, false];
+    const expectedPaused = {
+      ...session,
+      operations: session.operations.map((op, index) => ({
+        ...op,
+        enabled: pausedFlags[index],
+      })),
+    };
+    const assertSelection = async (flags) => {
+      const checkboxes = queue.getByRole("checkbox");
+      assert.equal(await checkboxes.count(), 4);
+      for (let index = 0; index < flags.length; index++)
+        assert.equal(await checkboxes.nth(index).isChecked(), flags[index]);
+      assert.match(
+        await queue.innerText(),
+        new RegExp(`${flags.filter(Boolean).length} SELECTED`),
+      );
+    };
+    const saveExactSession = async (expected, flags, name) => {
+      const download = page.waitForEvent("download");
+      await queue
+        .getByRole("button", { name: "Save queue session", exact: true })
+        .click();
+      const file = path.join(work, name);
+      await (await download).saveAs(file);
+      const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+      assertMetadataOnly(saved, flags);
+      assert.deepEqual(
+        saved,
+        expected,
+        "Every selector, identity and paused flag must survive",
+      );
+      return file;
+    };
+    const assertOutputDisabled = async () => {
+      for (const name of [
+        "Check firmware output",
+        "Modified firmware image",
+        "Output details",
+      ])
+        assert.equal(
+          await page.getByRole("button", { name, exact: true }).isDisabled(),
+          true,
+        );
+    };
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    for (const index of [0, 2, 3]) {
+      await queue.getByRole("checkbox").nth(index).uncheck();
+      await assertOutputDisabled();
+    }
+    await assertSelection(pausedFlags);
+    const pausedV2 = await saveExactSession(
+      expectedPaused,
+      pausedFlags,
+      "paused-v2.json",
+    );
+    const pausedV1 = path.join(work, "paused-v1.json");
+    fs.writeFileSync(pausedV1, JSON.stringify({ ...expectedPaused, version: 1 }));
+    const moveOnlyResults = [];
+    for (const [version, file] of [
+      [2, pausedV2],
+      [1, pausedV1],
+    ]) {
+      await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+      await assertInvalidated(true);
+      await queue.getByLabel("Load queue session file").setInputFiles(file);
+      await page.waitForFunction(() => {
+        const input = document.querySelector(
+          'input[aria-label="Load queue session file"]',
+        );
+        return input && input.files.length === 0;
+      });
+      await assertSelection(pausedFlags);
+      assert.equal(
+        await queue
+          .getByRole("button", { name: "Apply selected", exact: true })
+          .isDisabled(),
+        false,
+      );
+      await assertOutputDisabled();
+      await saveExactSession(
+        expectedPaused,
+        pausedFlags,
+        `paused-v${version}-reexport.json`,
+      );
+      console.log("PAUSED_SESSION_RESTORED_IDENTICAL_V2_UNAPPLIED", version);
+      await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      moveOnlyResults.push(
+        await downloadVerifiedOutput(
+          page,
+          path.join(work, `move-only-v${version}.bin`),
+          moveOnlyOutput,
+        ),
+      );
+      await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+      if (version === 2) {
+        for (const invalidVersion of [2, 1]) {
+          const invalid = structuredClone(expectedPaused);
+          invalid.version = invalidVersion;
+          invalid.operations[0].changes[0].rootIndex = Number.MAX_SAFE_INTEGER;
+          const invalidFile = path.join(
+            work,
+            `invalid-paused-root-v${invalidVersion}.json`,
+          );
+          fs.writeFileSync(invalidFile, JSON.stringify(invalid));
+          await queue.getByLabel("Load queue session file").setInputFiles(invalidFile);
+          await page.waitForFunction(() => {
+            const input = document.querySelector(
+              'input[aria-label="Load queue session file"]',
+            );
+            return input && input.files.length === 0;
+          });
+          assert.match(
+            await queue.getByRole("alert").innerText(),
+            /Queue session targets a missing or ambiguous root\./,
+          );
+          await assertSelection(pausedFlags);
+          await saveExactSession(
+            expectedPaused,
+            pausedFlags,
+            `retained-v${invalidVersion}.json`,
+          );
+          for (const name of [
+            "Check firmware output",
+            "Modified firmware image",
+            "Output details",
+          ])
+            assert.equal(
+              await page.getByRole("button", { name, exact: true }).isDisabled(),
+              false,
+            );
+          console.log(
+            "INVALID_PAUSED_ROOT_ATOMIC_REJECTION_READY_OUTPUT_RETAINED",
+            invalidVersion,
+          );
+        }
+        await queue.getByRole("button", { name: "Close", exact: true }).click();
+        const retained = await downloadReadyOutput(
+          page,
+          path.join(work, "move-only-retained.bin"),
+          moveOnlyOutput,
+        );
+        assert(
+          retained.equals(moveOnlyResults[0]),
+          "Rejected paused roots must retain the exact verified SPI",
+        );
+        await page
+          .getByRole("button", { name: "Change queue (4)", exact: true })
+          .click();
+      }
+    }
+    assert(
+      moveOnlyResults[0].equals(moveOnlyResults[1]),
+      "Both session versions must freshly rebuild the same move-only SPI",
+    );
+    for (const index of [0, 2, 3]) {
+      await queue.getByRole("checkbox").nth(index).check();
+      await assertOutputDisabled();
+    }
+    await assertSelection([true, true, true, true]);
+    await saveExactSession(session, [true, true, true, true], "reselected-v2.json");
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const reselected = await downloadVerifiedOutput(
+      page,
+      path.join(work, "reselected.bin"),
+    );
+    assert(
+      reselected.equals(baseline),
+      "Reselecting all intent must freshly rebuild the original combined SPI",
+    );
+    console.log("PAUSED_V2_V1_MOVE_ONLY_AND_FULL_RESELECTION_VERIFIED");
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -628,7 +836,16 @@ async function verifyByteComparisonReport(page, output) {
     );
     console.log("REMOVAL_INVALIDATED");
 
-    for (const file of ["baseline.bin", "output.bin", "legacy.bin", "history.bin"]) {
+    for (const file of [
+      "baseline.bin",
+      "output.bin",
+      "legacy.bin",
+      "history.bin",
+      "move-only-v2.bin",
+      "move-only-retained.bin",
+      "move-only-v1.bin",
+      "reselected.bin",
+    ]) {
       await page.reload();
       await page
         .locator("input[type=file]")
@@ -655,14 +872,33 @@ async function verifyByteComparisonReport(page, output) {
       );
       assert(reopenedSuppression);
       assert.equal(reopenedSuppression.start.toLowerCase(), "0x2b14f");
-      assert.equal(reopenedSuppression.start, reopenedSuppression.end);
-      assert.equal(question(reopened, "System Language").accessLevel, "00");
+      const moveOnly = file.startsWith("move-only");
+      if (moveOnly) {
+        assert.deepEqual(
+          {
+            start: reopenedSuppression.start,
+            end: reopenedSuppression.end,
+            active: reopenedSuppression.active,
+          },
+          unchangedSuppression,
+        );
+        assert.notEqual(reopenedSuppression.start, reopenedSuppression.end);
+      } else assert.equal(reopenedSuppression.start, reopenedSuppression.end);
+      assert.equal(
+        question(reopened, "System Language").accessLevel,
+        moveOnly ? "01" : "00",
+      );
       assert.deepEqual(
         reopened.rootVisibility.entries.map((entry) => entry.value),
-        [1, 1, 1, 1, 1, 1, 1, 1],
+        moveOnly ? [1, 1, 1, 1, 0, 1, 1, 1] : [1, 1, 1, 1, 1, 1, 1, 1],
       );
       assert.equal(await outputButton.isDisabled(), true);
-      console.log("INDEPENDENT_FOUR_EDIT_REREAD", file);
+      console.log(
+        moveOnly
+          ? "INDEPENDENT_MOVE_ONLY_REREAD_PAUSED_STATES_UNCHANGED"
+          : "INDEPENDENT_FOUR_EDIT_REREAD",
+        file,
+      );
     }
     await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
     const reopenedQueue = page.getByRole("dialog", {
