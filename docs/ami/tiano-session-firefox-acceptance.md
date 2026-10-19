@@ -1162,3 +1162,57 @@ No production code, coverage, timeout, source/owner/buffer/codec/checksum,
 allocation or independent reconstruction/reread guard changed. Private firmware,
 decoded/editor/session JSON and downloads remain local; checker intermediates are
 removed on exit and public CI has no private source.
+
+## Empty-session v2/v1 identity, history and fresh-output recovery
+
+Reproduced on 2026-10-19 (Europe/Madrid) against deployed main
+`ef47af14b51b3a4d47efd23bcf3991cff7ca9b6d`, after successful exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39216543402)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39216542980).
+Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux, 1600 × 1000 used
+the documented container/certificate settings, `index-DvYis56o.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+The same authorized ChatGPT archive was recovered afresh and the exact source
+size/SHA-256 above verified. No new source or semantic inventory was added.
+
+The base checker now extends the existing regression with this sequence for each
+session version, starting from the ready four-enabled queue:
+
+1. Create an empty session with the original source/context identity and no
+   operations. First load a copy with only its image SHA-256 replaced by 64 zero
+   digits. The ordinary different-image/context rejection must occur even with
+   zero operations. The full metadata-only v2 export and ready Check/download/
+   details remain; saving clears the alert. This verifies queue/ready controls,
+   not a separate cached-byte download immediately after this rejection.
+2. Load the valid empty v2 or v1 through the real file control. The queue is
+   visibly empty with zero checkboxes; Apply, Check, download and details are
+   disabled. Re-export is deeply identical to the original v2 identity/schema
+   with only `operations: []`; v1 migrates without adding fields or capabilities.
+3. One Undo restores all four selected actions and the exact original v2 export.
+   One Redo returns to the exact empty v2 export. Another Undo restores the full
+   export again. Every state keeps output disabled; history never revives bytes
+   or reports from before the empty load.
+4. Fresh Apply/Check/download after that final Undo reproduces the known full SPI
+   byte-for-byte. Independently reload/analyze each actual post-Undo download and
+   reread all four requested edits. No application page errors occur.
+
+Both version sequences and the complete earlier regression passed in the first
+complete run, without mocks, timing gates or fault injection. There are eight
+complete 8,388,608-byte downloads overall: six fresh reconstructions and two
+cached downloads from the earlier malformed-input matrix. Seven full results
+retain SHA-256 `264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changed bytes only in the two original FFS owners. The move-only
+result retains the documented hash and 12,295 changes in Setup only. All
+1,572,864 non-BIOS bytes and all outside-owner bytes are identical. Eight fresh
+actual-file analyses reread 70 Forms, unique moved Ref and the expected Security,
+root and suppression states/expression; original nonempty sessions reject on
+every changed image. This does not add empty-session changed-image acceptance.
+
+The firmware-change-review skill guided this checker/evidence-only change.
+Synthetic empty-session tests remain separate from this exact-source Firefox
+run; standalone engine and hardware acceptance were not rerun. Other adapters,
+paused predecessors, further histories/races, human file pickers and hardware
+remain separate. No production code, coverage, time limit, ownership/buffer,
+codec/checksum, allocation or independent reconstruction/reread guard changed.
+Private firmware, decoded/editor/session JSON and downloads stay local; checker
+intermediates are removed on exit and public CI has no private source.

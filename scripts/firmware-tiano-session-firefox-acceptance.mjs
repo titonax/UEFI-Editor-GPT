@@ -433,6 +433,110 @@ async function openSource(page, source) {
       await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     }
 
+    const emptySession = { ...v2, operations: [] };
+    async function saveExactSession(name, expected) {
+      const saved = page.waitForEvent("download");
+      await queue
+        .getByRole("button", { name: "Save queue session", exact: true })
+        .click();
+      const file = path.join(work, name);
+      await (await saved).saveAs(file);
+      assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), expected);
+    }
+    async function assertHistoryState(empty) {
+      if (empty) await queue.getByText(/The queue is empty/).waitFor();
+      else
+        await waitForDisabled(
+          queue.getByRole("button", { name: "Apply selected", exact: true }),
+          false,
+        );
+      assert.deepEqual(
+        await queue
+          .getByRole("checkbox")
+          .evaluateAll((boxes) => boxes.map((box) => box.checked)),
+        empty ? [] : [true, true, true, true],
+      );
+      assert.equal(
+        await queue
+          .getByRole("button", { name: "Apply selected", exact: true })
+          .isDisabled(),
+        empty,
+      );
+      for (const name of [
+        "Check firmware output",
+        "Modified firmware image",
+        "Output details",
+      ])
+        assert.equal(
+          await page.getByRole("button", { name, exact: true }).isDisabled(),
+          true,
+        );
+    }
+    for (const version of [2, 1]) {
+      const emptyFile = path.join(work, `empty-v${version}.json`);
+      fs.writeFileSync(emptyFile, JSON.stringify({ ...emptySession, version }));
+      const wrongIdentity = path.join(work, `empty-wrong-source-v${version}.json`);
+      fs.writeFileSync(
+        wrongIdentity,
+        JSON.stringify({
+          ...emptySession,
+          version,
+          source: { ...v2.source, sha256: "0".repeat(64) },
+        }),
+      );
+      await queue.getByLabel("Load queue session file").setInputFiles(wrongIdentity);
+      const rejected = queue.getByRole("alert");
+      await rejected.waitFor();
+      assert.match(
+        await rejected.innerText(),
+        /different firmware image or opened HII context/,
+      );
+      for (const name of [
+        "Check firmware output",
+        "Modified firmware image",
+        "Output details",
+      ])
+        assert.equal(
+          await page.getByRole("button", { name, exact: true }).isDisabled(),
+          false,
+        );
+      await saveExactSession(`empty-rejection-retained-v${version}.json`, v2);
+      assert.equal(await queue.getByRole("alert").count(), 0);
+      await queue.getByLabel("Load queue session file").setInputFiles(emptyFile);
+      await assertHistoryState(true);
+      await saveExactSession(`empty-export-v${version}.json`, emptySession);
+      const undo = queue.getByRole("button", {
+        name: "Undo queue change",
+        exact: true,
+      });
+      const redo = queue.getByRole("button", {
+        name: "Redo queue change",
+        exact: true,
+      });
+      await undo.click();
+      await assertHistoryState(false);
+      await saveExactSession(`empty-undo-v${version}.json`, v2);
+      await redo.click();
+      await assertHistoryState(true);
+      await saveExactSession(`empty-redo-v${version}.json`, emptySession);
+      await undo.click();
+      await assertHistoryState(false);
+      await saveExactSession(`empty-final-undo-v${version}.json`, v2);
+      console.log("EMPTY_SESSION_IDENTITY_CLEAR_SINGLE_UNDO_REDO_NO_OUTPUT", version);
+      await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      assert(
+        (
+          await downloadVerifiedOutput(
+            page,
+            path.join(work, `output-empty-undo-v${version}.bin`),
+          )
+        ).equals(baseline),
+      );
+      console.log("EMPTY_SESSION_UNDO_FRESH_SPI_IDENTICAL", version);
+      await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    }
+
     const selection = [true, false, false, false];
     const paused = structuredClone(v2);
     paused.operations.forEach((op, index) => {
@@ -525,6 +629,8 @@ async function openSource(page, source) {
       "v1",
       "retained-v2",
       "retained-v1",
+      "empty-undo-v2",
+      "empty-undo-v1",
       "paused",
       "reselected",
     ]) {
