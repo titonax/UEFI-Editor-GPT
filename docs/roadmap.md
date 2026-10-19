@@ -896,7 +896,11 @@ list the blocker for every unsupported case.
   fresh known move-only SPIs and full reselection. Eight actual downloads/reports
   independently reread selected edits and unchanged paused states; all non-BIOS
   bytes remain intact. Other subsets, histories and races stay separate; hardware
-  is unclaimed.
+  is unclaimed. Deployed main `2d6d93b` additionally passes loading a paused
+  v2/v1 session as one undoable replacement: exact full/paused re-exports after
+  single Undo/Redo, invalidated output in both directions and fresh known
+  move-only/full SPIs. Twelve downloads and twelve independent reanalyses retain
+  all non-BIOS bytes; other histories and asynchronous races remain separate.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This
