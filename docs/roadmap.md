@@ -887,7 +887,11 @@ list the blocker for every unsupported case.
   image/context rejection. A deployed-main `4651eb8` extension also passes combined
   v1 migration to deeply identical v2 metadata, unapplied restore, fresh exact SPI,
   all byte-report samples, three independent four-edit rereads and rejection of
-  both session versions on changed bytes. Hardware remains unclaimed.
+  both session versions on changed bytes. A deployed-main `a233214` extension
+  passes Clear/Undo/Redo/Undo with exact v2 selectors/flags, no restored Apply or
+  cached output, fresh identical full-SPI rebuilding and four independent
+  four-edit rereads. Static-GET-only browser networking keeps private input local.
+  Other nested-LZMA histories and races remain separate; hardware is unclaimed.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This

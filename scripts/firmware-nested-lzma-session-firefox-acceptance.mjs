@@ -272,6 +272,9 @@ async function verifyByteComparisonReport(page, output) {
   try {
     browser = await firefox.launch({
       executablePath: process.env.FIRMWARE_BROWSER_FIREFOX_EXECUTABLE || undefined,
+      proxy: process.env.FIRMWARE_BROWSER_PROXY_SERVER
+        ? { server: process.env.FIRMWARE_BROWSER_PROXY_SERVER }
+        : undefined,
       headless: true,
       firefoxUserPrefs:
         process.env.FIRMWARE_BROWSER_CONTAINER_SANDBOX === "1"
@@ -285,7 +288,48 @@ async function verifyByteComparisonReport(page, output) {
     const page = await browser.newPage({
       viewport: { width: 1600, height: 1000 },
       acceptDownloads: true,
+      serviceWorkers: "block",
       ignoreHTTPSErrors: process.env.FIRMWARE_BROWSER_IGNORE_HTTPS_ERRORS === "1",
+    });
+    // A file input reads locally; it must never become an HTTP upload. Resolve
+    // public static assets before supplying private input, then deny every other
+    // URL, request body and method (including queries and cross-origin traffic).
+    const deployedUrl = "https://titonax.github.io/UEFI-Editor-GPT/";
+    const publicResponse = await page.request.get(deployedUrl);
+    assert(publicResponse.ok(), "The deployed public index must be available");
+    const publicHtml = await publicResponse.text();
+    const staticUrls = new Set([
+      deployedUrl,
+      ...[
+        "bios.png",
+        "firmware-decompress.wasm",
+        "tiano-decompress.wasm",
+        "ifrextractor.wasm",
+      ].map((name) => new URL(name, deployedUrl).href),
+      ...[
+        ...publicHtml.matchAll(
+          /(?:src|href)="(\/UEFI-Editor-GPT\/assets\/[A-Za-z0-9._-]+\.(?:js|css))"/g,
+        ),
+      ].map((match) => new URL(match[1], deployedUrl).href),
+    ]);
+    assert(staticUrls.size >= 7, "The public index must advertise its JS and CSS");
+    let blockedRequests = 0;
+    await page.context().route("**/*", async (route) => {
+      const request = route.request();
+      if (
+        request.method() === "GET" &&
+        request.postData() === null &&
+        staticUrls.has(request.url())
+      ) {
+        await route.continue();
+      } else {
+        blockedRequests++;
+        await route.abort("blockedbyclient");
+      }
+    });
+    await page.context().routeWebSocket("**/*", (socket) => {
+      blockedRequests++;
+      socket.close();
     });
     page.setDefaultTimeout(60000);
     const pageErrors = [];
@@ -296,7 +340,7 @@ async function verifyByteComparisonReport(page, output) {
         assets.add(response.url().split("/").pop());
     });
 
-    await page.goto("https://titonax.github.io/UEFI-Editor-GPT/");
+    await page.goto(deployedUrl);
     await page
       .locator("input[type=file]")
       .first()
@@ -506,6 +550,69 @@ async function verifyByteComparisonReport(page, output) {
       "Legacy replay must reproduce the baseline full SPI",
     );
 
+    // History restores semantic intent, never an applied plan or cached SPI.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    const assertInvalidated = async (empty) => {
+      assert.equal(
+        await queue
+          .getByRole("button", { name: "Apply selected", exact: true })
+          .isDisabled(),
+        empty,
+      );
+      for (const name of [
+        "Check firmware output",
+        "Modified firmware image",
+        "Output details",
+      ])
+        assert.equal(
+          await page.getByRole("button", { name, exact: true }).isDisabled(),
+          true,
+        );
+      assert.match(
+        await queue.innerText(),
+        empty ? /The queue is empty/ : /4 SELECTED/,
+      );
+    };
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    await assertInvalidated(true);
+    for (let restoration = 0; restoration < 2; restoration++) {
+      await queue
+        .getByRole("button", { name: "Undo queue change", exact: true })
+        .click();
+      await assertInvalidated(false);
+      const historyDownload = page.waitForEvent("download");
+      await queue
+        .getByRole("button", { name: "Save queue session", exact: true })
+        .click();
+      const historyFile = path.join(work, "history-v2.json");
+      await (await historyDownload).saveAs(historyFile);
+      const historySession = JSON.parse(fs.readFileSync(historyFile, "utf8"));
+      assertMetadataOnly(historySession);
+      assert.deepEqual(
+        historySession,
+        session,
+        "Undo must preserve every ordered selector and enabled flag",
+      );
+      if (restoration === 0) {
+        await queue
+          .getByRole("button", { name: "Redo queue change", exact: true })
+          .click();
+        await assertInvalidated(true);
+      }
+    }
+    console.log("CLEAR_UNDO_REDO_UNDO_EXACT_V2_INTENT_NO_CACHED_OUTPUT");
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const historyOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "history.bin"),
+    );
+    assert(
+      historyOutput.equals(baseline),
+      "History recovery must freshly reproduce the baseline full SPI",
+    );
+    console.log("HISTORY_FRESH_FULL_SPI_MATCH");
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -521,7 +628,7 @@ async function verifyByteComparisonReport(page, output) {
     );
     console.log("REMOVAL_INVALIDATED");
 
-    for (const file of ["baseline.bin", "output.bin", "legacy.bin"]) {
+    for (const file of ["baseline.bin", "output.bin", "legacy.bin", "history.bin"]) {
       await page.reload();
       await page
         .locator("input[type=file]")
@@ -583,6 +690,12 @@ async function verifyByteComparisonReport(page, output) {
       console.log("CHANGED_SOURCE_REJECTED_SESSION_EMPTY_QUEUE");
     }
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
+    assert.equal(
+      blockedRequests,
+      0,
+      "The app must request only public static assets, never upload private bytes",
+    );
+    console.log("STATIC_GET_ONLY_NETWORK_BOUNDARY_NO_UPLOADS");
     console.log("ASSETS", [...assets]);
   } finally {
     await browser?.close();
