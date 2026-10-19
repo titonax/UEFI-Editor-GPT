@@ -483,3 +483,64 @@ exit. Production code, source guards, timeouts, coverage, codecs, checksums,
 allocation, buffer ownership and independent reread limits are unchanged.
 Unsupported formats/growth/capsules, root-only fit, missing qualifying sources,
 new BIOS and P53 dynamic roots retain their existing boundaries.
+
+## Closed-dialog native read cancellation with retained full SPI
+
+Reproduced on 2026-10-20 (Europe/Madrid) against deployed main
+`a4bf3d8c20132c7f5fccc38659f84777c2ab615b`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39335956232)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39335956335)
+success. Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux,
+1600 × 1000 used the explicit container/certificate/proxy settings above,
+`index-DvYis56o.js`, `index-D4JOsfQ5.css` and the three WASM readers. The exact
+size/hash-bound 4 MiB source was freshly recovered only from authorized ChatGPT
+files. No new BIOS or semantic corpus inventory was introduced.
+
+After the preceding regressions and a fresh combined full-SPI Check, a new probe
+instance calls the actual native `File.text` on the valid paused v2 session and
+holds delivery of its completed result. Native digest calls are counted but
+neither delayed nor replaced. The visible dialog reports validation in progress;
+the probe records one read, one native completion, zero deliveries and zero
+hashes. The real Close control then hides the dialog without Clear/Undo, source
+replacement, document navigation or a newer session request.
+
+Old native text delivery is released while the dialog remains closed. A later
+browser task observes exactly one delivery and zero hashes: the obsolete read
+did not enter adapter identity validation, whose digests start before its first
+await. Download/details remain enabled. An actual cached SPI download, without
+another Apply/Check, is byte-identical to the freshly verified combined output;
+its report also matches an independent physical-byte scan.
+
+Reopening retains all four selected entries, no stale loaded/busy message or
+alert, and an exact metadata-only full v2 export. Current loading of the paused
+session then executes five native hashes, restores its exact flags and v2 export
+and invalidates output. Current full loading restores the exact full export,
+again unapplied. Original native method descriptors are restored before fresh
+Apply/Check/download reproduces the known combined baseline byte for byte.
+
+The complete extended checker exited zero with sixteen actual downloads and
+sixteen independent reload/analyses: eleven combined and five move-only SPIs,
+fourteen fresh builds and two retained cached downloads. Each complete
+4,194,304-byte image retains its known hash, allocation and physical byte totals
+listed above. Every report matches an independent scan of the actual output,
+including all 64 displayed range boundaries/lengths and bounded 16-byte samples.
+All 1,572,864 non-BIOS bytes remain identical, with zero changes outside the
+owning outer FFS/BIOS. Eleven rereads confirm all four edits, five confirm only
+the moved Ref and unchanged paused states; all retain 68 Forms and the expected
+Ref owners/counts/offset. Removal invalidation and both-version changed-image
+rejection pass. No application page errors or non-static network requests occur.
+
+An initial attempt failed at browser page creation before source loading; it is
+not acceptance evidence. The subsequent complete run above passed. Use the same
+opt-in command. Private source, modules, editor/session JSON and outputs remain
+local; private checker intermediates are removed on exit. Only the checker and
+technical records change, with no production, timeout, coverage, ownership,
+allocation, codec, checksum or independent-reread guard changes.
+
+This closes only this exact controlled native-result-delivery close boundary.
+Dialog closure and component lifetime cancellation are combined, not isolated.
+It is not ordinary scheduling, a real I/O/hash failure, observation of the old
+React handler's complete return, source replacement, standalone engine rerun or
+hardware/recovery acceptance. Synthetic/React-jsdom checks remain separate.
+Other races/sources, root-only fit, unsupported formats/growth/capsules, missing
+qualifying sources, new BIOS and P53 dynamic roots retain their existing gates.
