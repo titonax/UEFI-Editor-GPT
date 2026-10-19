@@ -426,3 +426,60 @@ Production behavior, timeouts, coverage, ownership, allocation, codec, checksum
 and independent reread guards are unchanged. Root-only fit, unsupported formats,
 growth/capsules, missing qualifying uncompressed AMI/mixed sources, new BIOS and
 P53 dynamic roots retain their existing boundaries.
+
+## Held native session text across open-dialog Clear/Undo
+
+Reproduced on 2026-10-20 (Europe/Madrid) against deployed main
+`ea36b887eaf4dc2c8512f2f477674f7e1d9af55c`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39329430216)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39329430307)
+success. Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux,
+1600 × 1000 used the documented explicit container/certificate/proxy settings,
+`index-DvYis56o.js`, `index-D4JOsfQ5.css` and all three WASM readers. The exact
+size/hash-bound 4 MiB SPI was freshly recovered only through authorized ChatGPT
+files; no new source or semantic corpus inventory was introduced.
+
+After the existing regressions, the full four-operation queue has ready output.
+A wrapper calls the actual native `File.text` for a copy of the valid paused v2
+session, then holds delivery of its real result. A separate wrapper counts but
+does not delay or replace native `crypto.subtle.digest` calls. The held state
+records one read, one native completion, no delivered text and zero hashes.
+The normal dialog shows validation in progress.
+
+The source and dialog remain open while real Clear/Undo controls empty and
+restore the full selection. Output is invalidated. The old native text is then
+delivered without any newer session request masking it. A subsequent browser
+task observes one delivery and still zero hashes. AMI identity starts native
+digests before its first await, so this proves the cancelled text did not enter
+that validation path. The same document and visible dialog retain four selected
+entries, available Redo, no stale alert/loaded/busy message and disabled output.
+
+As a positive control, current loading of the same paused metadata executes five
+native hashes, restores the exact paused selection unapplied and discards Redo.
+Its v2 export deeply equals the original paused session. Current full loading
+then restores the exact original full export, again unapplied. The wrappers are
+restored before normal Apply/Check/download freshly reproduces the known full
+SPI. No editor, session adapter, codec, writer or firmware bytes are replaced.
+
+The complete checker exited zero: fourteen downloads and fourteen independent
+reload/analyses, comprising nine combined and five move-only SPIs (thirteen
+fresh builds and the prior one retained cached download). Every output retains
+its known hash, physical byte totals, allocation and range counts listed above.
+Independent scans match all report totals and all 64 displayed physical range
+boundaries/lengths and bounded 16-byte samples. Every complete 4,194,304-byte SPI
+preserves all 1,572,864 non-BIOS bytes and changes nothing outside outer FFS/BIOS.
+Nine rereads confirm four edits, five confirm only the moved Ref and unchanged
+paused states; all retain 68 Forms and the expected Ref owners/counts/offset.
+Removal invalidation and both-version changed-image/context rejection still
+pass. No page errors or non-static requests crossed the fail-closed boundary.
+
+Use the same opt-in command above. This is a controlled native-result-delivery
+probe, not ordinary scheduling, a real I/O/hash failure or observation of the
+old React handler's complete return. It isolates queue revision cancellation
+from closing/unmounting or replacing the source; those remain separate gates.
+Synthetic/React-jsdom tests, standalone engine acceptance and hardware/recovery
+remain distinct. Private bytes/JSON stay local and intermediates are removed on
+exit. Production code, source guards, timeouts, coverage, codecs, checksums,
+allocation, buffer ownership and independent reread limits are unchanged.
+Unsupported formats/growth/capsules, root-only fit, missing qualifying sources,
+new BIOS and P53 dynamic roots retain their existing boundaries.

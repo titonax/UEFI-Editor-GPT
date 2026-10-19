@@ -905,6 +905,12 @@ list the blocker for every unsupported case.
   a new root selection discarding the old Redo branch, exact new-branch Undo/Redo
   exports and fresh known full-SPI recovery. Thirteen downloads/reanalyses pass;
   the intermediate three-selected plan does not gain writer acceptance.
+  Deployed main `ea36b88` additionally passes held native session text across
+  Clear/Undo with source/dialog kept open: zero validation hashes on old delivery,
+  no stale status/output, current paused/full loads with exact exports and fresh
+  known full SPI. Fourteen downloads/reanalyses pass. Native delivery is
+  controlled; ordinary timing, old-handler full return, source/close boundaries
+  and failures remain separate gates.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This
