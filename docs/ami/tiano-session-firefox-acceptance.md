@@ -987,3 +987,56 @@ All source/ownership, buffer, codec, checksum, allocation, 15-minute build and
 independent reconstruction/reread guards are unchanged; no production code changed.
 Private firmware, decoded/editor/session JSON and downloads remain local;
 checker intermediates are removed on exit and public CI has no private input.
+
+## One-enabled/three-paused v1 migration and atomic rejection
+
+Reproduced on 2026-10-19 (Europe/Madrid) against deployed main
+`0b322572f4283f50e90f9118e45a77723155b3bb`, after successful exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39190017108)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39190017120).
+Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux, 1600 × 1000 used
+the documented container/certificate settings, `index-DvYis56o.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm`.
+The existing authorized ChatGPT archive supplied the exact source, verified by
+size/SHA-256. No new BIOS or semantic inventory was added. No browser API,
+editor, queue, codec, writer, response or download was mocked, timing-gated or
+fault-injected.
+
+The extended base checker retains both full v2/v1 round trips above, then:
+
+1. Loads v1 with the same four ordered action objects and identity hashes, but
+   enabled flags `[true, false, false, false]`, directly over the ready full queue.
+   It waits for all four actual checkbox states, not merely enabled Apply.
+   Check/download/details invalidate; re-export must equal the exact expected
+   metadata-only paused v2, preserving all selectors and flags.
+2. Fresh Apply/Check/download yields the known complete move-only SPI, SHA-256
+   `b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`,
+   with 12,295 changes only inside Setup FFS `[4612464, 4781106)`. The companion
+   FFS and every non-BIOS byte are identical.
+3. Changes only the disabled root's selector to nonexistent index `999` in v1.
+   Load rejects semantically with `targets a missing or ambiguous root`.
+   The exact paused checkbox selection and enabled Check/download/details remain;
+   re-export is deeply identical to the valid paused session. This proves atomic
+   session/ready-control retention, not a new download of the retained cached bytes.
+4. Reselects the three paused rows through actual checkboxes, requiring output
+   invalidation after each mutation. Fresh Apply/Check/download is byte-identical
+   to the full v2 baseline and retains the known full hash above.
+
+All four actual downloads are complete 8,388,608-byte SPIs: three full results
+with 140,913 changes inside the two original FFS owners, and one move-only result
+with the tighter single-owner bounds. All 1,572,864 non-BIOS bytes remain identical.
+Four fresh reload/analysis cycles independently reread the actual files: 70 Forms
+and the unique moved Ref in every output; full results retain Security `00`,
+vector `1111011` and empty suppression, whereas move-only retains Security `01`,
+vector `1111111` and nonempty suppression. The expression is unchanged throughout.
+Original full or paused sessions reject against each changed image/context,
+leaving empty queues and disabled download. No application page errors occurred;
+the complete extended base checker passed its first run.
+
+Use the same base-checker command above. This closes this exact paused-v1 gate,
+not dependent v1 sequences, other selections, histories/races, other sources,
+hardware/recovery or new byte-report UI/standalone engine acceptance. No production
+code changed. Expected hashes/counts, source identity, codec, checksum, allocation,
+buffer ownership, coverage, time limits and independent reread guards are unchanged.
+Private firmware/editor/session JSON and downloads remain local; temporary files
+are removed on exit and public CI has no private source.

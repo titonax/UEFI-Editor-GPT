@@ -27,7 +27,7 @@ const expectedOutputSha =
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "uefi-tiano-session-firefox-"));
 fs.writeFileSync(path.join(work, "source.bin"), sourceBytes);
 
-function assertMetadataOnly(session) {
+function assertMetadataOnly(session, selection = [true, true, true, true]) {
   assert.deepEqual(Object.keys(session).sort(), [
     "format",
     "kind",
@@ -53,25 +53,32 @@ function assertMetadataOnly(session) {
       sourceFormIndex: 3,
       referenceChildIndex: 49,
       destinationFormIndex: 5,
-      enabled: true,
+      enabled: selection[0],
     },
     {
       action: "ami-values",
       changes: [{ formIndex: 0, childIndex: 1, field: "accessLevel", value: "00" }],
-      enabled: true,
+      enabled: selection[1],
     },
     {
       action: "suppressions",
       changes: [{ conditionIndex: 5, active: false }],
-      enabled: true,
+      enabled: selection[2],
     },
-    { action: "ami-roots", changes: [{ rootIndex: 4, visible: false }], enabled: true },
+    {
+      action: "ami-roots",
+      changes: [{ rootIndex: 4, visible: false }],
+      enabled: selection[3],
+    },
   ]);
   assert.deepEqual(
     session.operations.map((op) => op.action),
     ["move-ref", "ami-values", "suppressions", "ami-roots"],
   );
-  for (const op of session.operations) assert.equal(op.enabled, true);
+  assert.deepEqual(
+    session.operations.map((op) => op.enabled),
+    selection,
+  );
   assert.deepEqual(Object.keys(session.operations[0]).sort(), [
     "action",
     "destinationFormIndex",
@@ -132,22 +139,28 @@ async function waitForOutput(page) {
   return downloadButton;
 }
 
-function verifyOutput(destination) {
+function verifyOutput(destination, mode = "full") {
+  assert(["full", "move-only"].includes(mode));
   const output = fs.readFileSync(destination);
   assert.equal(output.length, sourceBytes.length);
-  assert.equal(sha256(output), expectedOutputSha);
+  assert.equal(
+    sha256(output),
+    mode === "full"
+      ? expectedOutputSha
+      : "b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f",
+  );
   let changed = 0;
   let outsideOwners = 0;
   let outsideBios = 0;
   for (let index = 0; index < output.length; index++) {
     if (output[index] === sourceBytes[index]) continue;
     changed += 1;
-    const inFirstOwner = index >= 3239384 && index < 3419918;
+    const inFirstOwner = mode === "full" && index >= 3239384 && index < 3419918;
     const inSecondOwner = index >= 4612464 && index < 4781106;
     if (!inFirstOwner && !inSecondOwner) outsideOwners += 1;
     if (index < 1572864) outsideBios += 1;
   }
-  assert.equal(changed, 140913);
+  assert.equal(changed, mode === "full" ? 140913 : 12295);
   assert.equal(outsideOwners, 0);
   assert.equal(outsideBios, 0);
   console.log("COMPLETE_SPI_VERIFIED", {
@@ -160,7 +173,7 @@ function verifyOutput(destination) {
   return output;
 }
 
-async function downloadVerifiedOutput(page, destination) {
+async function downloadVerifiedOutput(page, destination, mode = "full") {
   await page
     .getByRole("button", { name: "Check firmware output", exact: true })
     .click();
@@ -170,7 +183,7 @@ async function downloadVerifiedOutput(page, destination) {
   );
   await button.click();
   await (await downloadPromise).saveAs(destination);
-  return verifyOutput(destination);
+  return verifyOutput(destination, mode);
 }
 
 async function openSource(page, source) {
@@ -337,19 +350,107 @@ async function openSource(page, source) {
       await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     }
 
-    for (const version of [2, 1]) {
+    const selection = [true, false, false, false];
+    const paused = structuredClone(v2);
+    paused.operations.forEach((op, index) => {
+      op.enabled = selection[index];
+    });
+    assertMetadataOnly(paused, selection);
+    const pausedFile = path.join(work, "session-paused-v1.json");
+    fs.writeFileSync(pausedFile, JSON.stringify({ ...paused, version: 1 }));
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedFile);
+    await page.waitForFunction(() => {
+      const boxes = [
+        ...document.querySelectorAll('[role="dialog"] input[type="checkbox"]'),
+      ];
+      return (
+        boxes.length === 4 && boxes.every((box, index) => box.checked === (index === 0))
+      );
+    });
+    const assertSelection = async () =>
+      assert.deepEqual(
+        await queue
+          .getByRole("checkbox")
+          .evaluateAll((boxes) => boxes.map((box) => box.checked)),
+        selection,
+      );
+    const assertOutputControls = async (disabled) => {
+      for (const name of [
+        "Check firmware output",
+        "Modified firmware image",
+        "Output details",
+      ])
+        assert.equal(
+          await page.getByRole("button", { name, exact: true }).isDisabled(),
+          disabled,
+        );
+    };
+    const exportPaused = async (file) => {
+      const downloaded = page.waitForEvent("download");
+      await queue
+        .getByRole("button", { name: "Save queue session", exact: true })
+        .click();
+      const destination = path.join(work, file);
+      await (await downloaded).saveAs(destination);
+      const restored = JSON.parse(fs.readFileSync(destination, "utf8"));
+      assertMetadataOnly(restored, selection);
+      assert.deepEqual(restored, paused);
+    };
+    await assertSelection();
+    await assertOutputControls(true);
+    await exportPaused("paused-migrated-v2.json");
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await downloadVerifiedOutput(
+      page,
+      path.join(work, "output-paused.bin"),
+      "move-only",
+    );
+    console.log("PAUSED_V1_MIGRATED_FRESH_MOVE_ONLY_SPI_VERIFIED");
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    const invalid = { ...structuredClone(paused), version: 1 };
+    invalid.operations[3].changes[0].rootIndex = 999;
+    assert.equal(invalid.operations[3].enabled, false);
+    const invalidFile = path.join(work, "invalid-paused-root-v1.json");
+    fs.writeFileSync(invalidFile, JSON.stringify(invalid));
+    await queue.getByLabel("Load queue session file").setInputFiles(invalidFile);
+    const rejection = queue.getByRole("alert");
+    await rejection.waitFor();
+    assert.match(await rejection.innerText(), /targets a missing or ambiguous root/);
+    await assertSelection();
+    await assertOutputControls(false);
+    await exportPaused("retained-paused-v2.json");
+    console.log("INVALID_PAUSED_V1_ROOT_REJECTED_ATOMICALLY_READY_OUTPUT_RETAINED");
+    for (const checkbox of (await queue.getByRole("checkbox").all()).slice(1)) {
+      await checkbox.check();
+      await assertOutputControls(true);
+    }
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const reselected = await downloadVerifiedOutput(
+      page,
+      path.join(work, "output-reselected.bin"),
+    );
+    assert(
+      reselected.equals(baseline),
+      "Reselection must reproduce the full SPI exactly",
+    );
+    console.log("PAUSED_V1_RESELECTION_FULL_SPI_IDENTICAL");
+
+    for (const variant of ["v2", "v1", "paused", "reselected"]) {
+      const moveOnly = variant === "paused";
       await page.reload();
-      await openSource(page, path.join(work, `output-v${version}.bin`));
+      await openSource(page, path.join(work, `output-${variant}.bin`));
       const readDownload = page.waitForEvent("download");
       await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
-      const reopenedPath = path.join(work, `reopened-v${version}.json`);
+      const reopenedPath = path.join(work, `reopened-${variant}.json`);
       await (await readDownload).saveAs(reopenedPath);
       const reopened = JSON.parse(fs.readFileSync(reopenedPath, "utf8"));
       assert.equal(reopened.forms.length, 70);
-      assert.equal(reopened.forms[0].children[1].accessLevel, "00");
+      assert.equal(reopened.forms[0].children[1].accessLevel, moveOnly ? "01" : "00");
       assert.deepEqual(
         reopened.rootVisibility.entries.map((entry) => entry.value),
-        [1, 1, 1, 1, 0, 1, 1],
+        moveOnly ? [1, 1, 1, 1, 1, 1, 1] : [1, 1, 1, 1, 0, 1, 1],
       );
       const flatten = (items) =>
         items.flatMap((item) => [item, ...flatten(item.children || [])]);
@@ -363,9 +464,13 @@ async function openSource(page, source) {
         (item) => item.offset.toLowerCase() === "0x8b359",
       );
       assert(suppression);
-      assert.equal(suppression.start, suppression.end);
+      if (moveOnly)
+        assert(
+          Number.parseInt(suppression.end, 16) > Number.parseInt(suppression.start, 16),
+        );
+      else assert.equal(suppression.start, suppression.end);
       assert.equal(suppression.expression, condition.expression);
-      console.log("INDEPENDENT_FOUR_EDIT_REREAD", version);
+      console.log("INDEPENDENT_SELECTION_REREAD", variant);
       await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
       const reopenedQueue = page.getByRole("dialog", {
         name: "Change queue",
@@ -373,7 +478,11 @@ async function openSource(page, source) {
       });
       await reopenedQueue
         .getByLabel("Load queue session file")
-        .setInputFiles(path.join(work, `session-v${version}.json`));
+        .setInputFiles(
+          moveOnly
+            ? pausedFile
+            : path.join(work, `session-${variant === "v2" ? "v2" : "v1"}.json`),
+        );
       const rejection = reopenedQueue.getByRole("alert");
       await rejection.waitFor();
       assert.match(
