@@ -133,6 +133,11 @@ history reset in deployed Firefox. The
 [exact Tiano history acceptance](ami/tiano-history-firefox-acceptance.md) now also
 passes four-operation AMI Clear/Undo, ready-output Redo/Undo invalidation, fresh
 identical full-SPI rebuilding and independent four-edit reread. The
+deployed-main `6f80e02` history extension also passes 52 actual root-selection
+mutations followed by exactly 50 Undo and 50 Redo steps. Every state matches
+the expected selection without output; oldest/newest v2 exports match exactly.
+A fresh post-limit SPI equals both baselines, and all three actual downloads
+independently reread all four edits with non-BIOS/outside-owner bytes intact. The
 [exact P53 history acceptance](phoenix/p53-history-firefox-acceptance.md) also
 passes static Ref staging Undo/Redo, Clear/Undo, ready-output Redo/Undo
 invalidation, two fresh identical full-SPI downloads and independent Ref reread.
