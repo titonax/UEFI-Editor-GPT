@@ -850,7 +850,11 @@ list the blocker for every unsupported case.
   Tiano combined v1 migration to deeply identical metadata-only v2, unapplied
   restore, two identical complete SPIs with all non-BIOS bytes intact, two
   independent four-edit rereads and both-version changed-image/context rejection.
-  Paused/dependent v1 variants and other sequences remain separate gates.
+  A deployed-main `0b32257` extension also passes one-enabled/three-paused v1
+  migration with exact flags/re-export, atomic invalid paused-root rejection
+  retaining selection/ready controls, fresh move-only SPI, full reselection and
+  four independent selection-aware rereads with changed-image rejection.
+  Dependent v1 variants and other sequences remain separate gates.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed
