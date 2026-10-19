@@ -869,6 +869,13 @@ list the blocker for every unsupported case.
   Valid-load recovery, six independent actual-file rereads and changed-image
   session rejection pass. This does not establish the 1000-operation positive
   boundary, other adapters/sources or asynchronous failure acceptance.
+  A deployed-main `ef47af1` extension also closes exact empty-session v2/v1
+  loading: wrong-image hash rejection retains the full queue/export/ready controls;
+  valid empty loads clear the queue and disable Apply/output; single-step Undo,
+  Redo and Undo preserve exact full/empty v2 exports without reviving output.
+  Fresh post-Undo complete SPIs equal the baseline and independently reread all
+  four edits, with non-BIOS/outside-owner bytes intact. Other adapters, paused
+  empty-load predecessors, further histories and races remain separate.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed
