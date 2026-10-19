@@ -861,6 +861,14 @@ list the blocker for every unsupported case.
   nine download byte reports and eight independent actual-file reanalyses each,
   with all non-BIOS/outside-owner bytes intact. Other dependent selections,
   permutations, histories and races remain separate gates.
+  A deployed-main `4ccdd6d` base-checker extension also accepts exact 1 MiB
+  v2/v1 sessions and rejects malformed JSON, a one-byte-oversized file, future
+  version, unknown field/action, non-boolean selection and 1001 operations.
+  Each rejection preserves exact four-entry exports/selection and ready controls;
+  actual cached SPI downloads after each seven-case batch remain byte-identical.
+  Valid-load recovery, six independent actual-file rereads and changed-image
+  session rejection pass. This does not establish the 1000-operation positive
+  boundary, other adapters/sources or asynchronous failure acceptance.
   The [exact nested-LZMA combined session acceptance](ami/nested-lzma-session-firefox-acceptance.md)
   separately passes root/move/SetupData/suppression v2 export/import, fresh exact
   full-SPI output, removal invalidation, independent four-edit reread and changed
