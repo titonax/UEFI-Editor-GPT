@@ -302,7 +302,11 @@ async function openSource(page, source) {
       await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
       assert.match(await queue.innerText(), /The queue is empty/);
       const sessionInput = queue.getByLabel("Load queue session file");
-      await sessionInput.setInputFiles(path.join(work, `session-v${version}.json`));
+      const sessionText = JSON.stringify({ ...v2, version });
+      const boundaryFile = path.join(work, `session-limit-v${version}.json`);
+      fs.writeFileSync(boundaryFile, sessionText.padEnd(1024 * 1024, " "));
+      assert.equal(fs.statSync(boundaryFile).size, 1024 * 1024);
+      await sessionInput.setInputFiles(boundaryFile);
       await waitForDisabled(
         queue.getByRole("button", { name: "Apply selected", exact: true }),
         false,
@@ -347,6 +351,85 @@ async function openSource(page, source) {
         );
       else baseline = output;
       console.log("RESTORED_OUTPUT_VERIFIED", version);
+      await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+
+      const nonBoolean = structuredClone({ ...v2, version });
+      nonBoolean.operations[0].enabled = "false";
+      const unknownAction = structuredClone({ ...v2, version });
+      unknownAction.operations[0].action = "write-bytes";
+      const rejectedInputs = [
+        ["malformed-json", "{", /is not valid JSON/],
+        [
+          "file-limit",
+          sessionText.padEnd(1024 * 1024 + 1, " "),
+          /exceeds the 1 MiB file limit/,
+        ],
+        [
+          "future-version",
+          JSON.stringify({ ...v2, version: 3 }),
+          /unsupported format, version or editor kind/,
+        ],
+        [
+          "unknown-field",
+          JSON.stringify({ ...v2, version, firmware: [] }),
+          /unsupported format, version or editor kind/,
+        ],
+        ["non-boolean", JSON.stringify(nonBoolean), /has an invalid Ref move/],
+        ["unknown-action", JSON.stringify(unknownAction), /invalid menu action/],
+        [
+          "operation-limit",
+          JSON.stringify({
+            ...v2,
+            version,
+            operations: Array(1001).fill(v2.operations[0]),
+          }),
+          /too many or invalid operations/,
+        ],
+      ];
+      for (const [name, text, error] of rejectedInputs) {
+        const file = path.join(work, `invalid-${name}-v${version}.json`);
+        fs.writeFileSync(file, text);
+        assert.equal(fs.statSync(file).size, Buffer.byteLength(text));
+        await sessionInput.setInputFiles(file);
+        const alert = queue.getByRole("alert");
+        await alert.waitFor();
+        assert.match(await alert.innerText(), error);
+        assert.deepEqual(
+          await queue
+            .getByRole("checkbox")
+            .evaluateAll((boxes) => boxes.map((box) => box.checked)),
+          [true, true, true, true],
+        );
+        for (const name of [
+          "Check firmware output",
+          "Modified firmware image",
+          "Output details",
+        ])
+          assert.equal(
+            await page.getByRole("button", { name, exact: true }).isDisabled(),
+            false,
+          );
+        const saved = page.waitForEvent("download");
+        await queue
+          .getByRole("button", { name: "Save queue session", exact: true })
+          .click();
+        const exported = path.join(work, `retained-${name}-v${version}.json`);
+        await (await saved).saveAs(exported);
+        const retained = JSON.parse(fs.readFileSync(exported, "utf8"));
+        assertMetadataOnly(retained);
+        assert.deepEqual(retained, v2);
+        assert.equal(await queue.getByRole("alert").count(), 0);
+        console.log("INVALID_SESSION_ATOMIC_READY_QUEUE_RETAINED", version, name);
+      }
+      await queue.getByRole("button", { name: "Close", exact: true }).click();
+      const retainedDownload = page.waitForEvent("download");
+      await page
+        .getByRole("button", { name: "Modified firmware image", exact: true })
+        .click();
+      const retainedFile = path.join(work, `output-retained-v${version}.bin`);
+      await (await retainedDownload).saveAs(retainedFile);
+      assert(verifyOutput(retainedFile).equals(baseline));
+      console.log("REJECTIONS_RETAINED_ACTUAL_CACHED_SPI_IDENTICAL", version);
       await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     }
 
@@ -437,7 +520,14 @@ async function openSource(page, source) {
     );
     console.log("PAUSED_V1_RESELECTION_FULL_SPI_IDENTICAL");
 
-    for (const variant of ["v2", "v1", "paused", "reselected"]) {
+    for (const variant of [
+      "v2",
+      "v1",
+      "retained-v2",
+      "retained-v1",
+      "paused",
+      "reselected",
+    ]) {
       const moveOnly = variant === "paused";
       await page.reload();
       await openSource(page, path.join(work, `output-${variant}.bin`));
@@ -481,7 +571,7 @@ async function openSource(page, source) {
         .setInputFiles(
           moveOnly
             ? pausedFile
-            : path.join(work, `session-${variant === "v2" ? "v2" : "v1"}.json`),
+            : path.join(work, `session-${variant.endsWith("v2") ? "v2" : "v1"}.json`),
         );
       const rejection = reopenedQueue.getByRole("alert");
       await rejection.waitFor();

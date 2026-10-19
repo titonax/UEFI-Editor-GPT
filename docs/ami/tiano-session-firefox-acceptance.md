@@ -1100,3 +1100,65 @@ no production code, source/owner/buffer/codec/checksum/allocation guards,
 15-minute build limit, coverage or independent reread checks changed.
 Private firmware, decoded/editor/session JSON and downloads stay local;
 checker intermediates are removed on exit and public CI has no private source.
+
+## Untrusted session boundaries and retained-output recovery
+
+Reproduced on 2026-10-19 (Europe/Madrid) against deployed main
+`4ccdd6df074643c68bfea99f9473d1e7d059380c`, after successful exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39199562878)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39199562829).
+Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux, 1600 × 1000 used
+the documented container/certificate settings and the same `index-DvYis56o.js`,
+`index-D4JOsfQ5.css`, `tiano-decompress.wasm` and `ifrextractor.wasm` assets.
+The source was recovered afresh from the authorized ChatGPT archive and verified
+against the exact source size/SHA-256 above. No new BIOS/inventory was added.
+An initial launch stopped before application execution because the matching
+Firefox executable was absent; installing build 1538 resolved that environment
+failure. The first complete browser run then passed, without mocks, timing gates
+or fault injection.
+
+The base checker command above now runs this bounded matrix for both v2 and v1:
+
+1. Pad the exact four-action session with JSON whitespace to precisely 1,048,576
+   actual file bytes. Clear/load through the ordinary session file control;
+   exact ordered selectors, identity and enabled flags re-export as metadata-only
+   v2, with no restored Apply/output. Fresh Apply/Check/download produces the
+   known four-edit full SPI.
+2. Load seven invalid files separately: malformed JSON; the valid session padded
+   to 1,048,577 bytes; version 3; an extra top-level `firmware: []` field (no
+   firmware data); string `enabled: "false"`; unknown `write-bytes` action; and
+   1001 operations. Require each precise existing parser/file-limit rejection.
+   All four checkboxes stay selected, ready Check/download/details stay enabled,
+   and a fresh export is deeply identical to the original v2. Saving clears the
+   current rejection, so the next alert cannot be a stale match.
+3. After each seven-case batch, download the actual retained cached SPI without
+   another Check and compare all bytes with the fresh baseline. Independently
+   reload/analyze each retained file later. This proves retained bytes after the
+   whole batch, not a separate cached-byte download after every individual case.
+4. Continue ordinary valid loading (v1 full, then paused v1), fresh move-only
+   output, existing invalid-paused-root rejection and full reselection/rebuild.
+   No writer or parser guard changes were required for recovery.
+
+The completed run has 14 matrix rejections and six complete 8,388,608-byte SPI
+downloads: four fresh reconstructions and two retained cached downloads. Five
+full results retain SHA-256
+`264f90a0934848916bdc3e123564ce5c67c068faa6c48ee03e756f7c21f3aaae`
+and 140,913 changed bytes within the two original FFS owners. The move-only result
+retains SHA-256
+`b1d6224b3ff47692e56ee5c42e7e9055c2154fccfcb3b79ac9fe713df745705f`
+and 12,295 changes only inside the original Setup owner. All 1,572,864 non-BIOS
+bytes and all outside-owner bytes remain identical. Six independent actual-file
+analyses reread 70 Forms and the unique moved Ref, with the expected full or paused
+Security/root/suppression states and unchanged expression. Each changed image
+rejects its original session, leaving an empty queue and disabled download.
+No application page errors occurred.
+
+This is exact-source real Firefox acceptance, separate from synthetic schema and
+React/jsdom tests, standalone engine tests or hardware. The valid 1000-operation
+boundary, every possible malformed field, other adapters/sources, ordinary I/O
+failure, asynchronous races, direct suppression UI and hardware remain separate.
+The firmware-change-review skill guided the narrow checker/evidence change.
+No production code, coverage, timeout, source/owner/buffer/codec/checksum,
+allocation or independent reconstruction/reread guard changed. Private firmware,
+decoded/editor/session JSON and downloads remain local; checker intermediates are
+removed on exit and public CI has no private source.
