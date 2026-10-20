@@ -1738,6 +1738,121 @@ async function verifyByteComparisonReport(page, output, expected) {
     assert(closedRejectionRecovery.equals(baseline));
     console.log("REOPENED_CURRENT_ROOT_REJECTION_RETAINS_OUTPUT_VALID_RETRY_FRESH_SPI");
 
+    // Source replacement also discards an already native-hashed invalid load.
+    // Reopen identical original bytes without reloading the browser document.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await page.evaluate(installRejectionProbe, session.source.contextSha256);
+    await queue.getByLabel("Load queue session file").setInputFiles(invalidPausedFile);
+    await page.waitForFunction(() => window.__nestedRejectionProbe.state.held);
+    assert.deepEqual(await page.evaluate(() => window.__nestedRejectionProbe.state), {
+      calls: 3,
+      completed: 3,
+      delivered: 0,
+      held: true,
+      matches: true,
+    });
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const rejectionBase = await reopenAndRead("source.bin");
+    assert.equal(rejectionBase.forms.length, 68);
+    assert.equal(refs(rejectionBase, "0x403").length, 2);
+    assert.equal(refs(rejectionBase, "0x40A").length, 0);
+    assert.equal(question(rejectionBase, "System Language").accessLevel, "01");
+    assert.deepEqual(
+      rejectionBase.rootVisibility.entries.map((entry) => entry.value),
+      [1, 1, 1, 1, 0, 1, 1, 1],
+    );
+    const rejectionSuppression = rejectionBase.suppressions.find(
+      (entry) => entry.offset.toLowerCase() === "0x2b15a",
+    );
+    assert(rejectionSuppression);
+    assert.equal(rejectionSuppression.active, true);
+    assert.notEqual(rejectionSuppression.start, rejectionSuppression.end);
+    await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+    await queue.waitFor({ state: "visible" });
+    await assertResetHistory();
+    const beforeSourceRejectionDelivery = await page.evaluate(
+      () => window.__nestedRejectionProbe.state,
+    );
+    assert.equal(beforeSourceRejectionDelivery.held, true);
+    assert.equal(beforeSourceRejectionDelivery.delivered, 0);
+    assert(beforeSourceRejectionDelivery.calls >= 3);
+    assert.equal(
+      beforeSourceRejectionDelivery.completed,
+      beforeSourceRejectionDelivery.calls,
+    );
+    await page.evaluate(() => window.__nestedRejectionProbe.release());
+    await page.waitForFunction(
+      () => window.__nestedRejectionProbe.state.delivered === 1,
+    );
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    assert.deepEqual(await page.evaluate(() => window.__nestedRejectionProbe.state), {
+      ...beforeSourceRejectionDelivery,
+      delivered: 1,
+      held: false,
+    });
+    await assertResetHistory();
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    console.log(
+      "SAME_BYTE_SOURCE_REOPEN_LATE_ROOT_REJECTION_EMPTY_HISTORY_NO_STALE_OUTPUT",
+    );
+    const beforeCurrentRejection = await page.evaluate(
+      () => window.__nestedRejectionProbe.state.calls,
+    );
+    await queue.getByLabel("Load queue session file").setInputFiles(invalidPausedFile);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    assert.match(
+      await queue.getByRole("alert").innerText(),
+      /Queue session targets a missing or ambiguous root\./,
+    );
+    assert.equal(
+      (await page.evaluate(() => window.__nestedRejectionProbe.state.calls)) -
+        beforeCurrentRejection,
+      3,
+    );
+    await assertInvalidated(true);
+    for (const name of ["Undo queue change", "Redo queue change"])
+      assert.equal(
+        await queue.getByRole("button", { name, exact: true }).isDisabled(),
+        true,
+      );
+    assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    await page.evaluate(() => window.__nestedRejectionProbe.restore());
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionFile);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await saveExactSession(
+      session,
+      [true, true, true, true],
+      "source-rejection-retry.json",
+    );
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const sourceRejectionRecovery = await downloadVerifiedOutput(
+      page,
+      path.join(work, "source-rejection-recovery.bin"),
+    );
+    assert(sourceRejectionRecovery.equals(baseline));
+    console.log("SOURCE_REOPEN_CURRENT_ROOT_REJECTION_VALID_RETRY_FRESH_SPI");
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -1775,6 +1890,7 @@ async function verifyByteComparisonReport(page, output, expected) {
       "late-rejection-recovery.bin",
       "closed-rejection-retained.bin",
       "closed-rejection-recovery.bin",
+      "source-rejection-recovery.bin",
     ]) {
       await page.reload();
       await page
