@@ -919,6 +919,13 @@ list the blocker for every unsupported case.
   non-BIOS/outside-owner bytes intact. Dialog/component lifetimes are combined;
   source replacement, ordinary timing, failures and old-handler full return
   remain separate gates.
+  Deployed main `6570a3b` additionally passes held native text across same-byte
+  source close/reopen: original base, empty queue/history and no cached output,
+  then zero added hashes on old delivery before any newer session request.
+  Current paused/full loads retain exact exports and freshly rebuild the known
+  full SPI. Seventeen downloads/reanalyses preserve non-BIOS/outside-owner bytes.
+  Dialog/source/component lifetimes are combined; different-byte replacement,
+  late failures, ordinary timing and old-handler full return remain separate.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This

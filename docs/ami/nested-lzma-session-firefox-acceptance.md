@@ -544,3 +544,74 @@ React handler's complete return, source replacement, standalone engine rerun or
 hardware/recovery acceptance. Synthetic/React-jsdom checks remain separate.
 Other races/sources, root-only fit, unsupported formats/growth/capsules, missing
 qualifying sources, new BIOS and P53 dynamic roots retain their existing gates.
+
+## Held session read across same-byte source replacement
+
+Reproduced on 2026-10-20 (Europe/Madrid) against deployed main
+`6570a3beba20f61069bf3cf051c3b6d104cb9933`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39343197277)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39343197272)
+success. Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux,
+1600 × 1000 used the explicit container/certificate/proxy settings above,
+`index-DvYis56o.js`, `index-D4JOsfQ5.css` and the same three WASM readers.
+The exact size/hash-bound 4 MiB source was freshly recovered from authorized
+ChatGPT files only. No new BIOS or semantic corpus inventory was introduced.
+
+After the preceding regressions and a fresh combined full-SPI output, a new
+probe instance holds delivery of the real native `File.text` result for the
+valid paused v2 session. The dialog visibly reports validation; one read and
+one native completion have occurred, with no delivery or digest calls. The real
+Close and Load another firmware controls return to upload. The identical source
+is selected and analysed afresh without navigating/reloading the document.
+
+Exported fresh base data confirms 68 Forms, original Ref counts two under
+Advanced and zero under PCI Subsystem Settings, System Language `01`, original
+root bytes `[1,1,1,1,0,1,1,1]` and the original active nonempty suppression at
+`0x2B15A`. The new queue is empty, with Apply/Undo/Redo, Check/download/details
+disabled and no alert, loaded or busy message. `performance.timeOrigin` is
+unchanged. No newer session request masks the old read.
+
+Only then is the old native text delivered. A subsequent browser task observes
+one delivery and no additional native digest calls relative to the post-analysis
+snapshot. Source analysis hashes are accounted for separately rather than being
+attributed to old delivery. The empty queue/history and invalidated output remain
+unchanged. Because adapter identity starts native hashes before its first await,
+this proves the obsolete text did not enter that validation path; it does not
+observe the old React handler's entire return.
+
+As a positive control, current paused loading on the reopened source executes
+five native hashes, restores exact flags `[false,true,false,false]`, re-exports
+deeply identical metadata-only v2 and leaves output invalidated. Current full
+loading restores the exact original full export, again unapplied. Original
+native method descriptors are restored before fresh Apply/Check/download
+reproduces the known combined baseline byte for byte.
+
+The complete extended checker exited zero with seventeen actual downloads,
+seventeen exact byte reports and seventeen independent reload/analyses: twelve
+combined and five move-only SPIs, fifteen fresh builds plus the two previous
+retained cached downloads. Every complete 4,194,304-byte SPI retains its known
+hash, packed allocation and physical totals above. Each independent scan matches
+all report totals, all 64 displayed physical ranges/lengths and bounded 16-byte
+samples. All 1,572,864 non-BIOS bytes and every byte outside outer FFS/BIOS stay
+identical. Twelve rereads confirm four edits, five confirm only the moved Ref
+and unchanged paused states; all retain 68 Forms and expected Ref ownership and
+offset. Removal invalidation and both-version changed-image rejection pass.
+No page errors or requests outside the static-GET-only boundary occur.
+
+The first concurrent local check failed with three unchanged 5-second synthetic
+UI test timeouts: AMI allocation failure/retry, AMI ready-plan reorder and Phoenix
+ready-plan reorder (677 passed, three failed in two files). It is not a green
+check. No timeout or coverage guard is changed; publication requires a complete
+`npm run check` rerun without concurrent Firefox and successful exact-head CI.
+The PR audits those final results separately from real-source browser acceptance.
+
+Use the same opt-in command above. Source, modules, editor/session JSON and
+outputs stay private/local; checker intermediates are removed on exit. No
+production behavior, source/ownership checks, codec, checksum, allocation,
+15-minute build bound or independent reread guard changes. This controlled
+native-delivery probe combines dialog closure and source/component lifetimes;
+it does not isolate their individual cancellation mechanisms. Different-byte
+replacement, late rejection, ordinary scheduling, actual I/O/hash failures,
+standalone engine acceptance and hardware/recovery remain separate gates.
+Unsupported formats/growth/capsules, root-only fit, missing qualifying sources,
+new BIOS and P53 dynamic roots retain their existing limits.
