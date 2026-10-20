@@ -933,6 +933,13 @@ list the blocker for every unsupported case.
   and final independent rereads preserve every non-BIOS/outside-owner byte.
   This exact pair combines dialog/source lifetimes; late rejection, other sources,
   ordinary timing, I/O/hash failures and hardware remain separate gates.
+  Deployed main `f256116` additionally passes the native final-identity digest
+  held before paused-root rejection across open-dialog Clear/Undo: no stale alert,
+  exact full selection/Redo retained and output invalidated. Current identical
+  invalid metadata rejects after three hashes; valid retry exports exactly and
+  freshly rebuilds the known full SPI. Nineteen downloads/reports/final rereads
+  preserve non-BIOS/outside-owner bytes. Other rejection boundaries, source/dialog
+  replacement during rejection, ordinary timing and hardware remain separate.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This

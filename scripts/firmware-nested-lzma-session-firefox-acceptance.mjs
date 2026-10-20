@@ -1484,6 +1484,140 @@ async function verifyByteComparisonReport(page, output, expected) {
       distinctLoadHashes,
     );
 
+    // Delay the real final identity digest, not a fabricated error. The same
+    // invalid paused root already rejects atomically above. Keep source/dialog
+    // open so only a Clear/Undo revision change cancels this late rejection.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await page.evaluate((expectedContext) => {
+      const descriptor = Object.getOwnPropertyDescriptor(crypto.subtle, "digest");
+      const native = crypto.subtle.digest;
+      const state = {
+        calls: 0,
+        completed: 0,
+        delivered: 0,
+        held: false,
+        matches: false,
+      };
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      crypto.subtle.digest = async function (...args) {
+        const call = ++state.calls;
+        const result = await native.apply(this, args);
+        state.completed++;
+        if (call === 3) {
+          state.matches =
+            Array.from(new Uint8Array(result), (byte) =>
+              byte.toString(16).padStart(2, "0"),
+            ).join("") === expectedContext;
+          state.held = true;
+          await gate;
+          state.held = false;
+          state.delivered++;
+        }
+        return result;
+      };
+      window.__nestedRejectionProbe = {
+        state,
+        release,
+        restore: () => {
+          if (descriptor) Object.defineProperty(crypto.subtle, "digest", descriptor);
+          else delete crypto.subtle.digest;
+        },
+      };
+    }, session.source.contextSha256);
+    const invalidPausedFile = path.join(work, "invalid-paused-root-v2.json");
+    await queue.getByLabel("Load queue session file").setInputFiles(invalidPausedFile);
+    await page.waitForFunction(() => window.__nestedRejectionProbe.state.held);
+    assert.deepEqual(await page.evaluate(() => window.__nestedRejectionProbe.state), {
+      calls: 3,
+      completed: 3,
+      delivered: 0,
+      held: true,
+      matches: true,
+    });
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    await assertInvalidated(true);
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    await page.evaluate(() => window.__nestedRejectionProbe.release());
+    await page.waitForFunction(
+      () => window.__nestedRejectionProbe.state.delivered === 1,
+    );
+    // Let the identity continuation, synchronous root rejection and controls'
+    // catch run across browser tasks; do not claim a captured React full return.
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    assert.deepEqual(await page.evaluate(() => window.__nestedRejectionProbe.state), {
+      calls: 3,
+      completed: 3,
+      delivered: 1,
+      held: false,
+      matches: true,
+    });
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    assert.equal(await queue.isVisible(), true);
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    assert.equal(await redoButton.isDisabled(), false);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    console.log("LATE_PAUSED_ROOT_REJECTION_CLEAR_UNDO_NO_STALE_ALERT_REDO_RETAINED");
+
+    // Current validation of the identical invalid file must still reject after
+    // all three genuine hashes, without replacing the full queue or its Redo.
+    await queue.getByLabel("Load queue session file").setInputFiles(invalidPausedFile);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    assert.match(
+      await queue.getByRole("alert").innerText(),
+      /Queue session targets a missing or ambiguous root\./,
+    );
+    assert.equal(
+      await page.evaluate(() => window.__nestedRejectionProbe.state.calls),
+      6,
+    );
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    assert.equal(await redoButton.isDisabled(), false);
+    await page.evaluate(() => window.__nestedRejectionProbe.restore());
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionFile);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    assert.equal(await redoButton.isDisabled(), true);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await saveExactSession(
+      session,
+      [true, true, true, true],
+      "late-rejection-retry.json",
+    );
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const lateRejectionRecovery = await downloadVerifiedOutput(
+      page,
+      path.join(work, "late-rejection-recovery.bin"),
+    );
+    assert(lateRejectionRecovery.equals(baseline));
+    console.log("CURRENT_THREE_HASH_ROOT_REJECTION_VALID_RETRY_FRESH_FULL_SPI");
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -1518,6 +1652,7 @@ async function verifyByteComparisonReport(page, output, expected) {
       "closed-dialog-recovery.bin",
       "source-replacement-recovery.bin",
       "distinct-source-recovery.bin",
+      "late-rejection-recovery.bin",
     ]) {
       await page.reload();
       await page

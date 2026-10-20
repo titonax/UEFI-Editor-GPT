@@ -686,3 +686,64 @@ establish other sources, late rejection, ordinary scheduling, actual I/O/hash
 failure, old-handler full return, standalone engine or hardware/recovery acceptance.
 Unsupported formats/growth/capsules, root-only fit, missing qualifying sources,
 new BIOS and P53 dynamic roots retain their existing gates.
+
+## Late paused-root rejection across open-dialog Clear/Undo
+
+Reproduced on 2026-10-20 (Europe/Madrid) against deployed main
+`f2561166001507328204bca9f16167035c4a3974`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39361266155)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39361266132)
+success. Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux,
+1600 × 1000 used the documented explicit container/certificate/proxy settings,
+`index-DvYis56o.js`, `index-D4JOsfQ5.css` and the three existing WASM readers.
+The exact size/hash-bound 4 MiB source was freshly recovered only from authorized
+ChatGPT files. No new BIOS or semantic corpus inventory was introduced.
+
+After the preceding regressions, the original source has ready combined output.
+The checker loads the same invalid paused-v2 metadata already rejected by the
+ordinary atomic control: only its root selector targets a missing root. A wrapper
+forwards every SHA-256 receiver/argument/result to native Firefox, holding only
+delivery of the third completed digest. Its actual bytes must equal the saved
+opened-context SHA-256. The probe observes three calls/completions, one held
+result and zero deliveries while the dialog visibly reports validation. No
+session, firmware, validation decision, codec or writer result is substituted.
+
+With source and dialog kept open, real Clear/Undo restores the full four-selected
+queue at a new revision. Apply/output remain invalidated and Redo is available.
+No newer session request masks the old one. Releasing the exact native digest
+allows identity validation and synchronous root replay to continue. After browser
+tasks/two animation frames, three calls/completions and one delivery are observed;
+the full selection, Redo and disabled output remain, with no stale alert, loaded
+or busy message and no document-time-origin change. This probes the reviewed
+late-rejection continuation, not instrumentation of the old React handler's full
+return or ordinary browser scheduling.
+
+Current loading of that identical invalid file executes three more native hashes
+and visibly rejects with `Queue session targets a missing or ambiguous root.`
+The full queue and Redo remain unchanged; there is no partial paused replacement.
+After restoring the native descriptor, current valid full-v2 loading clears the
+error, discards Redo and re-exports deeply identical metadata, still unapplied.
+Fresh Apply/Check/download reproduces the known complete combined SPI byte for
+byte. No writer is invoked for the invalid metadata.
+
+The complete extended checker passed its first attempt and exited zero: nineteen
+actual downloads/reports, seventeen fresh builds plus two retained cached downloads,
+and nineteen final independent actual-file reload/analyses. Fourteen combined and
+five move-only SPIs retain their known hashes, complete 4,194,304-byte size,
+allocation and physical totals above. Every report matches an independent scan
+of all totals, all 64 displayed ranges/lengths and bounded 16-byte samples.
+All 1,572,864 non-BIOS bytes and all bytes outside outer FFS/BIOS stay identical.
+Final rereads confirm 68 Forms, expected Ref owners/counts/offset and either all
+four edits or unchanged paused states. Removal invalidation, both-version changed
+image/context rejection, zero page errors and the static-GET-only boundary pass.
+
+Use the same opt-in command above. Private source/modules/JSON/output stay local
+and checker intermediates are removed on exit. Final local `npm run check` and
+exact-head CI are required before merge and audited in the PR. No production
+code, timeouts, coverage, identity/ownership/buffer, codec, checksum, capacity or
+independent reread guard changes. This closes only the exact final-identity/paused
+root rejection across queue revision; dialog/source replacement during rejection,
+other hash boundaries/rejection causes, actual I/O/hash failure, standalone engine
+reruns and hardware/recovery remain separate gates. Unsupported formats/growth/
+capsules, root-only fit, missing qualifying sources, new BIOS and P53 dynamic roots
+retain their existing limits.
