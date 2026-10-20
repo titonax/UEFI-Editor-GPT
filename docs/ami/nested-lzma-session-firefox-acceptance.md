@@ -615,3 +615,74 @@ replacement, late rejection, ordinary scheduling, actual I/O/hash failures,
 standalone engine acceptance and hardware/recovery remain separate gates.
 Unsupported formats/growth/capsules, root-only fit, missing qualifying sources,
 new BIOS and P53 dynamic roots retain their existing limits.
+
+## Held native read across the actual different-byte download
+
+Reproduced on 2026-10-20 (Europe/Madrid) against deployed main
+`c623d2abe94a90e54ece16ed2ff4ef1ddde17721`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39356259100)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39356259135)
+success. Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux,
+1600 × 1000 used the explicit container/certificate/proxy settings above,
+`index-DvYis56o.js`, `index-D4JOsfQ5.css` and the same three WASM readers.
+The exact accepted 4 MiB source was freshly recovered only from authorized
+ChatGPT files. No new BIOS or semantic corpus inventory was introduced.
+
+The replacement is the actual combined SPI downloaded earlier in this same run,
+not injected byte corruption or an old temporary output. Its known
+`014af11ec7d614471d873974b83b90c1ae5583adb51beeeda68d3c6940bd64e6`
+hash is asserted and differs from the original
+`cd22f87daee0d50bf82520aaa6669a6731bdaaf3692690649533790c8e027f9a`.
+With fresh combined output ready on the original, a new probe holds delivery
+of the real native `File.text` result for the valid paused v2 session. The
+visible dialog shows validation; one native read completed, with zero delivered
+results and hashes. Real Close/Load another firmware controls then open the
+downloaded different bytes in the same document.
+
+Fresh analysis/export independently confirms all four applied edits: 68 Forms,
+Ref counts one under Advanced and one under PCI Subsystem Settings with moved
+offset `0x2B49B`, Language `00`, eight root-vector bytes one and empty suppression
+body at `0x2B14F` for the scope at `0x2B14B`. The new queue/history are empty;
+Apply, Check/download/details and Undo/Redo are disabled, without an old alert
+or loaded/busy message. `performance.timeOrigin` remains unchanged.
+
+Old native text is released only after this reset and before any newer session
+request. A subsequent browser task observes one delivery and no added native
+digest calls relative to the post-analysis snapshot. Queue/history/output remain
+empty/disabled. Adapter identity starts native hashes before its first await,
+so the obsolete text did not enter that validation path; this does not instrument
+the old React handler's complete return.
+
+As a positive control, current loading of the same original paused v2 session
+executes exactly three native identity hashes and visibly rejects with the normal
+different-image/context diagnostic. It cannot restore entries, history, Apply or
+output. No writer is invoked on the different-byte source. Native descriptors
+are restored before closing it and reopening the original. Fresh base export
+again confirms original Ref counts two/zero, Language `01`, original root vector
+and active nonempty suppression. The previous rejection/history/output do not
+survive. Current full-v2 loading/re-export equals the original metadata, stays
+unapplied and requires fresh Apply/Check/download. Its SPI equals the baseline.
+
+The complete extended checker passed first attempt and exited zero: eighteen
+actual downloads/reports, sixteen fresh builds plus two retained cached downloads,
+and eighteen final independent actual-file reload/analyses. Thirteen combined
+and five move-only files retain their known hash, complete 4,194,304-byte size,
+packed allocation and physical byte totals above. Independent scans match all
+totals and all 64 displayed physical ranges/lengths and bounded 16-byte samples.
+All 1,572,864 non-BIOS bytes are identical; no byte changes outside outer FFS/BIOS.
+The final rereads confirm the selected edits or unchanged paused states, 68 Forms
+and expected Ref owners/counts/offset. Removal invalidation, both-version
+changed-image rejection, zero page errors and the static-GET-only boundary pass.
+The different-image analysis during replacement is additional to those final
+eighteen download rereads, not an extra output or new accepted writer source.
+
+Use the same opt-in command above. Final local `npm run check` and exact-head CI
+are required before publication/merge and audited in the PR. No production code,
+timeout, coverage, source/ownership/buffer, codec, checksum, capacity or independent
+reread guard changes. Private firmware/modules/JSON and output files stay local;
+checker intermediates are removed on exit. This controlled native-delivery probe
+combines dialog/source/component lifetimes for this exact byte pair. It does not
+establish other sources, late rejection, ordinary scheduling, actual I/O/hash
+failure, old-handler full return, standalone engine or hardware/recovery acceptance.
+Unsupported formats/growth/capsules, root-only fit, missing qualifying sources,
+new BIOS and P53 dynamic roots retain their existing gates.

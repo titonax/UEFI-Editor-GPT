@@ -1331,6 +1331,159 @@ async function verifyByteComparisonReport(page, output, expected) {
       replacementLoadHashes,
     );
 
+    // Replace with an actual known download, not synthetic byte corruption.
+    // No writer is invoked on that different-byte source.
+    const reopenAndRead = async (file) => {
+      await page
+        .getByRole("button", { name: "Load another firmware", exact: true })
+        .click();
+      await page
+        .locator("input[type=file]")
+        .first()
+        .setInputFiles(path.join(work, file));
+      await page
+        .getByRole("button", { name: "Start HII analysis", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Change queue (0)", exact: true })
+        .waitFor({ timeout: 240000 });
+      assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+      const read = page.waitForEvent("download");
+      await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
+      const destination = path.join(work, `distinct-read-${file}.json`);
+      await (await read).saveAs(destination);
+      return JSON.parse(fs.readFileSync(destination, "utf8"));
+    };
+    assert.equal(
+      sha256(fs.readFileSync(path.join(work, "baseline.bin"))),
+      combinedOutput.sha,
+    );
+    assert.notEqual(combinedOutput.sha, sha256(sourceBytes));
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await page.evaluate(installReadProbe);
+    await queue.getByLabel("Load queue session file").setInputFiles(heldFile);
+    await page.waitForFunction(() => window.__nestedReadProbe.state.held);
+    assert.deepEqual(await page.evaluate(() => window.__nestedReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 0,
+      hashes: 0,
+      held: true,
+    });
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const differentBase = await reopenAndRead("baseline.bin");
+    assert.equal(differentBase.forms.length, 68);
+    assert.equal(refs(differentBase, "0x403").length, 1);
+    assert.equal(refs(differentBase, "0x40A").length, 1);
+    assert.equal(refs(differentBase, "0x40A")[0].ifrOffset.toLowerCase(), "0x2b49b");
+    assert.equal(question(differentBase, "System Language").accessLevel, "00");
+    assert.deepEqual(
+      differentBase.rootVisibility.entries.map((entry) => entry.value),
+      Array(8).fill(1),
+    );
+    const differentSuppression = differentBase.suppressions.find(
+      (entry) => entry.offset.toLowerCase() === "0x2b14b",
+    );
+    assert(differentSuppression);
+    assert.equal(differentSuppression.start.toLowerCase(), "0x2b14f");
+    assert.equal(differentSuppression.start, differentSuppression.end);
+    await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+    await assertResetHistory();
+    const beforeDistinctDelivery = await page.evaluate(
+      () => window.__nestedReadProbe.state,
+    );
+    assert.equal(beforeDistinctDelivery.held, true);
+    assert.equal(beforeDistinctDelivery.delivered, 0);
+    await page.evaluate(() => window.__nestedReadProbe.release());
+    await page.waitForFunction(() => window.__nestedReadProbe.state.delivered === 1);
+    assert.deepEqual(await page.evaluate(() => window.__nestedReadProbe.state), {
+      ...beforeDistinctDelivery,
+      delivered: 1,
+      held: false,
+    });
+    await assertResetHistory();
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    console.log(
+      "DISTINCT_DOWNLOAD_REOPEN_FOUR_EDITS_EMPTY_HISTORY_OLD_TEXT_ZERO_NEW_HASHES",
+    );
+
+    // Current loading must reach the native identity checks and reject the
+    // original session on changed bytes, rather than restoring its old plan.
+    const beforeDistinctLoad = await page.evaluate(
+      () => window.__nestedReadProbe.state.hashes,
+    );
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedV2);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    const distinctRejection = queue.getByRole("alert");
+    await distinctRejection.waitFor();
+    assert.match(
+      await distinctRejection.innerText(),
+      /different firmware image or opened HII context/,
+    );
+    const distinctLoadHashes =
+      (await page.evaluate(() => window.__nestedReadProbe.state.hashes)) -
+      beforeDistinctLoad;
+    assert.equal(distinctLoadHashes, 3);
+    await assertInvalidated(true);
+    for (const name of ["Undo queue change", "Redo queue change"])
+      assert.equal(
+        await queue.getByRole("button", { name, exact: true }).isDisabled(),
+        true,
+      );
+    assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    await page.evaluate(() => window.__nestedReadProbe.restore());
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const returnedBase = await reopenAndRead("source.bin");
+    assert.equal(returnedBase.forms.length, 68);
+    assert.equal(refs(returnedBase, "0x403").length, 2);
+    assert.equal(refs(returnedBase, "0x40A").length, 0);
+    assert.equal(question(returnedBase, "System Language").accessLevel, "01");
+    assert.deepEqual(
+      returnedBase.rootVisibility.entries.map((entry) => entry.value),
+      [1, 1, 1, 1, 0, 1, 1, 1],
+    );
+    const returnedSuppression = returnedBase.suppressions.find(
+      (entry) => entry.offset.toLowerCase() === "0x2b15a",
+    );
+    assert(returnedSuppression);
+    assert.equal(returnedSuppression.active, true);
+    assert.notEqual(returnedSuppression.start, returnedSuppression.end);
+    await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+    await assertResetHistory();
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionFile);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    await saveExactSession(
+      session,
+      [true, true, true, true],
+      "after-distinct-return-full.json",
+    );
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const distinctRecovery = await downloadVerifiedOutput(
+      page,
+      path.join(work, "distinct-source-recovery.bin"),
+    );
+    assert(distinctRecovery.equals(baseline));
+    console.log(
+      "DISTINCT_SOURCE_THREE_HASH_REJECTION_RETURN_ORIGINAL_FRESH_FULL_SPI",
+      distinctLoadHashes,
+    );
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -1364,6 +1517,7 @@ async function verifyByteComparisonReport(page, output, expected) {
       "closed-dialog-retained.bin",
       "closed-dialog-recovery.bin",
       "source-replacement-recovery.bin",
+      "distinct-source-recovery.bin",
     ]) {
       await page.reload();
       await page
