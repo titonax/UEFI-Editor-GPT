@@ -747,3 +747,69 @@ other hash boundaries/rejection causes, actual I/O/hash failure, standalone engi
 reruns and hardware/recovery remain separate gates. Unsupported formats/growth/
 capsules, root-only fit, missing qualifying sources, new BIOS and P53 dynamic roots
 retain their existing limits.
+
+## Late paused-root rejection after closing the dialog
+
+Reproduced on 2026-10-20 (Europe/Madrid) against deployed main
+`eed1f459b36ef20c26239513bf9d5c59c84bd1ab`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39364086294)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39364086210)
+success. Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux,
+1600 × 1000 used the explicit container/certificate/proxy settings, production
+`index-DvYis56o.js`, `index-D4JOsfQ5.css` and the three WASM readers above.
+The exact accepted 4 MiB source was freshly recovered through authorized ChatGPT
+files and size/hash verified; no new BIOS or semantic corpus inventory was added.
+
+After the preceding regressions and a fresh combined output, the checker loads
+the same invalid paused-v2 root metadata. The preceding native digest gate is
+reused without changing its behavior: three native calls/completions, one held
+third result equal to the original opened-context hash and zero deliveries.
+Real Close hides the validating dialog without Clear/Undo, source replacement
+or a newer session request. The exact native result is then delivered, allowing
+the reviewed identity continuation and synchronous root rejection to run.
+
+After browser tasks/two animation frames the probe records one delivery and no
+additional hashes. The dialog remains hidden and Check/download/details remain
+enabled. An actual cached download, without another Apply/Check, equals the
+fresh pre-close SPI byte for byte; its report matches an independent physical
+scan. Reopening visibly retains all four selected entries without stale alert,
+loaded or busy message, with unchanged document time origin and still only three
+native hashes. No new request masks the obsolete rejection before this observation.
+
+Current loading of the identical invalid file performs three further native
+hashes and visibly rejects with the missing/ambiguous-root diagnostic. All four
+entries and ready output controls survive atomically. After restoring the native
+descriptor, saving the retained full queue exports deeply identical metadata.
+Current valid full-v2 loading/re-export remains exact but invalidates output;
+fresh Apply/Check/download reproduces the known combined full SPI. No writer
+is invoked for the invalid session.
+
+The complete rerun exited zero: twenty-one actual downloads/reports, eighteen
+fresh builds plus three retained cached downloads, and twenty-one independent
+actual-file reload/analyses. Sixteen combined and five move-only outputs retain
+their known complete 4,194,304-byte size, hashes, allocations and physical totals.
+Every report matches all totals, all 64 displayed ranges/lengths and bounded
+16-byte samples from independent scans. All 1,572,864 non-BIOS bytes and every
+byte outside outer FFS/BIOS remain identical. Rereads confirm 68 Forms, expected
+Ref owners/counts/offset and either four edits or unchanged paused states.
+Removal invalidation, both-version changed-image rejection, zero page errors
+and the static-GET-only network boundary pass.
+
+An earlier incomplete execution has no verified completion and is not counted.
+The first retained complete attempt reached the new cached download but failed
+an immediate checkbox count (zero before the reopened modal was visible).
+The checker now waits for the dialog and fourth checkbox to be visible before
+the unchanged exact four-checkbox/selection assertions. No existing timeout,
+coverage or binary guard is relaxed; the entire flow above reran successfully.
+
+Use the same opt-in command above. Final local `npm run check` and exact-head CI
+remain required before merge and are audited in the PR. Private source, decoded
+modules, editor/session JSON and firmware outputs stay local; checker intermediates
+are removed on exit. This controlled native-result-delivery probe combines dialog
+closure/component lifetime, not ordinary scheduling, actual I/O/hash failure or
+old React-handler full-return observation. Queue-revision cancellation is the
+separate preceding gate. Source replacement during rejection, other boundaries/
+causes, standalone engine reruns and hardware/recovery remain unaccepted. No
+production code, ownership, allocation, codec, checksum or independent reread guard
+changes. Unsupported formats/growth/capsules, root-only fit, missing qualifying
+sources, new BIOS and P53 dynamic roots retain their existing limits.

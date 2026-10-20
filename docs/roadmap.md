@@ -940,6 +940,13 @@ list the blocker for every unsupported case.
   freshly rebuilds the known full SPI. Nineteen downloads/reports/final rereads
   preserve non-BIOS/outside-owner bytes. Other rejection boundaries, source/dialog
   replacement during rejection, ordinary timing and hardware remain separate.
+  Deployed main `eed1f45` additionally passes the same native final-identity
+  digest gate across dialog close: obsolete rejection cannot alter the retained
+  full queue or ready SPI, downloaded without another Check. Current invalid
+  metadata rejects after three more hashes while retaining output; exact full-v2
+  retry requires fresh known full SPI. Twenty-one downloads/reports/independent
+  rereads preserve non-BIOS/outside-owner bytes. Source replacement during
+  rejection, other causes/boundaries, ordinary timing and hardware remain separate.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This
