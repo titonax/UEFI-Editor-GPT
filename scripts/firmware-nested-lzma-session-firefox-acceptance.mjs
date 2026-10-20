@@ -1200,6 +1200,137 @@ async function verifyByteComparisonReport(page, output, expected) {
       reopenedLoadHashes,
     );
 
+    // Same-byte replacement includes dialog closure and footer unmount. Prove
+    // reset before delivering old native text, without a newer session request.
+    await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
+    await page.evaluate(installReadProbe);
+    await queue.getByLabel("Load queue session file").setInputFiles(heldFile);
+    await page.waitForFunction(() => window.__nestedReadProbe.state.held);
+    const replacementHeld = await page.evaluate(() => window.__nestedReadProbe.state);
+    assert.deepEqual(replacementHeld, {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 0,
+      hashes: 0,
+      held: true,
+    });
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Load another firmware", exact: true })
+      .click();
+    await page
+      .locator("input[type=file]")
+      .first()
+      .setInputFiles(path.join(work, "source.bin"));
+    await page.getByRole("button", { name: "Start HII analysis", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Change queue (0)", exact: true })
+      .waitFor({ timeout: 240000 });
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    const freshBaseDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "data.json", exact: true }).nth(1).click();
+    const freshBaseFile = path.join(work, "replacement-original-base.json");
+    await (await freshBaseDownload).saveAs(freshBaseFile);
+    const freshBase = JSON.parse(fs.readFileSync(freshBaseFile, "utf8"));
+    assert.equal(freshBase.forms.length, 68);
+    assert.equal(refs(freshBase, "0x403").length, 2);
+    assert.equal(refs(freshBase, "0x40A").length, 0);
+    assert.equal(question(freshBase, "System Language").accessLevel, "01");
+    assert.deepEqual(
+      freshBase.rootVisibility.entries.map((entry) => entry.value),
+      [1, 1, 1, 1, 0, 1, 1, 1],
+    );
+    const freshSuppression = freshBase.suppressions.find(
+      (entry) => entry.offset.toLowerCase() === "0x2b15a",
+    );
+    assert(freshSuppression);
+    assert.equal(freshSuppression.active, true);
+    assert.notEqual(freshSuppression.start, freshSuppression.end);
+    await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
+    const assertResetHistory = async () => {
+      await assertInvalidated(true);
+      for (const name of ["Undo queue change", "Redo queue change"])
+        assert.equal(
+          await queue.getByRole("button", { name, exact: true }).isDisabled(),
+          true,
+        );
+      assert.equal(await queue.getByRole("alert").count(), 0);
+      assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+      assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    };
+    await assertResetHistory();
+    const beforeReplacementDelivery = await page.evaluate(
+      () => window.__nestedReadProbe.state,
+    );
+    assert.equal(beforeReplacementDelivery.held, true);
+    assert.equal(beforeReplacementDelivery.delivered, 0);
+    await page.evaluate(() => window.__nestedReadProbe.release());
+    await page.waitForFunction(() => window.__nestedReadProbe.state.delivered === 1);
+    // Account separately for any hashes used by fresh source analysis. Old
+    // delivery itself must add none, before a current load or session export.
+    assert.deepEqual(await page.evaluate(() => window.__nestedReadProbe.state), {
+      ...beforeReplacementDelivery,
+      delivered: 1,
+      held: false,
+    });
+    await assertResetHistory();
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    console.log(
+      "SAME_BYTE_SOURCE_REOPEN_ORIGINAL_BASE_EMPTY_HISTORY_OLD_TEXT_ZERO_NEW_HASHES",
+    );
+    const beforeReplacementLoad = await page.evaluate(
+      () => window.__nestedReadProbe.state.hashes,
+    );
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedV2);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    await assertSelection(pausedFlags);
+    await assertOutputDisabled();
+    const replacementLoadHashes =
+      (await page.evaluate(() => window.__nestedReadProbe.state.hashes)) -
+      beforeReplacementLoad;
+    assert(
+      replacementLoadHashes >= 3,
+      "Replacement current load must hash its identity",
+    );
+    await saveExactSession(
+      expectedPaused,
+      pausedFlags,
+      "after-replacement-paused.json",
+    );
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionFile);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    await assertSelection([true, true, true, true]);
+    await assertOutputDisabled();
+    await saveExactSession(
+      session,
+      [true, true, true, true],
+      "after-replacement-full.json",
+    );
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await page.evaluate(() => window.__nestedReadProbe.restore());
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const replacementReadOutput = await downloadVerifiedOutput(
+      page,
+      path.join(work, "source-replacement-recovery.bin"),
+    );
+    assert(replacementReadOutput.equals(baseline));
+    console.log(
+      "SOURCE_REPLACEMENT_CURRENT_LOAD_EXACT_EXPORTS_FRESH_FULL_SPI",
+      replacementLoadHashes,
+    );
+
     await page.getByRole("button", { name: "Change queue (4)", exact: true }).click();
     await queue
       .getByRole("button", { name: /^Remove .* from change queue$/ })
@@ -1232,6 +1363,7 @@ async function verifyByteComparisonReport(page, output, expected) {
       "cancelled-read-recovery.bin",
       "closed-dialog-retained.bin",
       "closed-dialog-recovery.bin",
+      "source-replacement-recovery.bin",
     ]) {
       await page.reload();
       await page
