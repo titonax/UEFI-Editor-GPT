@@ -34,6 +34,7 @@ export default function QueueSessionControls({
   React.useEffect(
     () => () => {
       request.current += 1;
+      resetRef.current?.();
     },
     [context],
   );
@@ -53,7 +54,8 @@ export default function QueueSessionControls({
     } catch (reason: unknown) {
       if (request.current === id) setState({ context, error: errorMessage(reason) });
     } finally {
-      resetRef.current?.();
+      // An obsolete completion must not clear a newer request's selected file.
+      if (request.current === id) resetRef.current?.();
     }
   };
   return (

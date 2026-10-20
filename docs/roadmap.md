@@ -723,6 +723,12 @@ list the blocker for every unsupported case.
   React/jsdom regressions reproduce context replacement, dialog close, unmount,
   newer-load retention and late-validation rejection; this does not extend the
   separate real-source/browser acceptance. See [Queue sessions](queue-sessions.md).
+  Request ownership now also covers native file-picker cleanup: cancellation
+  resets immediately, while obsolete read/validation/save success or failure
+  cannot reset a newer pending load's input. The pre-fix read regression failed;
+  all 15 shared-control React/jsdom cases pass after the fix. No firmware/browser
+  acceptance is added. Nested-LZMA distinct-byte late rejection remains pending
+  because authorized private-source recovery returned HTTP 403.
   A controlled deployed PR #205 Z03 Firefox probe now separately holds native
   session text across open-dialog Clear/Undo: old delivery starts zero new identity
   hashes, while a current load starts both native hashes. Fresh v2/v1 known ROMs,

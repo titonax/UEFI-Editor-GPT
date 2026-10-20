@@ -41,6 +41,20 @@ context replacement. These use controlled promises and synthetic session text;
 they do not establish real Firefox, real-source reconstruction or hardware
 acceptance for this boundary. Existing real-source records below remain separate.
 
+On 2026-10-20, a further React/jsdom regression reproduced stale file-picker
+cleanup: after context replacement and a newer pending load, the old read's
+`finally` still cleared the shared native input. Cleanup now resets a cancelled
+picker immediately on context/active lifetime change; only the current request
+may reset it on completion. Controlled old read, validation and save success/error
+deliveries leave the newer load busy and its input untouched, with no old commit,
+download or alert. The current load then commits once and resets its own picker.
+Another regression verifies cancellation resets immediately and old delivery
+does not reset again. The initial read regression failed before the fix; all
+15 shared-control cases pass afterward. This is synthetic React/jsdom evidence
+only, with no new firmware, real-engine, Firefox or hardware acceptance. The
+nested-LZMA distinct-byte rejection browser gate remains pending: authorized
+private-source recovery was blocked by HTTP 403 during this validation.
+
 The import treats JSON as untrusted. It rejects unknown fields/formats/versions,
 malformed SHA-256 identities, unsafe/negative offsets, non-boolean selections,
 duplicate selectors, text/files above 1 MiB and more than 1000 operations. Every
