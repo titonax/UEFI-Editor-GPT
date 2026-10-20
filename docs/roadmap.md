@@ -947,6 +947,13 @@ list the blocker for every unsupported case.
   retry requires fresh known full SPI. Twenty-one downloads/reports/independent
   rereads preserve non-BIOS/outside-owner bytes. Source replacement during
   rejection, other causes/boundaries, ordinary timing and hardware remain separate.
+  Deployed main `e96a010` additionally passes the native final-identity rejection
+  gate across same-byte original-source reopen without document reload or a newer
+  session request: original base independently rereads, empty queue/history/output
+  survive old delivery with zero added hashes. Current invalid metadata rejects
+  after three new hashes; exact full-v2 retry freshly rebuilds the known full SPI.
+  Twenty-two downloads/reports/final rereads preserve non-BIOS/outside-owner bytes.
+  Distinct-byte rejection, other boundaries/causes and hardware remain separate.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This

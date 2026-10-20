@@ -813,3 +813,57 @@ causes, standalone engine reruns and hardware/recovery remain unaccepted. No
 production code, ownership, allocation, codec, checksum or independent reread guard
 changes. Unsupported formats/growth/capsules, root-only fit, missing qualifying
 sources, new BIOS and P53 dynamic roots retain their existing limits.
+
+## Late paused-root rejection across same-byte source reopen
+
+Reproduced on 2026-10-20 (Europe/Madrid) against deployed main
+`e96a0101073ae7b2ad2bd21e76c810a259e22f5e`, after fresh exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39382570936)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39382570833)
+success. The same opt-in command and Firefox/container/privacy settings above
+apply. The exact accepted 4 MiB source was freshly recovered from authorized
+ChatGPT files and verified by size/hash; no new BIOS or corpus inventory.
+
+After a fresh combined output, the unchanged native digest probe holds the
+third identity result of the same invalid paused-v2 root session. Three native
+calls/completions, a matching original context hash and zero deliveries are
+asserted. Real Close, Load another firmware and Start HII analysis reopen the
+identical original bytes without reloading the document or issuing a new session
+request. The ordinary editor JSON export independently confirms 68 Forms,
+original Ref owners/counts, System Language access `01`, all eight root values
+and the active non-empty suppression at `0x2b15a`.
+
+The visibly reopened dialog has an empty queue/history, disabled Apply/output
+and no loaded/busy/error message. Source-analysis hashes are accounted separately
+before releasing the old native result. After delivery and two animation frames,
+the complete probe state differs only in delivered/held, with zero added hashes;
+the same empty reset workspace and document time origin remain unchanged.
+This observes the reviewed identity continuation/synchronous root rejection, not
+the full return of the captured old React handler.
+
+As a positive current-request control, identical invalid metadata now performs
+three new native hashes and visibly rejects the missing/ambiguous root while
+preserving the empty queue/history and disabled output. Restoring the native
+descriptor and loading valid full-v2 metadata clears the diagnostic, restores
+exact four-selected metadata and still requires Apply/Check. An actual new
+full-SPI download equals the known combined baseline byte for byte and is
+included in the final independent actual-file reload/analysis loop.
+
+This controlled delivery combines dialog/source/component lifetimes; it does
+not isolate cancellation mechanisms or establish ordinary scheduling, actual
+I/O/hash failure, standalone engine reruns or hardware/recovery. Different-byte
+source replacement during rejection and other boundaries/causes remain separate
+gates. No production behavior, binary guard, timeout or coverage changes.
+Unsupported formats/growth/capsules, root-only fit, missing qualifying sources,
+new BIOS and P53 dynamic roots remain blocked. Private bytes and JSON stay local.
+
+The complete run exited zero on its first attempt: twenty-two actual downloads
+and exact byte reports, nineteen fresh builds plus three cached downloads,
+seventeen combined and five move-only outputs. All twenty-two independently
+reopen and reanalyze the actual files with their expected edits or unchanged
+paused states. Complete size/hashes, allocations, totals, all 64 displayed
+ranges/lengths and bounded 16-byte samples match physical scans. All 1,572,864
+non-BIOS bytes and every byte outside the outer FFS/BIOS remain identical.
+Removal invalidation, both-version changed-image rejection, zero page errors
+and the static-GET-only privacy boundary pass. Final local `npm run check` and
+exact-head CI are required separately before merge and audited in the PR.
