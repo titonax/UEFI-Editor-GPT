@@ -140,6 +140,9 @@ operations from unique currently inventoried items and checks every patch,
 including paused entries, before replacing the queue as one undoable mutation.
 The shared session controls bound file/text size to 1 MiB and operations to 1000,
 and discard delayed save/load actions after context replacement or unmount.
+File-picker cleanup is request-bound too: context/active lifetime changes reset
+the cancelled selection immediately, and an obsolete asynchronous completion
+cannot clear the input used by a newer request.
 Import invalidates Apply and output through the normal queue revision; no writer
 runs during save/load. AMI/HII now have a bounded `hii-ref-moves` adapter: exact
 full-image/context identity, ordered Form/child index selectors and fresh editor

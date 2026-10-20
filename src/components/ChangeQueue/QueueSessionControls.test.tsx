@@ -31,10 +31,12 @@ function upload(value: File) {
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 describe("queue session controls", () => {
@@ -182,5 +184,90 @@ describe("queue session controls", () => {
     expect(commit).not.toHaveBeenCalled();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load queue session" })).toBeEnabled();
+  });
+  it.each([
+    ["read", false],
+    ["read", true],
+    ["validation", false],
+    ["validation", true],
+    ["save", false],
+    ["save", true],
+  ] as const)(
+    "keeps the newer file picker after obsolete %s (reject: %s)",
+    async (kind, rejects) => {
+      const oldRead = deferred<string>();
+      const oldValidation = deferred<() => void>();
+      const currentRead = deferred<string>();
+      const obsoleteCommit = vi.fn();
+      const commit = vi.fn();
+      const load = vi.fn().mockResolvedValue(commit);
+      const session = {
+        context: {},
+        save: vi.fn(() => oldRead.promise),
+        load: vi.fn(() => oldValidation.promise),
+      };
+      const { rerender } = render(view(session));
+      if (kind === "save")
+        fireEvent.click(screen.getByRole("button", { name: "Save queue session" }));
+      else {
+        upload(
+          file(() => (kind === "read" ? oldRead.promise : Promise.resolve("old"))),
+        );
+        if (kind === "validation")
+          await waitFor(() => {
+            expect(session.load).toHaveBeenCalledTimes(1);
+          });
+      }
+      rerender(view({ ...session, context: {}, load }));
+      upload(file(() => currentRead.promise));
+      const input = screen.getByLabelText<HTMLInputElement>("Load queue session file");
+      const reset = vi.spyOn(input, "value", "set");
+      await act(async () => {
+        if (kind === "validation") {
+          if (rejects) oldValidation.reject(new Error("Obsolete validation"));
+          else oldValidation.resolve(obsoleteCommit);
+          await oldValidation.promise.catch(() => undefined);
+        } else {
+          if (rejects) oldRead.reject(new Error("Obsolete file operation"));
+          else oldRead.resolve("obsolete session");
+          await oldRead.promise.catch(() => undefined);
+        }
+      });
+      expect(reset).not.toHaveBeenCalled();
+      expect(screen.getByText("Validating queue session…")).toBeVisible();
+      expect(load).not.toHaveBeenCalled();
+      expect(commit).not.toHaveBeenCalled();
+      expect(obsoleteCommit).not.toHaveBeenCalled();
+      expect(saveAs).not.toHaveBeenCalled();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      await act(async () => {
+        currentRead.resolve("current session");
+        await currentRead.promise;
+      });
+      expect(load).toHaveBeenCalledExactlyOnceWith("current session");
+      expect(commit).toHaveBeenCalledTimes(1);
+      expect(reset).toHaveBeenCalledExactlyOnceWith("");
+      expect(screen.getByRole("button", { name: "Load queue session" })).toBeEnabled();
+      reset.mockRestore();
+    },
+  );
+  it("resets a cancelled picker immediately without resetting it again on old delivery", async () => {
+    const task = deferred<string>();
+    const session = { context: {}, save: vi.fn(), load: vi.fn() };
+    const { rerender } = render(view(session));
+    upload(file(() => task.promise));
+    const input = screen.getByLabelText<HTMLInputElement>("Load queue session file");
+    const reset = vi.spyOn(input, "value", "set");
+    rerender(view(session, false));
+    expect(reset).toHaveBeenCalledExactlyOnceWith("");
+    await act(async () => {
+      task.resolve("obsolete session");
+      await task.promise;
+    });
+    expect(reset).toHaveBeenCalledTimes(1);
+    expect(session.load).not.toHaveBeenCalled();
+    rerender(view(session, true));
+    expect(screen.getByRole("button", { name: "Load queue session" })).toBeEnabled();
+    reset.mockRestore();
   });
 });
