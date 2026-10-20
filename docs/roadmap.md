@@ -926,6 +926,13 @@ list the blocker for every unsupported case.
   full SPI. Seventeen downloads/reanalyses preserve non-BIOS/outside-owner bytes.
   Dialog/source/component lifetimes are combined; different-byte replacement,
   late failures, ordinary timing and old-handler full return remain separate.
+  Deployed main `c623d2a` additionally passes held native text across replacement
+  with its actual combined download: four edits reread, empty queue/history/output,
+  zero added hashes on old delivery, current three-hash identity rejection and
+  fresh full-SPI recovery after returning to original bytes. Eighteen downloads
+  and final independent rereads preserve every non-BIOS/outside-owner byte.
+  This exact pair combines dialog/source lifetimes; late rejection, other sources,
+  ordinary timing, I/O/hash failures and hardware remain separate gates.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This
