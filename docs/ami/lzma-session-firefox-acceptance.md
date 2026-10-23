@@ -161,3 +161,44 @@ allocations, 15-minute build limit and independent reread guards are unchanged.
 Private firmware/editor/session JSON and downloads remain local; intermediates
 are removed on exit. Synthetic and React/jsdom coverage and standalone engine
 acceptance remain separate validation levels.
+
+## Single-step session history and fresh output
+
+Reproduced on 2026-10-24 (Europe/Madrid) against deployed main
+`155ec1dc85d9ea3723040c6eb594dab0a52a6ccd`, after successful exact-SHA
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/40005462554)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/40005462447).
+Firefox 153.0 / Playwright 1.62.1 build 1538 loaded `index-BGap__g5.js`,
+`index-D4JOsfQ5.css` and all three deployed WASM readers. The exact accepted
+source was recovered from the authorized existing archive and checked by
+size/SHA-256. No new BIOS or semantic inventory was added. No browser API,
+editor, queue, codec, writer, response, download or timing was mocked.
+
+After reproducing the v2/v1 flow above, the checker clears the queue and loads
+the exact v2 suppression session over the empty state. A fresh Apply/Check and
+explicit download produce the known complete-BIOS output. One Undo returns to
+the empty queue; one Redo restores the exact selected suppression operation.
+Both history directions leave Check, output details and download disabled, so
+the verified bytes cannot survive a queue revision. Re-export after Redo is
+deeply identical to the original metadata-only v2 session. A second fresh
+Apply/Check/download after Redo is byte-identical to the first and to both
+v2/v1 baselines.
+
+Four actual complete-BIOS downloads were independently scanned and re-opened:
+the v2 and v1 baselines plus the history output before Undo and after Redo. All
+have SHA-256
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`,
+4,987,327 changed bytes, 11,789,889 unchanged bytes, 19,458 contiguous ranges
+and zero changes outside owning FFS `[2949240, 7956530)`. Every report matched
+all 64 displayed physical ranges and bounded 16-byte samples. Each independent
+reload reopened 277 Forms, the same expression and empty scope body, an empty
+queue and disabled output; the original session then rejected on those changed
+bytes. No application page errors occurred, and the extended checker passed its
+complete flow twice, including the final checked revision.
+
+This closes only the single-operation first-LZMA session-load Undo/Redo gate.
+The source remains BIOS-only; descriptor-bearing SPI preservation, other
+actions/sources, longer history, asynchronous races, physical hardware and
+recovery remain separate. Codec, allocation, checksum, ownership, timeout and
+independent-reader guards are unchanged. Private source, JSON and downloaded
+images remained local.

@@ -238,11 +238,14 @@ separately verifies root/move/SetupData/suppression session export/clear/import,
 fresh exact full-SPI reconstruction, removal invalidation, independent four-edit
 reload and rejection on the changed image. It adds no combined v1, AMITSE or
 hardware claim. The
-[exact first-LZMA v2 acceptance](ami/lzma-session-firefox-acceptance.md)
-separately verifies one accepted suppression session, exact complete-BIOS output,
-removal invalidation, independent empty-scope reload and changed-image rejection.
-This source has no descriptor-bearing SPI regions; v1, other actions and hardware
-remain unclaimed.
+[exact first-LZMA v2/v1 acceptance](ami/lzma-session-firefox-acceptance.md)
+separately verifies one accepted suppression session, strict v1 migration,
+exact complete-BIOS output, removal invalidation, independent empty-scope reload
+and changed-image rejection. Its deployed-main history extension also verifies
+session load as one undoable replacement, exact metadata after Redo, output
+invalidation in both directions and a fresh byte-identical rebuild with four
+independent output rereads. This source has no descriptor-bearing SPI regions;
+other actions, longer histories, asynchronous races and hardware remain unclaimed.
 
 ## AMITSE menu reassignment
 
