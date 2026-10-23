@@ -74,8 +74,12 @@ The next work order is:
    export/clear/import, fresh exact output, invalidation, independent scope reread
    and source/context rejection. The deployed-main `1b83fae` extension also
    validates v1 migration to identical v2 metadata, two identical complete-BIOS
-   downloads/reports and independent empty-scope rereads. Shared product-hardening
-   acceptance remains next.
+   downloads/reports and independent empty-scope rereads. Deployed main
+   `155ec1d` now additionally passes session-load Undo/Redo as one history
+   replacement: both directions invalidate output, Redo re-exports identical
+   metadata, and fresh before/after-history outputs plus both version baselines
+   are byte-identical and independently reread. Other shared asynchronous and
+   longer-history gates remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -979,7 +983,11 @@ list the blocker for every unsupported case.
   BIOS-only source does not establish descriptor-bearing SPI acceptance. The
   deployed-main `1b83fae` extension verifies deeply identical v2 re-export from
   both versions, fresh identical complete BIOS files/reports, two independent
-  empty-scope rereads and both-version changed-image/context rejection.
+  empty-scope rereads and both-version changed-image/context rejection. Deployed
+  main `155ec1d` additionally verifies one-step Undo/Redo of v2 session loading,
+  output invalidation in both directions, exact post-Redo metadata and two fresh
+  known outputs. All four version/history downloads independently reread the
+  empty scope and reject the original session on changed bytes.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.

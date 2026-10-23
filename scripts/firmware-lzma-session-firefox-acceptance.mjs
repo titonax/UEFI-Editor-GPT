@@ -351,6 +351,118 @@ async function verifyByteComparisonReport(page, output) {
       else baseline = output;
       await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
     }
+
+    // Loading a session must remain one undoable queue replacement. Exercise
+    // that shared history boundary with a real checked output so Undo and Redo
+    // cannot accidentally retain bytes verified for an obsolete queue revision.
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionPath);
+    const historyRestoreStarted = Date.now();
+    while (
+      await queue
+        .getByRole("button", { name: "Apply selected", exact: true })
+        .isDisabled()
+    ) {
+      if (Date.now() - historyRestoreStarted > 60000)
+        throw Error("History session restore did not finish within one minute");
+      await page.waitForTimeout(100);
+    }
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const historyReadyStarted = Date.now();
+    while (await button.isDisabled()) {
+      const text = await page.locator("body").innerText();
+      if (text.includes("Output check failed:"))
+        throw Error(
+          text.slice(
+            text.indexOf("Output check failed:"),
+            text.indexOf("Output check failed:") + 400,
+          ),
+        );
+      if (Date.now() - historyReadyStarted > 900000)
+        throw Error("History output check did not finish within 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const beforeUndoPromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    await (await beforeUndoPromise).saveAs(root + "/history-before-undo.bin");
+    const beforeUndo = fs.readFileSync(root + "/history-before-undo.bin");
+    assert(beforeUndo.equals(baseline), "Loaded-session output must equal baseline");
+    await verifyByteComparisonReport(page, beforeUndo);
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        true,
+        `Undo must invalidate ${name}`,
+      );
+    await queue.getByRole("button", { name: "Redo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.match(await queue.innerText(), /Disable SuppressIf 0x5B2D9/);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        true,
+        `Redo must require a fresh check before enabling ${name}`,
+      );
+    const redoneSessionPromise = page.waitForEvent("download");
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    const redoneSessionPath = root + "/history-redone-v2.json";
+    await (await redoneSessionPromise).saveAs(redoneSessionPath);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(redoneSessionPath, "utf8")),
+      session,
+      "Redo must preserve the exact metadata-only session",
+    );
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const historyRedoStarted = Date.now();
+    while (await button.isDisabled()) {
+      const text = await page.locator("body").innerText();
+      if (text.includes("Output check failed:"))
+        throw Error(
+          text.slice(
+            text.indexOf("Output check failed:"),
+            text.indexOf("Output check failed:") + 400,
+          ),
+        );
+      if (Date.now() - historyRedoStarted > 900000)
+        throw Error("Post-Redo output check did not finish within 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const afterRedoPromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    await (await afterRedoPromise).saveAs(root + "/history-after-redo.bin");
+    const afterRedo = fs.readFileSync(root + "/history-after-redo.bin");
+    assert(afterRedo.equals(baseline), "Post-Redo output must equal baseline");
+    await verifyByteComparisonReport(page, afterRedo);
+    console.log("SESSION_LOAD_UNDO_REDO_INVALIDATED_AND_FRESH_OUTPUT_IDENTICAL");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -361,12 +473,14 @@ async function verifyByteComparisonReport(page, output) {
       true,
     );
     console.log("REMOVAL_INVALIDATED");
-    for (const version of [2, 1]) {
+    for (const [label, imagePath, sourceSessionPath] of [
+      ["v2", root + "/output-v2.bin", sessionPath],
+      ["v1", root + "/output-v1.bin", legacyPath],
+      ["history-before-undo", root + "/history-before-undo.bin", sessionPath],
+      ["history-after-redo", root + "/history-after-redo.bin", sessionPath],
+    ]) {
       await page.reload();
-      await page
-        .locator("input[type=file]")
-        .first()
-        .setInputFiles(root + `/output-v${version}.bin`);
+      await page.locator("input[type=file]").first().setInputFiles(imagePath);
       await page
         .getByRole("button", { name: "Start HII analysis", exact: true })
         .click();
@@ -395,6 +509,7 @@ async function verifyByteComparisonReport(page, output) {
       );
       console.log(
         "RELOADED_SCOPE_EMPTY_EXPRESSION_UNCHANGED_EMPTY_QUEUE_DOWNLOAD_DISABLED",
+        label,
       );
       await page.getByRole("button", { name: "Change queue (0)", exact: true }).click();
       const reopenedQueue = page.getByRole("dialog", {
@@ -403,7 +518,7 @@ async function verifyByteComparisonReport(page, output) {
       });
       await reopenedQueue
         .getByLabel("Load queue session file")
-        .setInputFiles(version === 2 ? sessionPath : legacyPath);
+        .setInputFiles(sourceSessionPath);
       const rejection = reopenedQueue.getByRole("alert");
       await rejection.waitFor();
       assert.match(
