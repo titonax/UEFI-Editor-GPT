@@ -727,8 +727,14 @@ list the blocker for every unsupported case.
   resets immediately, while obsolete read/validation/save success or failure
   cannot reset a newer pending load's input. The pre-fix read regression failed;
   all 15 shared-control React/jsdom cases pass after the fix. No firmware/browser
-  acceptance is added. Nested-LZMA distinct-byte late rejection remains pending
-  because authorized private-source recovery returned HTTP 403.
+  acceptance is added by that regression. A separate 2026-10-23 Firefox 153
+  run closes the exact nested-LZMA distinct-byte late paused-root rejection gate:
+  the actual combined download independently shows all four edits and an empty
+  reset workspace; old final-digest delivery adds no stale alert/output; current
+  changed-source loading rejects identity after three hashes; returning to the
+  original bytes preserves semantic rejection and exact valid SPI recovery.
+  Twenty-three downloads/reports/final rereads preserve non-BIOS/outside-owner
+  bytes. Other sources, causes, ordinary timing and hardware remain separate.
   A controlled deployed PR #205 Z03 Firefox probe now separately holds native
   session text across open-dialog Clear/Undo: old delivery starts zero new identity
   hashes, while a current load starts both native hashes. Fresh v2/v1 known ROMs,
@@ -959,7 +965,14 @@ list the blocker for every unsupported case.
   survive old delivery with zero added hashes. Current invalid metadata rejects
   after three new hashes; exact full-v2 retry freshly rebuilds the known full SPI.
   Twenty-two downloads/reports/final rereads preserve non-BIOS/outside-owner bytes.
-  Distinct-byte rejection, other boundaries/causes and hardware remain separate.
+  Deployed main `31147bf` now additionally passes that rejection across its
+  actual different-byte combined download: the changed source rereads all four
+  edits with empty queue/history/output, old delivery adds no stale state, and a
+  current load rejects identity after three hashes. Returning to original bytes
+  retains current three-hash semantic rejection and fresh exact recovery.
+  Twenty-three downloads/reports/final rereads preserve non-BIOS/outside-owner
+  bytes. Other sources, boundaries/causes, ordinary timing and hardware remain
+  separate.
   The [exact first-LZMA session acceptance](ami/lzma-session-firefox-acceptance.md)
   passes metadata-only v2/v1 suppression restore and migration, exact complete-BIOS output,
   removal invalidation, empty-scope reread and changed-image rejection. This
