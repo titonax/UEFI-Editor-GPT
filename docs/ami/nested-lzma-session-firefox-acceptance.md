@@ -867,3 +867,55 @@ non-BIOS bytes and every byte outside the outer FFS/BIOS remain identical.
 Removal invalidation, both-version changed-image rejection, zero page errors
 and the static-GET-only privacy boundary pass. Final local `npm run check` and
 exact-head CI are required separately before merge and audited in the PR.
+
+## Late paused-root rejection across distinct downloaded bytes
+
+Reproduced on 2026-10-23 (Europe/Madrid) against deployed main
+`31147bfb56824d26993cf89b23cc04b3018d9319`, after its exact-SHA
+[Quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39475377126)
+and automatic [Pages](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/39475377040)
+success. Firefox 153.0 / Playwright 1.62.1 build 1538, headless Linux,
+1600 × 1000 used production `index-BGap__g5.js`, `index-D4JOsfQ5.css`
+and the three existing WASM readers. The exact accepted 4 MiB source was freshly
+recovered only from authorized ChatGPT files and verified by size/SHA-256. No
+new BIOS, corpus inventory or public/private byte transfer was introduced.
+
+After a fresh known combined SPI, the unchanged native digest gate holds the
+third completed identity result for the invalid paused-root v2 session. Three
+native calls/completions, the matching original context hash and zero deliveries
+are asserted before real Close and replacement with that actual downloaded SPI.
+The changed image independently rereads 68 Forms and all four requested edits:
+the Ref owner/offset, System Language `00`, eight visible roots and the empty
+suppression scope. Its queue/history/output are empty and disabled.
+
+Source analysis hashes complete separately while the old result remains held.
+Releasing it changes only delivered/held after two animation frames: no stale
+alert, loaded/busy state, queue, history, output or document navigation appears.
+A current import of the original invalid session on those changed bytes performs
+three native hashes and rejects the different image/context. No writer runs on
+the changed source.
+
+Returning to the original bytes independently proves the original Ref owners,
+System Language `01`, root vector and active non-empty suppression. The same
+invalid file then completes three fresh native hashes and visibly reaches its
+missing/ambiguous-root semantic rejection, leaving empty history/output. A
+current valid full-v2 retry clears the alert, re-exports exact metadata and
+freshly rebuilds the known combined full SPI.
+
+The complete checker exited zero on its first attempt: twenty-three actual
+downloads/reports, twenty fresh builds plus three cached downloads, eighteen
+combined and five move-only outputs. All twenty-three actual files independently
+reopen/reanalyse with the expected four edits or unchanged paused states.
+Complete sizes, hashes, allocations, physical totals, all 64 displayed ranges
+and bounded 16-byte samples match independent scans. All 1,572,864 non-BIOS
+bytes and every byte outside the outer FFS/BIOS remain identical. Removal
+invalidation, both-version changed-image rejection, zero page errors and the
+static-GET-only boundary pass.
+
+This closes only the exact controlled final-native-identity rejection across
+that accepted original/downloaded pair. Dialog/source/component lifetimes remain
+combined. Ordinary scheduling, actual I/O/hash failure, other causes/sources,
+standalone engine reruns and hardware/recovery remain separate. No production
+code, timeout, coverage, ownership, buffer, codec, checksum, allocation or
+independent reread guard changed. Unsupported formats/growth/capsules, root-only
+fit, new BIOS and parked P53 dynamic roots retain their existing limits.

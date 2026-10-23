@@ -51,9 +51,14 @@ download or alert. The current load then commits once and resets its own picker.
 Another regression verifies cancellation resets immediately and old delivery
 does not reset again. The initial read regression failed before the fix; all
 15 shared-control cases pass afterward. This is synthetic React/jsdom evidence
-only, with no new firmware, real-engine, Firefox or hardware acceptance. The
-nested-LZMA distinct-byte rejection browser gate remains pending: authorized
-private-source recovery was blocked by HTTP 403 during this validation.
+only, with no new firmware, real-engine, Firefox or hardware acceptance from
+that regression. A separate 2026-10-23 real Firefox run now covers the exact
+nested-LZMA late paused-root rejection across replacement by its actual
+different-byte combined download: obsolete delivery leaves the new empty
+workspace untouched, current changed-source loading rejects identity, and
+returning to the original source preserves semantic rejection and exact valid
+recovery. This is the accepted pair and controlled timing only, not hardware or
+broader source acceptance.
 
 The import treats JSON as untrusted. It rejects unknown fields/formats/versions,
 malformed SHA-256 identities, unsafe/negative offsets, non-boolean selections,
