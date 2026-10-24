@@ -248,9 +248,14 @@ independent output rereads. A separate local-production Firefox run then covers
 selected → paused → empty → session-restored, three Undo and three Redo
 transitions, output invalidation at every revision, exact v2 re-export, a fifth
 fresh byte-identical rebuild and five independent output rereads. It is real
-Firefox but not a deployed-Pages interaction. This source has no
-descriptor-bearing SPI regions; other actions, other histories, asynchronous
-races and hardware remain unclaimed.
+Firefox but not a deployed-Pages interaction. A second local-production Firefox
+run holds a valid paused-session native read across selected → paused → Undo
+selected: the stale delivery performs zero validation hashes, cannot replace
+the current queue or output state and retains Redo. Current paused/selected
+loads still validate normally, and a sixth fresh byte-identical output passes
+the same independent reread and changed-image rejection. This source has no
+descriptor-bearing SPI regions; other actions, other histories, remaining
+asynchronous hash/rejection boundaries and hardware remain unclaimed.
 
 ## AMITSE menu reassignment
 

@@ -83,8 +83,12 @@ The next work order is:
    selected/paused/empty/session-restored history through three Undo and three
    Redo steps, invalidates output at every transition, rebuilds a fifth identical
    complete BIOS and independently rereads all five outputs. This is real Firefox,
-   not deployed-Pages interaction. Other history shapes and shared asynchronous
-   gates remain next.
+   not deployed-Pages interaction. A second local-production run from `54b75ba`
+   now also holds a valid session read across selected → paused → Undo selected:
+   the stale delivery performs zero validation hashes, retains the current queue
+   and Redo, and a current load rebuilds a sixth identical complete BIOS with six
+   independent rereads. Other history shapes and remaining asynchronous hash and
+   rejection boundaries remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -997,7 +1001,13 @@ list the blocker for every unsupported case.
   selected/paused/empty/session-restored through three Undo and three Redo steps,
   invalidates output on every revision, re-exports exact v2 metadata, rebuilds a
   fifth identical complete BIOS and independently rereads all five outputs. It
-  does not claim deployed-Pages interaction, other history shapes or races.
+  does not claim deployed-Pages interaction. A second local-production Firefox
+  run from `54b75ba` holds a valid paused-session native read across selected →
+  paused → Undo selected. Old delivery performs zero identity hashes and cannot
+  replace the current queue/output state or Redo branch; current paused/selected
+  loads validate normally, and a sixth identical complete BIOS plus all six
+  independent rereads pass. Other history shapes and asynchronous hash/rejection
+  boundaries remain separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
