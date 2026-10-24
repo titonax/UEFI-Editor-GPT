@@ -244,8 +244,13 @@ exact complete-BIOS output, removal invalidation, independent empty-scope reload
 and changed-image rejection. Its deployed-main history extension also verifies
 session load as one undoable replacement, exact metadata after Redo, output
 invalidation in both directions and a fresh byte-identical rebuild with four
-independent output rereads. This source has no descriptor-bearing SPI regions;
-other actions, longer histories, asynchronous races and hardware remain unclaimed.
+independent output rereads. A separate local-production Firefox run then covers
+selected → paused → empty → session-restored, three Undo and three Redo
+transitions, output invalidation at every revision, exact v2 re-export, a fifth
+fresh byte-identical rebuild and five independent output rereads. It is real
+Firefox but not a deployed-Pages interaction. This source has no
+descriptor-bearing SPI regions; other actions, other histories, asynchronous
+races and hardware remain unclaimed.
 
 ## AMITSE menu reassignment
 

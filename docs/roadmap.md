@@ -78,8 +78,13 @@ The next work order is:
    `155ec1d` now additionally passes session-load Undo/Redo as one history
    replacement: both directions invalidate output, Redo re-exports identical
    metadata, and fresh before/after-history outputs plus both version baselines
-   are byte-identical and independently reread. Other shared asynchronous and
-   longer-history gates remain next.
+   are byte-identical and independently reread. A 2026-10-24 local-production
+   Firefox run from `d920719` now additionally passes the three-state
+   selected/paused/empty/session-restored history through three Undo and three
+   Redo steps, invalidates output at every transition, rebuilds a fifth identical
+   complete BIOS and independently rereads all five outputs. This is real Firefox,
+   not deployed-Pages interaction. Other history shapes and shared asynchronous
+   gates remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -987,7 +992,12 @@ list the blocker for every unsupported case.
   main `155ec1d` additionally verifies one-step Undo/Redo of v2 session loading,
   output invalidation in both directions, exact post-Redo metadata and two fresh
   known outputs. All four version/history downloads independently reread the
-  empty scope and reject the original session on changed bytes.
+  empty scope and reject the original session on changed bytes. A separate
+  2026-10-24 local-production Firefox run from `d920719` traverses
+  selected/paused/empty/session-restored through three Undo and three Redo steps,
+  invalidates output on every revision, re-exports exact v2 metadata, rebuilds a
+  fifth identical complete BIOS and independently rereads all five outputs. It
+  does not claim deployed-Pages interaction, other history shapes or races.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
