@@ -87,8 +87,11 @@ The next work order is:
    now also holds a valid session read across selected → paused → Undo selected:
    the stale delivery performs zero validation hashes, retains the current queue
    and Redo, and a current load rebuilds a sixth identical complete BIOS with six
-   independent rereads. Other history shapes and remaining asynchronous hash and
-   rejection boundaries remain next.
+   independent rereads. A third run from `b941273` now holds the real third/final
+   identity digest across the same revision change: stale delivery cannot commit
+   or consume Redo, and current loads rebuild a seventh identical BIOS with seven
+   independent rereads. Other history shapes, earlier hash boundaries and
+   semantic-rejection paths remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -1006,8 +1009,12 @@ list the blocker for every unsupported case.
   paused → Undo selected. Old delivery performs zero identity hashes and cannot
   replace the current queue/output state or Redo branch; current paused/selected
   loads validate normally, and a sixth identical complete BIOS plus all six
-  independent rereads pass. Other history shapes and asynchronous hash/rejection
-  boundaries remain separate.
+  independent rereads pass. A third run from `b941273` holds the native
+  third/final identity digest across the same selected/paused/Undo-selected
+  change. Stale delivery cannot commit, revive output or consume Redo; current
+  loads produce a seventh identical BIOS and seven independent rereads. Other
+  history shapes, earlier hash boundaries and semantic-rejection paths remain
+  separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.

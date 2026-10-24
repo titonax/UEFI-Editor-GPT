@@ -748,6 +748,143 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("STALE_READ_DISCARDED_CURRENT_LOAD_FRESH_OUTPUT_IDENTICAL");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Exercise the later queue-revision boundary separately from File.text.
+    // Native reading is unheld and the first two identity digests are delivered;
+    // only the third (context) digest waits while selection changes and Undo
+    // returns to byte-for-byte equal entries. The obsolete validated session
+    // still must not commit or revive the output verified for an older revision.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const state = { calls: 0, nativeCompleted: 0, delivered: 0, held: false };
+      crypto.subtle.digest = function (...args) {
+        const call = ++state.calls;
+        if (call === 3) crypto.subtle.digest = original;
+        return original.apply(this, args).then(async (result) => {
+          state.nativeCompleted++;
+          if (call === 3) {
+            state.held = true;
+            await gate;
+            state.held = false;
+          }
+          state.delivered++;
+          return result;
+        });
+      };
+      window.__firstLzmaFinalHashProbe = { state, release };
+    });
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedSessionPath);
+    await page.waitForFunction(() => window.__firstLzmaFinalHashProbe.state.held);
+    const heldFinalHash = {
+      calls: 3,
+      nativeCompleted: 3,
+      delivered: 2,
+      held: true,
+    };
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaFinalHashProbe.state),
+      heldFinalHash,
+    );
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await button.isDisabled(), false);
+    await selectSuppression.uncheck();
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    await assertVerifiedOutputUnavailable(page, "Selection during final identity hash");
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    await assertVerifiedOutputUnavailable(page, "Undo during final identity hash");
+    assert.equal(await redoButton.isDisabled(), false);
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaFinalHashProbe.state),
+      heldFinalHash,
+    );
+    await page.evaluate(() => window.__firstLzmaFinalHashProbe.release());
+    await page.waitForFunction(() => {
+      const state = window.__firstLzmaFinalHashProbe.state;
+      return state.delivered === 3 && !state.held;
+    });
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaFinalHashProbe.state),
+      { ...heldFinalHash, delivered: 3, held: false },
+    );
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.equal(await redoButton.isDisabled(), false);
+    await assertVerifiedOutputUnavailable(page, "Stale final identity digest");
+    console.log("HELD_FINAL_IDENTITY_HASH_SELECTION_UNDO_STALE_COMMIT_DISCARDED");
+
+    // A current request must still traverse identity and restore the paused
+    // metadata normally, followed by the exact selected session and a fresh
+    // complete-BIOS verification after the stale digest was ignored.
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedSessionPath);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), false);
+    await assertVerifiedOutputUnavailable(page, "Current post-hash paused load");
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionPath);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await assertVerifiedOutputUnavailable(page, "Current post-hash selected load");
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const finalHashBuildStarted = Date.now();
+    while (await button.isDisabled()) {
+      const text = await page.locator("body").innerText();
+      if (text.includes("Output check failed:"))
+        throw Error(
+          text.slice(
+            text.indexOf("Output check failed:"),
+            text.indexOf("Output check failed:") + 400,
+          ),
+        );
+      if (Date.now() - finalHashBuildStarted > 900000)
+        throw Error("Post-final-hash output check did not finish within 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const finalHashImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const finalHashImagePath = root + "/after-stale-final-hash.bin";
+    await (await finalHashImagePromise).saveAs(finalHashImagePath);
+    const finalHashOutput = fs.readFileSync(finalHashImagePath);
+    assert(
+      finalHashOutput.equals(baseline),
+      "Post-final-hash output must equal every earlier accepted baseline",
+    );
+    await verifyByteComparisonReport(page, finalHashOutput);
+    console.log("FINAL_HASH_STALE_COMMIT_CURRENT_LOAD_FRESH_OUTPUT_IDENTICAL");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -765,6 +902,7 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       ["history-after-redo", root + "/history-after-redo.bin", sessionPath],
       ["long-history-after-redo", root + "/long-history-after-redo.bin", sessionPath],
       ["async-after-stale-read", root + "/async-after-stale-read.bin", sessionPath],
+      ["after-stale-final-hash", root + "/after-stale-final-hash.bin", sessionPath],
     ]) {
       await page.reload();
       await page.locator("input[type=file]").first().setInputFiles(imagePath);

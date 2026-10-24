@@ -253,9 +253,13 @@ run holds a valid paused-session native read across selected → paused → Undo
 selected: the stale delivery performs zero validation hashes, cannot replace
 the current queue or output state and retains Redo. Current paused/selected
 loads still validate normally, and a sixth fresh byte-identical output passes
-the same independent reread and changed-image rejection. This source has no
-descriptor-bearing SPI regions; other actions, other histories, remaining
-asynchronous hash/rejection boundaries and hardware remain unclaimed.
+the same independent reread and changed-image rejection. A third
+local-production Firefox run holds the real third/final identity digest across
+the same selection/Undo sequence: stale delivery cannot commit, revive output
+or consume Redo; current loads produce a seventh identical complete BIOS and
+seven independent rereads. This source has no descriptor-bearing SPI regions;
+other actions, other histories, earlier hash and semantic-rejection boundaries
+and hardware remain unclaimed.
 
 ## AMITSE menu reassignment
 
