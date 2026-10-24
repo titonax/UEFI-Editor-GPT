@@ -69,6 +69,11 @@ FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
 node scripts/firmware-lzma-session-firefox-acceptance.mjs
 ```
 
+`FIRMWARE_ACCEPTANCE_URL` optionally selects the application URL. It defaults to
+Pages; a private-policy run can instead serve the production build on loopback,
+for example `http://127.0.0.1:4173/UEFI-Editor-GPT/`, without selecting private
+firmware into a public origin.
+
 The optional browser module/executable/container settings match the original
 LZMA checker. Reconstruction is bounded to 15 minutes; private intermediate files
 are removed on success or failure. Public CI never supplies private firmware.
@@ -198,7 +203,44 @@ complete flow twice, including the final checked revision.
 
 This closes only the single-operation first-LZMA session-load Undo/Redo gate.
 The source remains BIOS-only; descriptor-bearing SPI preservation, other
-actions/sources, longer history, asynchronous races, physical hardware and
-recovery remain separate. Codec, allocation, checksum, ownership, timeout and
-independent-reader guards are unchanged. Private source, JSON and downloaded
-images remained local.
+actions/sources, asynchronous races, physical hardware and recovery remain
+separate. Codec, allocation, checksum, ownership, timeout and independent-reader
+guards are unchanged. Private source, JSON and downloaded images remained local.
+
+## Three-state longer history in local production Firefox
+
+Reproduced on 2026-10-24 (Europe/Madrid) from main
+`d9207198fd32dcc5d3db2241d5c3ae90f835e23a`, whose exact-SHA
+[Code quality](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/40042301562)
+and automatic [Pages build/deployment](https://github.com/titonax/UEFI-Editor-GPT/actions/runs/40042301664)
+were already successful. The application itself was the production build served
+only on `127.0.0.1`; Firefox 153.0 / Playwright 1.62.1 build 1538 loaded
+`index-BGap__g5.js`, `index-D4JOsfQ5.css` and locally cached copies of the three
+public deployed WASM readers. This was real Firefox, not React/jsdom, but it was
+not an interaction with the deployed Pages origin. No application response,
+editor, queue, codec, writer, timing, download or browser API was mocked.
+
+Starting from a freshly checked selected suppression, the checker records three
+additional queue revisions: pause the only operation, clear the paused queue,
+then load the exact v2 session over the empty queue. It traverses all three
+revisions backwards and forwards: selected → paused → empty → session-restored,
+three Undo operations back to selected, then three Redo operations to the
+session-restored state. Every transition leaves Check, output details and
+download disabled. The final Redo re-exports a deeply identical metadata-only
+v2 session and requires a fresh Apply/Check before download.
+
+Five actual 16,777,216-byte outputs—the v2/v1 controls, before and after the
+single-step history, and after the three-step Redo—are byte-identical with
+SHA-256 `31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+Each independent scan reports 4,987,327 changed bytes, 11,789,889 unchanged
+bytes, 19,458 ranges, all 64 displayed physical ranges with bounded 16-byte
+samples, and zero changes outside owning FFS `[2949240, 7956530)`. Five fresh
+reopens independently recover 277 Forms, the unchanged expression and empty
+scope body, an empty queue and disabled output; each original session rejects
+against the changed image/context. No application page errors occurred.
+
+This closes only this exact one-operation three-state queue-history shape.
+Other histories, asynchronous races, other actions/sources, descriptor-bearing
+SPI preservation, hardware and recovery remain separate. All codec, allocation,
+checksum, ownership, 15-minute timeout and independent-reader guards remained
+unchanged; private source, sessions and outputs stayed local.

@@ -12,6 +12,8 @@ const os = require("node:os");
 const path = require("node:path");
 const sourcePath = process.env.FIRMWARE_ACCEPTANCE_IMAGE;
 assert(sourcePath, "Set FIRMWARE_ACCEPTANCE_IMAGE to the accepted private source.");
+const acceptanceUrl =
+  process.env.FIRMWARE_ACCEPTANCE_URL || "https://titonax.github.io/UEFI-Editor-GPT/";
 const sourceBytes = fs.readFileSync(sourcePath);
 assert.equal(sourceBytes.length, 16777216);
 assert.equal(
@@ -117,6 +119,19 @@ async function verifyByteComparisonReport(page, output) {
   });
 }
 
+async function assertVerifiedOutputUnavailable(page, transition) {
+  for (const name of [
+    "Check firmware output",
+    "Modified firmware image",
+    "Output details",
+  ])
+    assert.equal(
+      await page.getByRole("button", { name, exact: true }).isDisabled(),
+      true,
+      `${transition} must leave ${name} disabled`,
+    );
+}
+
 (async () => {
   let browser;
   try {
@@ -144,7 +159,7 @@ async function verifyByteComparisonReport(page, output) {
     page.on("response", (r) => {
       if (/\.wasm|assets\/index-/.test(r.url())) assets.add(r.url().split("/").pop());
     });
-    await page.goto("https://titonax.github.io/UEFI-Editor-GPT/");
+    await page.goto(acceptanceUrl);
     await page
       .locator("input[type=file]")
       .first()
@@ -463,6 +478,108 @@ async function verifyByteComparisonReport(page, output) {
     console.log("SESSION_LOAD_UNDO_REDO_INVALIDATED_AND_FRESH_OUTPUT_IDENTICAL");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Exercise a longer shared history with three distinct queue states after
+    // the ready output above: selected -> paused -> empty -> session-restored.
+    // Traverse the complete sequence in both directions. Every transition must
+    // invalidate the previously checked bytes, even when history returns to an
+    // entry list that is structurally identical to an earlier applied plan.
+    const queueCheckboxes = queue.getByRole("checkbox");
+    assert.equal(
+      await queueCheckboxes.count(),
+      1,
+      "The accepted one-operation queue must expose exactly one selector",
+    );
+    const selectSuppression = queueCheckboxes.first();
+    await selectSuppression.uncheck();
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    assert.match(await queue.innerText(), /Disable SuppressIf 0x5B2D9/);
+    await assertVerifiedOutputUnavailable(page, "Pausing the operation");
+    await queue.getByRole("button", { name: "Clear queue", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    await assertVerifiedOutputUnavailable(page, "Clearing the paused queue");
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionPath);
+    const longHistoryRestoreStarted = Date.now();
+    while (
+      await queue
+        .getByRole("button", { name: "Apply selected", exact: true })
+        .isDisabled()
+    ) {
+      if (Date.now() - longHistoryRestoreStarted > 60000)
+        throw Error("Long-history session restore did not finish within one minute");
+      await page.waitForTimeout(100);
+    }
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    await assertVerifiedOutputUnavailable(page, "Loading the long-history session");
+
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    await assertVerifiedOutputUnavailable(page, "First long-history Undo");
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), false);
+    await assertVerifiedOutputUnavailable(page, "Second long-history Undo");
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    await assertVerifiedOutputUnavailable(page, "Third long-history Undo");
+
+    await queue.getByRole("button", { name: "Redo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), false);
+    await assertVerifiedOutputUnavailable(page, "First long-history Redo");
+    await queue.getByRole("button", { name: "Redo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /The queue is empty/);
+    await assertVerifiedOutputUnavailable(page, "Second long-history Redo");
+    await queue.getByRole("button", { name: "Redo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    await assertVerifiedOutputUnavailable(page, "Third long-history Redo");
+
+    const longHistorySessionPromise = page.waitForEvent("download");
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    const longHistorySessionPath = root + "/long-history-redone-v2.json";
+    await (await longHistorySessionPromise).saveAs(longHistorySessionPath);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(longHistorySessionPath, "utf8")),
+      session,
+      "Long-history Redo must preserve the exact metadata-only session",
+    );
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const longHistoryBuildStarted = Date.now();
+    while (await button.isDisabled()) {
+      const text = await page.locator("body").innerText();
+      if (text.includes("Output check failed:"))
+        throw Error(
+          text.slice(
+            text.indexOf("Output check failed:"),
+            text.indexOf("Output check failed:") + 400,
+          ),
+        );
+      if (Date.now() - longHistoryBuildStarted > 900000)
+        throw Error("Long-history output check did not finish within 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const longHistoryImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const longHistoryImagePath = root + "/long-history-after-redo.bin";
+    await (await longHistoryImagePromise).saveAs(longHistoryImagePath);
+    const longHistoryOutput = fs.readFileSync(longHistoryImagePath);
+    assert(
+      longHistoryOutput.equals(baseline),
+      "Long-history output must equal every earlier accepted baseline",
+    );
+    await verifyByteComparisonReport(page, longHistoryOutput);
+    console.log("THREE_STEP_UNDO_REDO_PAUSED_EMPTY_SESSION_FRESH_OUTPUT_IDENTICAL");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -478,6 +595,7 @@ async function verifyByteComparisonReport(page, output) {
       ["v1", root + "/output-v1.bin", legacyPath],
       ["history-before-undo", root + "/history-before-undo.bin", sessionPath],
       ["history-after-redo", root + "/history-after-redo.bin", sessionPath],
+      ["long-history-after-redo", root + "/long-history-after-redo.bin", sessionPath],
     ]) {
       await page.reload();
       await page.locator("input[type=file]").first().setInputFiles(imagePath);
