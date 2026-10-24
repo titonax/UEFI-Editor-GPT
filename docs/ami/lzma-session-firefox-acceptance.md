@@ -244,3 +244,44 @@ Other histories, asynchronous races, other actions/sources, descriptor-bearing
 SPI preservation, hardware and recovery remain separate. All codec, allocation,
 checksum, ownership, 15-minute timeout and independent-reader guards remained
 unchanged; private source, sessions and outputs stayed local.
+
+## Controlled late session read across selection Undo
+
+Reproduced on 2026-10-24 (Europe/Madrid) from main
+`54b75ba93a7555eb8b63709b0ac3c641e64549ae` with Firefox 153.0 / Playwright
+1.62.1 build 1538. The application was the production build served only on
+`127.0.0.1`, using locally cached copies of the three public deployed WASM
+readers. This was real Firefox, not React/jsdom, but it was not an interaction
+with the deployed Pages origin. No editor, queue, codec, writer, digest result,
+download or application response was mocked.
+
+With the selected suppression and queue dialog still mounted, the checker
+holds delivery of the real native `File.text()` result for the exact valid
+paused v2 session. While that read is held it pauses the selected operation,
+then uses Undo to return to the selected queue. Both revisions invalidate
+Check, output details and download while retaining the available Redo branch.
+Releasing the old text completes exactly one native read, but the stale request
+performs zero identity hashes and produces no loaded status or alert. The
+current selected queue, source, dialog, document and Redo branch remain intact.
+
+Two current-request positive controls then load the same paused metadata and
+the selected session normally. The paused load executes the native identity
+hashes and selects zero operations; the selected load restores the exact
+operation without an alert. A fresh Apply/Check produces a sixth actual
+16,777,216-byte output, byte-identical to the five earlier accepted outputs at
+SHA-256 `31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+Its independent scan again reports 4,987,327 changed bytes, 11,789,889
+unchanged bytes, 19,458 ranges, all 64 displayed physical ranges with bounded
+16-byte samples, and zero changes outside owning FFS `[2949240, 7956530)`.
+Six fresh reopens recover 277 Forms, the unchanged expression and empty scope
+body, an empty queue and disabled output; every original session rejects
+against the changed image/context. No application page errors occurred.
+
+This closes only the exact old-read delivery across a selected → paused → Undo
+selected queue-revision change. The delivery timing is controlled; ordinary
+scheduling, actual I/O or hash failure, the old handler's full return, other
+hash boundaries, rejection paths, histories, actions/sources,
+descriptor-bearing SPI preservation, hardware and recovery remain separate.
+All codec, allocation, checksum, ownership, 15-minute timeout and
+independent-reader guards remained unchanged; private source, sessions and
+outputs stayed local.

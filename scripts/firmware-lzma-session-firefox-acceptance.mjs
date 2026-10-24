@@ -256,6 +256,10 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("V2_EXPORTED_METADATA_ONLY", JSON.stringify(session.operations));
     const legacyPath = root + "/session-v1.json";
     fs.writeFileSync(legacyPath, JSON.stringify({ ...session, version: 1 }));
+    const pausedSession = structuredClone(session);
+    pausedSession.operations[0].enabled = false;
+    const pausedSessionPath = root + "/session-paused-v2.json";
+    fs.writeFileSync(pausedSessionPath, JSON.stringify(pausedSession));
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -580,6 +584,170 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("THREE_STEP_UNDO_REDO_PAUSED_EMPTY_SESSION_FRESH_OUTPUT_IDENTICAL");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Isolate queue-revision cancellation while the dialog and source stay
+    // mounted. Hold a real native File.text delivery for a valid paused session,
+    // mutate selection and Undo back to the original selected shape. The stale
+    // delivery must stop before AMI identity hashing, retain the current history
+    // branch and never restore bytes verified for an older revision.
+    const heldSessionPath = root + "/held-first-lzma-session.json";
+    fs.copyFileSync(pausedSessionPath, heldSessionPath);
+    const documentOrigin = await page.evaluate(() => performance.timeOrigin);
+    await page.evaluate(() => {
+      const textDescriptor = Object.getOwnPropertyDescriptor(File.prototype, "text");
+      const digestDescriptor = Object.getOwnPropertyDescriptor(crypto.subtle, "digest");
+      const nativeText = File.prototype.text;
+      const nativeDigest = crypto.subtle.digest;
+      const state = {
+        calls: 0,
+        nativeCompleted: 0,
+        delivered: 0,
+        hashes: 0,
+        held: false,
+      };
+      let armed = true;
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      File.prototype.text = async function (...args) {
+        const hold = armed && this.name === "held-first-lzma-session.json";
+        if (hold) {
+          armed = false;
+          state.calls++;
+        }
+        const text = await nativeText.apply(this, args);
+        if (hold) {
+          state.nativeCompleted++;
+          state.held = true;
+          await gate;
+          state.held = false;
+          state.delivered++;
+        }
+        return text;
+      };
+      crypto.subtle.digest = function (...args) {
+        state.hashes++;
+        return nativeDigest.apply(this, args);
+      };
+      window.__firstLzmaReadProbe = {
+        state,
+        release,
+        restore: () => {
+          if (textDescriptor)
+            Object.defineProperty(File.prototype, "text", textDescriptor);
+          else delete File.prototype.text;
+          if (digestDescriptor)
+            Object.defineProperty(crypto.subtle, "digest", digestDescriptor);
+          else delete crypto.subtle.digest;
+        },
+      };
+    });
+    await queue.getByLabel("Load queue session file").setInputFiles(heldSessionPath);
+    await page.waitForFunction(() => window.__firstLzmaReadProbe.state.held);
+    assert.deepEqual(await page.evaluate(() => window.__firstLzmaReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 0,
+      hashes: 0,
+      held: true,
+    });
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    await selectSuppression.uncheck();
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    await assertVerifiedOutputUnavailable(page, "Selection during held session read");
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    await assertVerifiedOutputUnavailable(page, "Undo during held session read");
+    const redoButton = queue.getByRole("button", {
+      name: "Redo queue change",
+      exact: true,
+    });
+    assert.equal(await redoButton.isDisabled(), false);
+    await page.evaluate(() => window.__firstLzmaReadProbe.release());
+    await page.waitForFunction(() => window.__firstLzmaReadProbe.state.delivered === 1);
+    assert.deepEqual(await page.evaluate(() => window.__firstLzmaReadProbe.state), {
+      calls: 1,
+      nativeCompleted: 1,
+      delivered: 1,
+      hashes: 0,
+      held: false,
+    });
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentOrigin);
+    assert.equal(await queue.isVisible(), true);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    await assertVerifiedOutputUnavailable(page, "Stale session delivery");
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.equal(await redoButton.isDisabled(), false);
+    console.log("HELD_SESSION_READ_SELECTION_UNDO_ZERO_VALIDATION_HASHES");
+
+    // Positive controls prove that the same paused metadata still traverses
+    // current identity validation and that the exact selected session can be
+    // restored and rebuilt after stale delivery was discarded.
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedSessionPath);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), false);
+    await assertVerifiedOutputUnavailable(page, "Current paused-session load");
+    assert(
+      (await page.evaluate(() => window.__firstLzmaReadProbe.state.hashes)) >= 3,
+      "Current AMI session load must execute its native identity hashes",
+    );
+    assert.equal(await redoButton.isDisabled(), true);
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionPath);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    await assertVerifiedOutputUnavailable(page, "Current selected-session load");
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await page.evaluate(() => window.__firstLzmaReadProbe.restore());
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const asyncBuildStarted = Date.now();
+    while (await button.isDisabled()) {
+      const text = await page.locator("body").innerText();
+      if (text.includes("Output check failed:"))
+        throw Error(
+          text.slice(
+            text.indexOf("Output check failed:"),
+            text.indexOf("Output check failed:") + 400,
+          ),
+        );
+      if (Date.now() - asyncBuildStarted > 900000)
+        throw Error("Post-async output check did not finish within 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const asyncImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const asyncImagePath = root + "/async-after-stale-read.bin";
+    await (await asyncImagePromise).saveAs(asyncImagePath);
+    const asyncOutput = fs.readFileSync(asyncImagePath);
+    assert(
+      asyncOutput.equals(baseline),
+      "Post-async output must equal every earlier accepted baseline",
+    );
+    await verifyByteComparisonReport(page, asyncOutput);
+    console.log("STALE_READ_DISCARDED_CURRENT_LOAD_FRESH_OUTPUT_IDENTICAL");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -596,6 +764,7 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       ["history-before-undo", root + "/history-before-undo.bin", sessionPath],
       ["history-after-redo", root + "/history-after-redo.bin", sessionPath],
       ["long-history-after-redo", root + "/long-history-after-redo.bin", sessionPath],
+      ["async-after-stale-read", root + "/async-after-stale-read.bin", sessionPath],
     ]) {
       await page.reload();
       await page.locator("input[type=file]").first().setInputFiles(imagePath);
