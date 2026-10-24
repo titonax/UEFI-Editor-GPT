@@ -33,7 +33,7 @@
     "@bjorn3/browser_wasi_shim": "^0.4.2",
     "@kirinsaninc/lhats": "^0.1.0",
     "@mantine/core": "^7.17.2",
-    "@mantine/hooks": "^7.17.2",
+    "@mantine/hooks": "^8.3.18",
     "@tabler/icons-react": "^3.49.0",
     "file-saver": "^2.0.5",
     "immer": "^11.1.21",
