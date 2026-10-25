@@ -294,6 +294,17 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     });
     const atomicSemanticSessionPath = root + "/session-atomic-rejection-v2.json";
     fs.writeFileSync(atomicSemanticSessionPath, JSON.stringify(atomicSemanticSession));
+    const atomicBatchSemanticSession = structuredClone(session);
+    atomicBatchSemanticSession.operations[0].changes.push({
+      conditionIndex: data.suppressions.length + 1,
+      active: false,
+    });
+    const atomicBatchSemanticSessionPath =
+      root + "/session-atomic-batch-rejection-v2.json";
+    fs.writeFileSync(
+      atomicBatchSemanticSessionPath,
+      JSON.stringify(atomicBatchSemanticSession),
+    );
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1464,6 +1475,64 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("SEMANTIC_REJECTION_RECOVERY_FRESH_OUTPUT_IDENTICAL");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Reject a later invalid change inside one enabled suppression batch after
+    // a complete output has already been verified. The earlier valid change is
+    // replayed only on a disposable projection: no partial batch or new queue
+    // revision may be installed, and the cached verified image must survive.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      const state = { calls: 0 };
+      crypto.subtle.digest = function (...args) {
+        state.calls++;
+        if (state.calls === 3) crypto.subtle.digest = original;
+        return original.apply(this, args);
+      };
+      window.__firstLzmaAtomicBatchRejectionProbe = state;
+    });
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(atomicBatchSemanticSessionPath);
+    const atomicBatchRejection = queue.getByRole("alert");
+    await atomicBatchRejection.waitFor();
+    assert.match(
+      await atomicBatchRejection.innerText(),
+      /targets a missing or read-only condition/,
+    );
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaAtomicBatchRejectionProbe),
+      { calls: 3 },
+    );
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        false,
+        `Atomic batch rejection must retain ${name}`,
+      );
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const retainedBatchImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const retainedBatchImagePath = root + "/atomic-batch-retained-output.bin";
+    await (await retainedBatchImagePromise).saveAs(retainedBatchImagePath);
+    const retainedBatchOutput = fs.readFileSync(retainedBatchImagePath);
+    assert(
+      retainedBatchOutput.equals(baseline),
+      "Atomic batch rejection must retain the last verified complete BIOS",
+    );
+    await verifyByteComparisonReport(page, retainedBatchOutput);
+    console.log(
+      "ENABLED_BATCH_LATER_INVALID_TARGET_REJECTED_ATOMICALLY_READY_OUTPUT_RETAINED",
+    );
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -1485,6 +1554,11 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       ["after-stale-first-hash", root + "/after-stale-first-hash.bin", sessionPath],
       ["after-stale-second-hash", root + "/after-stale-second-hash.bin", sessionPath],
       ["after-semantic-rejection", root + "/after-semantic-rejection.bin", sessionPath],
+      [
+        "atomic-batch-retained-output",
+        root + "/atomic-batch-retained-output.bin",
+        sessionPath,
+      ],
     ]) {
       await page.reload();
       await page.locator("input[type=file]").first().setInputFiles(imagePath);
