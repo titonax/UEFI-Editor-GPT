@@ -1030,6 +1030,154 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("FIRST_HASH_STALE_COMMIT_CURRENT_LOAD_FRESH_OUTPUT_IDENTICAL");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Exercise the other parallel identity-digest boundary independently.
+    // The source and Setup digests both finish natively, but delivery of the
+    // second result is held while a selection change and Undo return to
+    // identical entries. The obsolete request must stop before its later third
+    // context digest and semantic replay.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const state = { calls: 0, nativeCompleted: 0, delivered: 0, held: false };
+      crypto.subtle.digest = function (...args) {
+        const call = ++state.calls;
+        return original.apply(this, args).then(async (result) => {
+          state.nativeCompleted++;
+          if (call === 2) {
+            state.held = true;
+            await gate;
+            state.held = false;
+          }
+          state.delivered++;
+          return result;
+        });
+      };
+      window.__firstLzmaSecondHashProbe = {
+        state,
+        release: () => {
+          crypto.subtle.digest = original;
+          release();
+        },
+      };
+    });
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedSessionPath);
+    await page.waitForFunction(() => {
+      const state = window.__firstLzmaSecondHashProbe.state;
+      return state.held && state.calls === 2 && state.nativeCompleted === 2;
+    });
+    const heldSecondHash = {
+      calls: 2,
+      nativeCompleted: 2,
+      delivered: 1,
+      held: true,
+    };
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaSecondHashProbe.state),
+      heldSecondHash,
+    );
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await button.isDisabled(), false);
+    await selectSuppression.uncheck();
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    await assertVerifiedOutputUnavailable(
+      page,
+      "Selection during second identity hash",
+    );
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    await assertVerifiedOutputUnavailable(page, "Undo during second identity hash");
+    assert.equal(await redoButton.isDisabled(), false);
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaSecondHashProbe.state),
+      heldSecondHash,
+    );
+    await page.evaluate(() => window.__firstLzmaSecondHashProbe.release());
+    await page.waitForFunction(() => {
+      const state = window.__firstLzmaSecondHashProbe.state;
+      return state.delivered === 2 && !state.held;
+    });
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaSecondHashProbe.state),
+      { ...heldSecondHash, delivered: 2, held: false },
+    );
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.equal(await redoButton.isDisabled(), false);
+    await assertVerifiedOutputUnavailable(page, "Stale second identity digest");
+    console.log("HELD_SECOND_IDENTITY_HASH_SELECTION_UNDO_STALE_COMMIT_DISCARDED");
+
+    await queue.getByLabel("Load queue session file").setInputFiles(pausedSessionPath);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), false);
+    await assertVerifiedOutputUnavailable(page, "Current post-second-hash paused load");
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionPath);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    await assertVerifiedOutputUnavailable(
+      page,
+      "Current post-second-hash selected load",
+    );
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const secondHashBuildStarted = Date.now();
+    while (await button.isDisabled()) {
+      const text = await page.locator("body").innerText();
+      if (text.includes("Output check failed:"))
+        throw Error(
+          text.slice(
+            text.indexOf("Output check failed:"),
+            text.indexOf("Output check failed:") + 400,
+          ),
+        );
+      if (Date.now() - secondHashBuildStarted > 900000)
+        throw Error("Post-second-hash output check did not finish within 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const secondHashImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const secondHashImagePath = root + "/after-stale-second-hash.bin";
+    await (await secondHashImagePromise).saveAs(secondHashImagePath);
+    const secondHashOutput = fs.readFileSync(secondHashImagePath);
+    assert(
+      secondHashOutput.equals(baseline),
+      "Post-second-hash output must equal every earlier accepted baseline",
+    );
+    await verifyByteComparisonReport(page, secondHashOutput);
+    console.log("SECOND_HASH_STALE_COMMIT_CURRENT_LOAD_FRESH_OUTPUT_IDENTICAL");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -1049,6 +1197,7 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       ["async-after-stale-read", root + "/async-after-stale-read.bin", sessionPath],
       ["after-stale-final-hash", root + "/after-stale-final-hash.bin", sessionPath],
       ["after-stale-first-hash", root + "/after-stale-first-hash.bin", sessionPath],
+      ["after-stale-second-hash", root + "/after-stale-second-hash.bin", sessionPath],
     ]) {
       await page.reload();
       await page.locator("input[type=file]").first().setInputFiles(imagePath);
