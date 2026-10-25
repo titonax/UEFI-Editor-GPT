@@ -260,6 +260,14 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     pausedSession.operations[0].enabled = false;
     const pausedSessionPath = root + "/session-paused-v2.json";
     fs.writeFileSync(pausedSessionPath, JSON.stringify(pausedSession));
+    const invalidSemanticSession = structuredClone(session);
+    invalidSemanticSession.operations[0].changes[0].conditionIndex =
+      data.suppressions.length + 1;
+    const invalidSemanticSessionPath = root + "/session-invalid-suppression-v2.json";
+    fs.writeFileSync(
+      invalidSemanticSessionPath,
+      JSON.stringify(invalidSemanticSession),
+    );
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1178,6 +1186,144 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("SECOND_HASH_STALE_COMMIT_CURRENT_LOAD_FRESH_OUTPUT_IDENTICAL");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Exercise a semantic rejection only after all three real identity hashes
+    // succeed. Delivery of the context digest is held while selection changes
+    // and Undo returns to byte-for-byte equal entries. The invalid SuppressIf
+    // selector must still be replayed, but its obsolete rejection must not
+    // report against the newer queue revision or consume Redo.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const state = { calls: 0, nativeCompleted: 0, delivered: 0, held: false };
+      crypto.subtle.digest = function (...args) {
+        const call = ++state.calls;
+        if (call === 3) crypto.subtle.digest = original;
+        return original.apply(this, args).then(async (result) => {
+          state.nativeCompleted++;
+          if (call === 3) {
+            state.held = true;
+            await gate;
+            state.held = false;
+          }
+          state.delivered++;
+          return result;
+        });
+      };
+      window.__firstLzmaSemanticRejectionProbe = { state, release };
+    });
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(invalidSemanticSessionPath);
+    await page.waitForFunction(
+      () => window.__firstLzmaSemanticRejectionProbe.state.held,
+    );
+    const heldSemanticRejection = {
+      calls: 3,
+      nativeCompleted: 3,
+      delivered: 2,
+      held: true,
+    };
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaSemanticRejectionProbe.state),
+      heldSemanticRejection,
+    );
+    assert.equal(await queue.getByText("Validating queue session…").isVisible(), true);
+    await selectSuppression.uncheck();
+    assert.match(await queue.innerText(), /0 SELECTED/);
+    await assertVerifiedOutputUnavailable(page, "Selection during semantic rejection");
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    await assertVerifiedOutputUnavailable(page, "Undo during semantic rejection");
+    assert.equal(await redoButton.isDisabled(), false);
+    await page.evaluate(() => window.__firstLzmaSemanticRejectionProbe.release());
+    await page.waitForFunction(() => {
+      const state = window.__firstLzmaSemanticRejectionProbe.state;
+      return state.delivered === 3 && !state.held;
+    });
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaSemanticRejectionProbe.state),
+      { ...heldSemanticRejection, delivered: 3, held: false },
+    );
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal(await queue.getByText("Validating queue session…").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.equal(await redoButton.isDisabled(), false);
+    await assertVerifiedOutputUnavailable(page, "Stale semantic rejection");
+    console.log("HELD_SEMANTIC_REJECTION_SELECTION_UNDO_STALE_ERROR_DISCARDED");
+
+    // The same malformed metadata must reject when it belongs to the current
+    // request, without replacing the selected queue or consuming its Redo.
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(invalidSemanticSessionPath);
+    const semanticRejection = queue.getByRole("alert");
+    await semanticRejection.waitFor();
+    assert.match(
+      await semanticRejection.innerText(),
+      /targets a missing or read-only condition/,
+    );
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await redoButton.isDisabled(), false);
+    await assertVerifiedOutputUnavailable(page, "Current semantic rejection");
+    console.log("CURRENT_SEMANTIC_REJECTION_RETAINED_QUEUE_REDO_AND_NO_OUTPUT");
+
+    await queue.getByLabel("Load queue session file").setInputFiles(sessionPath);
+    await page.waitForFunction(() => {
+      const input = document.querySelector(
+        'input[aria-label="Load queue session file"]',
+      );
+      return input && input.files.length === 0;
+    });
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await redoButton.isDisabled(), true);
+    await assertVerifiedOutputUnavailable(page, "Recovery after semantic rejection");
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const semanticRecoveryBuildStarted = Date.now();
+    while (await button.isDisabled()) {
+      const text = await page.locator("body").innerText();
+      if (text.includes("Output check failed:"))
+        throw Error(
+          text.slice(
+            text.indexOf("Output check failed:"),
+            text.indexOf("Output check failed:") + 400,
+          ),
+        );
+      if (Date.now() - semanticRecoveryBuildStarted > 900000)
+        throw Error("Post-semantic-rejection output check exceeded 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const semanticRecoveryImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const semanticRecoveryImagePath = root + "/after-semantic-rejection.bin";
+    await (await semanticRecoveryImagePromise).saveAs(semanticRecoveryImagePath);
+    const semanticRecoveryOutput = fs.readFileSync(semanticRecoveryImagePath);
+    assert(
+      semanticRecoveryOutput.equals(baseline),
+      "Post-semantic-rejection output must equal every accepted baseline",
+    );
+    await verifyByteComparisonReport(page, semanticRecoveryOutput);
+    console.log("SEMANTIC_REJECTION_RECOVERY_FRESH_OUTPUT_IDENTICAL");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -1198,6 +1344,7 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       ["after-stale-final-hash", root + "/after-stale-final-hash.bin", sessionPath],
       ["after-stale-first-hash", root + "/after-stale-first-hash.bin", sessionPath],
       ["after-stale-second-hash", root + "/after-stale-second-hash.bin", sessionPath],
+      ["after-semantic-rejection", root + "/after-semantic-rejection.bin", sessionPath],
     ]) {
       await page.reload();
       await page.locator("input[type=file]").first().setInputFiles(imagePath);

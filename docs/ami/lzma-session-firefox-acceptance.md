@@ -396,3 +396,40 @@ failure, semantic rejection paths, other histories, actions/sources,
 descriptor-bearing SPI, hardware and recovery remain separate. Codec,
 allocation, checksum, ownership, 15-minute timeout and independent-reader guards
 remained unchanged; private source, sessions and outputs stayed local.
+
+## Controlled semantic rejection across selection Undo
+
+Reproduced on 2026-10-25 (Europe/Madrid) from main
+`9b214d9d71d8fb93ea990ca09aa8321ef4d4214e` with Firefox 153.0 / Playwright
+1.62.1 build 1538. The production build and locally cached public deployed WASM
+readers were served only on `127.0.0.1`. This was real Firefox, not React/jsdom
+or a deployed Pages interaction. File reading and all three SHA-256 calculations
+remained native; only delivery of the real context-digest result was held.
+
+A v2 session retained the exact accepted image and HII identities but replaced
+its suppression selector with an out-of-range condition index. After all three
+native hashes completed, the checker paused the selected operation and used Undo
+to restore the byte-for-byte equal selected queue before releasing the digest.
+The resulting obsolete semantic error produced no alert or loaded status, did
+not replace the queue, revive output or consume Redo. Loading the same malformed
+session as the current request then rejected the missing/read-only condition
+while retaining the selected queue and Redo with output disabled.
+
+The valid session subsequently loaded and applied normally. A fresh Check
+produced a tenth actual 16,777,216-byte output, byte-identical to all nine earlier
+outputs at SHA-256
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+Its independent scan again found 4,987,327 changed bytes, 11,789,889 unchanged
+bytes, 19,458 ranges, all 64 displayed physical ranges with bounded 16-byte
+samples, and zero changes outside owning FFS `[2949240, 7956530)`. Ten fresh
+reopens recovered 277 Forms, the unchanged expression and empty scope body, an
+empty queue and disabled output; every original session rejected against the
+changed image/context. No application page errors occurred.
+
+This closes only one invalid suppression-selector semantic rejection across a
+selected → paused → Undo selected revision change and its current-request
+control. Other semantic rejection causes, ordinary scheduling, actual I/O/hash
+failure, other histories, actions/sources, descriptor-bearing SPI, hardware and
+recovery remain separate. Codec, allocation, checksum, ownership, 15-minute
+timeout and independent-reader guards remained unchanged; private source,
+sessions and outputs stayed local.
