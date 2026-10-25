@@ -97,8 +97,12 @@ The next work order is:
    from `246677d` holds the real second parallel identity result under the same
    revision change: stale delivery likewise cannot start the later context
    digest, commit or consume Redo, while current loads rebuild a ninth identical
-   BIOS with nine independent rereads. Other history shapes and
-   semantic-rejection paths remain next.
+   BIOS with nine independent rereads. A sixth run from `9b214d9` holds the real
+   context digest for an identity-valid session with an invalid suppression
+   selector. Its obsolete semantic error is discarded across selection/Undo,
+   the current request rejects without replacing queue/Redo, and valid recovery
+   rebuilds a tenth identical BIOS with ten independent rereads. Other history
+   shapes and semantic-rejection causes remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -1027,8 +1031,12 @@ list the blocker for every unsupported case.
   `246677d` holds the real second parallel identity result after both native
   hashes complete. Stale delivery likewise cannot start the later context
   digest, commit, revive output or consume Redo; current loads produce a ninth
-  identical BIOS and nine independent rereads. Other history shapes and
-  semantic-rejection paths remain separate.
+  identical BIOS and nine independent rereads. A sixth run from `9b214d9` holds
+  the real context digest for an identity-valid session with an invalid
+  suppression selector. Its obsolete semantic error is discarded across
+  selection/Undo; the current request rejects while retaining queue/Redo, and
+  valid recovery produces a tenth identical BIOS with ten independent rereads.
+  Other history shapes and semantic-rejection causes remain separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.

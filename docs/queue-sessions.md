@@ -266,8 +266,13 @@ source has no descriptor-bearing SPI regions. A fifth run from `246677d` holds
 the real second parallel identity result after both native computations
 complete. Stale delivery cannot start the later context digest, commit, revive
 output or consume Redo; current loads produce a ninth identical BIOS and nine
-independent rereads. Other actions, other histories, semantic-rejection
-boundaries and hardware remain unclaimed.
+independent rereads. A sixth run from `9b214d9` delays the real context digest
+for a correctly identified session whose suppression selector is invalid.
+Across the same selection/Undo change its stale semantic error is discarded;
+the current request rejects visibly without replacing the queue or consuming
+Redo, and valid recovery produces a tenth identical BIOS with ten independent
+rereads. Other actions, other histories, other semantic-rejection causes and
+hardware remain unclaimed.
 
 ## AMITSE menu reassignment
 
