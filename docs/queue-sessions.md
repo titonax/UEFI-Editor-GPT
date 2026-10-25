@@ -282,7 +282,12 @@ three native hashes complete, but the later semantic failure rejects the whole
 session: the first operation is not installed partially, and the existing
 selected queue, Redo and disabled output remain unchanged. Valid recovery and
 all ten output rereads remain exact. Longer multi-operation shapes remain
-separate.
+separate. A ninth run against deployed main `2d797c9` validates one enabled
+suppression batch whose valid first change is followed by an invalid selector.
+The complete batch rejects after three native hashes without replacing the
+one-selected queue or invalidating its ready verified output. The retained
+complete BIOS and all eleven independent rereads remain exact. Other batch
+orders and semantic causes remain separate.
 
 ## AMITSE menu reassignment
 

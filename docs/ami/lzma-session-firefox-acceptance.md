@@ -507,3 +507,41 @@ failure, other actions/sources, descriptor-bearing SPI, hardware and recovery
 remain separate. Codec, allocation, checksum, ownership, 15-minute timeout and
 independent-reader guards remained unchanged; private source, sessions and
 outputs stayed local.
+
+## Atomic enabled suppression-batch rejection with ready output
+
+Reproduced on 2026-10-25 (Europe/Madrid) in Firefox 153.0 / Playwright 1.62.1
+build 1538 against deployed main
+`2d797c9bf863fd1f7698d5c82e02dd4c78c50fc3`. Firefox loaded
+`index-BGap__g5.js`, `index-D4JOsfQ5.css` and the three public deployed WASM
+readers. This was a real browser interaction with the deployed Pages origin,
+not React/jsdom. File reading and all three SHA-256 calculations remained
+native; the application, editor, queue, codec, writer, responses and downloads
+were not mocked.
+
+After valid recovery had rebuilt and verified the known suppression output, an
+identity-valid v2 session supplied one enabled `suppressions` batch. Its first
+change selected the real supported `SuppressIf`; its second change used an
+out-of-range condition index. All three native identity hashes completed before
+semantic replay rejected the second change. The earlier valid change was not
+installed partially: the original one-selected queue remained exact, no loaded
+status appeared, and Check, output details and the existing verified download
+all stayed enabled. Downloading that retained result after closing the queue
+dialog produced the same complete 16,777,216-byte BIOS at SHA-256
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+
+The extended complete flow downloaded eleven outputs, including the retained
+cached image. All eleven were byte-identical. Every independent scan found
+4,987,327 changed bytes, 11,789,889 unchanged bytes, 19,458 ranges, all 64
+displayed physical ranges with bounded 16-byte samples, and zero changes outside
+owning FFS `[2949240, 7956530)`. Eleven fresh reopens recovered 277 Forms, the
+unchanged expression and empty scope body, an empty queue and disabled output;
+every original session rejected against the changed image/context. No
+application page errors occurred.
+
+This closes only atomic rejection inside this exact enabled suppression batch
+while retaining a ready verified output. It does not establish other batch
+orders, duplicate or ambiguous selectors, ordinary scheduling, actual I/O/hash
+failure, other actions/sources, descriptor-bearing SPI, hardware or recovery.
+Codec, allocation, checksum, ownership, 15-minute timeout and independent-reader
+guards remained unchanged; private source, sessions and outputs stayed local.

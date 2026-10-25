@@ -110,7 +110,12 @@ The next work order is:
    paused first suppression and a paused invalid later selector. The later
    semantic failure rejects the complete session without installing the first
    operation or replacing the selected queue/Redo; all ten output rereads remain
-   exact. Other history shapes and semantic-rejection causes remain next.
+   exact. A ninth Firefox run against deployed main `2d797c9` validates one
+   enabled suppression batch with a supported first change and invalid later
+   selector. Rejection after three native hashes retains the exact selected
+   queue and ready verified output; eleven complete-BIOS downloads and independent
+   rereads remain exact. Other history shapes, batch orders and semantic-rejection
+   causes remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -1050,8 +1055,12 @@ list the blocker for every unsupported case.
   plus all ten output rereads remain exact. An eighth run from `6f85f6a` proves
   atomic semantic rejection of a valid paused first suppression followed by a
   paused invalid target: no partial queue replacement occurs, Redo survives and
-  all ten rereads remain exact. Other history shapes and semantic-rejection
-  causes remain separate.
+  all ten rereads remain exact. A ninth run against deployed main `2d797c9`
+  proves atomic rejection within one enabled suppression batch whose valid first
+  change precedes an invalid selector. The exact selected queue and ready output
+  survive; all eleven complete-BIOS downloads and independent rereads remain
+  exact. Other history shapes, batch orders and semantic-rejection causes remain
+  separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
