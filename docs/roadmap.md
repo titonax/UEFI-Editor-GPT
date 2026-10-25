@@ -90,8 +90,11 @@ The next work order is:
    independent rereads. A third run from `b941273` now holds the real third/final
    identity digest across the same revision change: stale delivery cannot commit
    or consume Redo, and current loads rebuild a seventh identical BIOS with seven
-   independent rereads. Other history shapes, earlier hash boundaries and
-   semantic-rejection paths remain next.
+   independent rereads. A fourth run from `f1bd523` holds the real first parallel
+   identity result after both native computations complete: stale delivery cannot
+   start the later context digest, commit or consume Redo, while current loads
+   rebuild an eighth identical BIOS with eight independent rereads. Other history
+   shapes, the second initial digest and semantic-rejection paths remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -1012,9 +1015,12 @@ list the blocker for every unsupported case.
   independent rereads pass. A third run from `b941273` holds the native
   third/final identity digest across the same selected/paused/Undo-selected
   change. Stale delivery cannot commit, revive output or consume Redo; current
-  loads produce a seventh identical BIOS and seven independent rereads. Other
-  history shapes, earlier hash boundaries and semantic-rejection paths remain
-  separate.
+  loads produce a seventh identical BIOS and seven independent rereads. A fourth
+  run from `f1bd523` holds delivery of the real first parallel identity result
+  after both native hashes complete. Stale delivery cannot start the later
+  context digest, commit, revive output or consume Redo; current loads produce
+  an eighth identical BIOS and eight independent rereads. Other history shapes,
+  the second initial digest and semantic-rejection paths remain separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
