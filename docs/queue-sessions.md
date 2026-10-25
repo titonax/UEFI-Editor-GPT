@@ -257,9 +257,14 @@ the same independent reread and changed-image rejection. A third
 local-production Firefox run holds the real third/final identity digest across
 the same selection/Undo sequence: stale delivery cannot commit, revive output
 or consume Redo; current loads produce a seventh identical complete BIOS and
-seven independent rereads. This source has no descriptor-bearing SPI regions;
-other actions, other histories, earlier hash and semantic-rejection boundaries
-and hardware remain unclaimed.
+seven independent rereads. A fourth run from `f1bd523` holds delivery of the
+real first parallel identity result after both native computations complete.
+Across the same selected/paused/Undo-selected change, stale delivery cannot
+start the later context digest, commit, revive output or consume Redo; current
+loads produce an eighth identical BIOS and eight independent rereads. This
+source has no descriptor-bearing SPI regions; other actions, other histories,
+the second initial digest, semantic-rejection boundaries and hardware remain
+unclaimed.
 
 ## AMITSE menu reassignment
 

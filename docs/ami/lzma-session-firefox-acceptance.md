@@ -321,3 +321,41 @@ failure, earlier digest boundaries, semantic rejection paths, other histories,
 actions/sources, descriptor-bearing SPI, hardware and recovery remain separate.
 Codec, allocation, checksum, ownership, 15-minute timeout and independent-reader
 guards remained unchanged; private source, sessions and outputs stayed local.
+
+## Controlled first identity digest across selection Undo
+
+Reproduced on 2026-10-25 (Europe/Madrid) from main
+`f1bd5235b0dac089199e20b65c943c6c88698f1d` with Firefox 153.0 / Playwright
+1.62.1 build 1538. The production build and locally cached public deployed WASM
+readers were served only on `127.0.0.1`. This was real Firefox, not React/jsdom
+or a deployed Pages interaction. Both parallel SHA-256 calculations remained
+native; only delivery of the real first result was held.
+
+The exact paused v2 session started its parallel source and Setup identity
+digests. Both native computations completed, while delivery of the first result
+was held and the other result was delivered. The checker then paused the only
+selected operation and used Undo to restore the byte-for-byte equal selected
+queue. Both revisions invalidated Check, output details and download while
+retaining Redo. Releasing the first result produced no session-loaded status or
+alert, did not start the later context digest, and could not replace the queue,
+revive output or consume Redo.
+
+Current paused and selected session loads then completed normally. A fresh
+Apply/Check produced an eighth actual 16,777,216-byte output, byte-identical to
+all seven earlier outputs at SHA-256
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+Its independent scan again found 4,987,327 changed bytes, 11,789,889 unchanged
+bytes, 19,458 ranges, all 64 displayed physical ranges with bounded 16-byte
+samples, and zero changes outside owning FFS `[2949240, 7956530)`. Eight fresh
+reopens recovered 277 Forms, the unchanged expression and empty scope body, an
+empty queue and disabled output; every original session rejected against the
+changed image/context. No application page errors occurred.
+
+This closes only the first successful identity-result delivery across a
+selected → paused → Undo selected revision change. Timing is controlled; no
+digest value or failure was fabricated. Ordinary scheduling, actual I/O/hash
+failure, the second initial digest delivery, semantic rejection paths, other
+histories, actions/sources, descriptor-bearing SPI, hardware and recovery remain
+separate. Codec, allocation, checksum, ownership, 15-minute timeout and
+independent-reader guards remained unchanged; private source, sessions and
+outputs stayed local.
