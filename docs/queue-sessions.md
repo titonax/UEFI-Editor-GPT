@@ -271,8 +271,11 @@ for a correctly identified session whose suppression selector is invalid.
 Across the same selection/Undo change its stale semantic error is discarded;
 the current request rejects visibly without replacing the queue or consuming
 Redo, and valid recovery produces a tenth identical BIOS with ten independent
-rereads. Other actions, other histories, other semantic-rejection causes and
-hardware remain unclaimed.
+rereads. A seventh run from `0457301` selects a real `GrayOutIf` by its valid
+source index. Across the same selection/Undo change its stale read-only error is
+discarded; the current request rejects without replacing the queue or consuming
+Redo, and valid recovery plus all ten output rereads remain exact. Other actions,
+other histories, other semantic-rejection causes and hardware remain unclaimed.
 
 ## AMITSE menu reassignment
 
