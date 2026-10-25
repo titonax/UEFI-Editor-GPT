@@ -262,9 +262,12 @@ real first parallel identity result after both native computations complete.
 Across the same selected/paused/Undo-selected change, stale delivery cannot
 start the later context digest, commit, revive output or consume Redo; current
 loads produce an eighth identical BIOS and eight independent rereads. This
-source has no descriptor-bearing SPI regions; other actions, other histories,
-the second initial digest, semantic-rejection boundaries and hardware remain
-unclaimed.
+source has no descriptor-bearing SPI regions. A fifth run from `246677d` holds
+the real second parallel identity result after both native computations
+complete. Stale delivery cannot start the later context digest, commit, revive
+output or consume Redo; current loads produce a ninth identical BIOS and nine
+independent rereads. Other actions, other histories, semantic-rejection
+boundaries and hardware remain unclaimed.
 
 ## AMITSE menu reassignment
 
