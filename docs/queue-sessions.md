@@ -276,6 +276,13 @@ source index. Across the same selection/Undo change its stale read-only error is
 discarded; the current request rejects without replacing the queue or consuming
 Redo, and valid recovery plus all ten output rereads remain exact. Other actions,
 other histories, other semantic-rejection causes and hardware remain unclaimed.
+An eighth run from `6f85f6a` loads an identity-valid two-operation session whose
+first supported suppression and later invalid selector are both paused. All
+three native hashes complete, but the later semantic failure rejects the whole
+session: the first operation is not installed partially, and the existing
+selected queue, Redo and disabled output remain unchanged. Valid recovery and
+all ten output rereads remain exact. Longer multi-operation shapes remain
+separate.
 
 ## AMITSE menu reassignment
 

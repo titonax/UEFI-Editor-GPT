@@ -471,3 +471,39 @@ ordinary scheduling, actual I/O/hash failure, other histories, actions/sources,
 descriptor-bearing SPI, hardware and recovery remain separate. Codec,
 allocation, checksum, ownership, 15-minute timeout and independent-reader guards
 remained unchanged; private source, sessions and outputs stayed local.
+
+## Atomic paused-operation rejection
+
+Reproduced on 2026-10-25 (Europe/Madrid) from main
+`6f85f6a880343209d468b1e7d60260094afc251b` with Firefox 153.0 / Playwright
+1.62.1 build 1538. The production build and locally cached public deployed WASM
+readers were served only on `127.0.0.1`. This was real Firefox, not React/jsdom
+or a deployed Pages interaction. File reading and all three SHA-256 calculations
+remained native.
+
+An identity-valid v2 session contained two paused suppression operations. The
+first selected the real supported `SuppressIf`; the second used an out-of-range
+condition selector. All three native identity hashes completed before semantic
+replay rejected the later target. The valid first operation was not installed
+partially: the pre-existing selected queue, its Redo branch and disabled output
+state remained unchanged, and no loaded status appeared. This confirms that
+paused operations retain full validation and a later invalid operation rejects
+the complete session atomically.
+
+The valid session then recovered normally. The unchanged full acceptance flow
+again produced ten actual 16,777,216-byte outputs, all byte-identical at SHA-256
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+Every independent scan found 4,987,327 changed bytes, 11,789,889 unchanged
+bytes, 19,458 ranges, all 64 displayed physical ranges with bounded 16-byte
+samples, and zero changes outside owning FFS `[2949240, 7956530)`. Ten fresh
+reopens recovered 277 Forms, the unchanged expression and empty scope body, an
+empty queue and disabled output; every original session rejected against the
+changed image/context. No application page errors occurred.
+
+This closes only atomic rejection of a valid paused first operation followed by
+a paused invalid suppression target on this accepted source. Other semantic
+causes, longer multi-operation shapes, ordinary scheduling, actual I/O/hash
+failure, other actions/sources, descriptor-bearing SPI, hardware and recovery
+remain separate. Codec, allocation, checksum, ownership, 15-minute timeout and
+independent-reader guards remained unchanged; private source, sessions and
+outputs stayed local.
