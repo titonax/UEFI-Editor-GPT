@@ -105,8 +105,12 @@ The next work order is:
    from `0457301` selects a real `GrayOutIf` condition by its valid source index:
    the obsolete read-only rejection is discarded across the same selection/Undo
    boundary, while the current request rejects without replacing queue/Redo.
-   Valid recovery and all ten output rereads remain exact. Other history shapes
-   and semantic-rejection causes remain next.
+   Valid recovery and all ten output rereads remain exact. An eighth run from
+   `6f85f6a` validates an identity-correct two-operation session with a supported
+   paused first suppression and a paused invalid later selector. The later
+   semantic failure rejects the complete session without installing the first
+   operation or replacing the selected queue/Redo; all ten output rereads remain
+   exact. Other history shapes and semantic-rejection causes remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -1043,8 +1047,11 @@ list the blocker for every unsupported case.
   A seventh run from `0457301` targets a real `GrayOutIf` by its valid source
   index. Its obsolete read-only rejection is discarded across selection/Undo;
   the current request rejects while retaining queue/Redo, and valid recovery
-  plus all ten output rereads remain exact. Other history shapes and semantic-
-  rejection causes remain separate.
+  plus all ten output rereads remain exact. An eighth run from `6f85f6a` proves
+  atomic semantic rejection of a valid paused first suppression followed by a
+  paused invalid target: no partial queue replacement occurs, Redo survives and
+  all ten rereads remain exact. Other history shapes and semantic-rejection
+  causes remain separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.

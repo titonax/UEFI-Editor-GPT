@@ -285,6 +285,15 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       readOnlySemanticSessionPath,
       JSON.stringify(readOnlySemanticSession),
     );
+    const atomicSemanticSession = structuredClone(session);
+    atomicSemanticSession.operations[0].enabled = false;
+    atomicSemanticSession.operations.push({
+      action: "suppressions",
+      changes: [{ conditionIndex: data.suppressions.length + 1, active: false }],
+      enabled: false,
+    });
+    const atomicSemanticSessionPath = root + "/session-atomic-rejection-v2.json";
+    fs.writeFileSync(atomicSemanticSessionPath, JSON.stringify(atomicSemanticSession));
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1375,6 +1384,39 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     assert.equal(await redoButton.isDisabled(), false);
     await assertVerifiedOutputUnavailable(page, "Current read-only rejection");
     console.log("CURRENT_READ_ONLY_REJECTION_RETAINED_QUEUE_REDO_AND_NO_OUTPUT");
+
+    // Paused operations are still validated. A valid paused first operation
+    // followed by a paused invalid target must reject the complete session,
+    // without partially replacing the current selected queue or its Redo.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      const state = { calls: 0 };
+      crypto.subtle.digest = function (...args) {
+        state.calls++;
+        if (state.calls === 3) crypto.subtle.digest = original;
+        return original.apply(this, args);
+      };
+      window.__firstLzmaAtomicRejectionProbe = state;
+    });
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(atomicSemanticSessionPath);
+    const atomicRejection = queue.getByRole("alert");
+    await atomicRejection.waitFor();
+    assert.match(
+      await atomicRejection.innerText(),
+      /targets a missing or read-only condition/,
+    );
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaAtomicRejectionProbe),
+      { calls: 3 },
+    );
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await redoButton.isDisabled(), false);
+    await assertVerifiedOutputUnavailable(page, "Atomic paused rejection");
+    console.log("PAUSED_LATER_INVALID_TARGET_REJECTED_ATOMICALLY");
 
     await queue.getByLabel("Load queue session file").setInputFiles(sessionPath);
     await page.waitForFunction(() => {
