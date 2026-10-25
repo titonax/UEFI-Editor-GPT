@@ -180,12 +180,21 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     const scope = data.suppressions.find((s) => s.offset.toLowerCase() === "0x5b2d9");
     assert(scope);
     assert.equal(scope.active, true);
+    const readOnlyConditionIndex = data.suppressions.findIndex(
+      (condition) => (condition.kind ?? "SuppressIf") !== "SuppressIf",
+    );
+    assert.notEqual(
+      readOnlyConditionIndex,
+      -1,
+      "The accepted source must retain a read-only non-SuppressIf condition",
+    );
     console.log(
       "SOURCE_EDITOR",
       JSON.stringify({
         forms: data.forms.length,
         suppressions: data.suppressions.length,
         offset: scope.offset,
+        readOnlyConditionKind: data.suppressions[readOnlyConditionIndex].kind,
       }),
     );
     const jsonInput = page.locator('input[type=file][accept=".json"]').first();
@@ -267,6 +276,14 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     fs.writeFileSync(
       invalidSemanticSessionPath,
       JSON.stringify(invalidSemanticSession),
+    );
+    const readOnlySemanticSession = structuredClone(session);
+    readOnlySemanticSession.operations[0].changes[0].conditionIndex =
+      readOnlyConditionIndex;
+    const readOnlySemanticSessionPath = root + "/session-read-only-condition-v2.json";
+    fs.writeFileSync(
+      readOnlySemanticSessionPath,
+      JSON.stringify(readOnlySemanticSession),
     );
     const button = page.getByRole("button", {
       name: "Modified firmware image",
@@ -1277,6 +1294,87 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     assert.equal(await redoButton.isDisabled(), false);
     await assertVerifiedOutputUnavailable(page, "Current semantic rejection");
     console.log("CURRENT_SEMANTIC_REJECTION_RETAINED_QUEUE_REDO_AND_NO_OUTPUT");
+
+    // A valid selector can still resolve to a condition class that sessions
+    // deliberately do not edit. Hold the final real digest again so the stale
+    // read-only rejection crosses the same queue revision boundary, then prove
+    // the current request rejects without replacing the selected queue.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const state = { calls: 0, nativeCompleted: 0, delivered: 0, held: false };
+      crypto.subtle.digest = function (...args) {
+        const call = ++state.calls;
+        if (call === 3) crypto.subtle.digest = original;
+        return original.apply(this, args).then(async (result) => {
+          state.nativeCompleted++;
+          if (call === 3) {
+            state.held = true;
+            await gate;
+            state.held = false;
+          }
+          state.delivered++;
+          return result;
+        });
+      };
+      window.__firstLzmaReadOnlyRejectionProbe = { state, release };
+    });
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(readOnlySemanticSessionPath);
+    await page.waitForFunction(
+      () => window.__firstLzmaReadOnlyRejectionProbe.state.held,
+    );
+    const heldReadOnlyRejection = {
+      calls: 3,
+      nativeCompleted: 3,
+      delivered: 2,
+      held: true,
+    };
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaReadOnlyRejectionProbe.state),
+      heldReadOnlyRejection,
+    );
+    await selectSuppression.uncheck();
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await redoButton.isDisabled(), false);
+    await assertVerifiedOutputUnavailable(page, "Undo during read-only rejection");
+    await page.evaluate(() => window.__firstLzmaReadOnlyRejectionProbe.release());
+    await page.waitForFunction(() => {
+      const state = window.__firstLzmaReadOnlyRejectionProbe.state;
+      return state.delivered === 3 && !state.held;
+    });
+    await page.evaluate(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await redoButton.isDisabled(), false);
+    await assertVerifiedOutputUnavailable(page, "Stale read-only rejection");
+    console.log("HELD_READ_ONLY_REJECTION_SELECTION_UNDO_STALE_ERROR_DISCARDED");
+
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(readOnlySemanticSessionPath);
+    const readOnlyRejection = queue.getByRole("alert");
+    await readOnlyRejection.waitFor();
+    assert.match(
+      await readOnlyRejection.innerText(),
+      /targets a missing or read-only condition/,
+    );
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    assert.equal(await redoButton.isDisabled(), false);
+    await assertVerifiedOutputUnavailable(page, "Current read-only rejection");
+    console.log("CURRENT_READ_ONLY_REJECTION_RETAINED_QUEUE_REDO_AND_NO_OUTPUT");
 
     await queue.getByLabel("Load queue session file").setInputFiles(sessionPath);
     await page.waitForFunction(() => {

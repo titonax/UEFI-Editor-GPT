@@ -101,8 +101,12 @@ The next work order is:
    context digest for an identity-valid session with an invalid suppression
    selector. Its obsolete semantic error is discarded across selection/Undo,
    the current request rejects without replacing queue/Redo, and valid recovery
-   rebuilds a tenth identical BIOS with ten independent rereads. Other history
-   shapes and semantic-rejection causes remain next.
+   rebuilds a tenth identical BIOS with ten independent rereads. A seventh run
+   from `0457301` selects a real `GrayOutIf` condition by its valid source index:
+   the obsolete read-only rejection is discarded across the same selection/Undo
+   boundary, while the current request rejects without replacing queue/Redo.
+   Valid recovery and all ten output rereads remain exact. Other history shapes
+   and semantic-rejection causes remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -1036,7 +1040,11 @@ list the blocker for every unsupported case.
   suppression selector. Its obsolete semantic error is discarded across
   selection/Undo; the current request rejects while retaining queue/Redo, and
   valid recovery produces a tenth identical BIOS with ten independent rereads.
-  Other history shapes and semantic-rejection causes remain separate.
+  A seventh run from `0457301` targets a real `GrayOutIf` by its valid source
+  index. Its obsolete read-only rejection is discarded across selection/Undo;
+  the current request rejects while retaining queue/Redo, and valid recovery
+  plus all ten output rereads remain exact. Other history shapes and semantic-
+  rejection causes remain separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.

@@ -433,3 +433,41 @@ failure, other histories, actions/sources, descriptor-bearing SPI, hardware and
 recovery remain separate. Codec, allocation, checksum, ownership, 15-minute
 timeout and independent-reader guards remained unchanged; private source,
 sessions and outputs stayed local.
+
+## Controlled read-only condition rejection across selection Undo
+
+Reproduced on 2026-10-25 (Europe/Madrid) from main
+`045730196bac2697ede60f91506551256eb4308a` with Firefox 153.0 / Playwright
+1.62.1 build 1538. The production build and locally cached public deployed WASM
+readers were served only on `127.0.0.1`. This was real Firefox, not React/jsdom
+or a deployed Pages interaction. File reading and all three SHA-256 calculations
+remained native; only delivery of the real context-digest result was held.
+
+The accepted source contains 3,548 inventoried conditions, including a real
+`GrayOutIf`. A v2 session retained the exact image and HII identities and used
+that condition's valid source index for a suppression action. After all three
+native hashes completed, the checker paused the selected `SuppressIf` operation
+and used Undo to restore the byte-for-byte equal selected queue before releasing
+the digest. The obsolete read-only-condition error produced no alert or loaded
+status and did not replace the queue, revive output or consume Redo. Loading the
+same metadata as the current request then rejected the valid but read-only
+`GrayOutIf`, retaining the selected queue and Redo with output disabled.
+
+The valid session subsequently loaded and applied normally. The unchanged full
+acceptance flow produced ten actual 16,777,216-byte outputs, all byte-identical
+at SHA-256
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+Every independent scan again found 4,987,327 changed bytes, 11,789,889 unchanged
+bytes, 19,458 ranges, all 64 displayed physical ranges with bounded 16-byte
+samples, and zero changes outside owning FFS `[2949240, 7956530)`. Ten fresh
+reopens recovered 277 Forms, the unchanged expression and empty scope body, an
+empty queue and disabled output; every original session rejected against the
+changed image/context. No application page errors occurred.
+
+This closes only the valid-index read-only `GrayOutIf` semantic rejection across
+a selected → paused → Undo selected revision change and its current-request
+control. It does not make `GrayOutIf` editable. Other semantic rejection causes,
+ordinary scheduling, actual I/O/hash failure, other histories, actions/sources,
+descriptor-bearing SPI, hardware and recovery remain separate. Codec,
+allocation, checksum, ownership, 15-minute timeout and independent-reader guards
+remained unchanged; private source, sessions and outputs stayed local.
