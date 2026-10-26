@@ -333,6 +333,13 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       noOpSuppressionSessionPath,
       JSON.stringify(noOpSuppressionSession),
     );
+    const repeatedPrefixSession = structuredClone(session);
+    repeatedPrefixSession.operations.push(
+      structuredClone(repeatedPrefixSession.operations[0]),
+    );
+    const repeatedPrefixSessionPath =
+      root + "/session-repeated-prefix-suppression-v2.json";
+    fs.writeFileSync(repeatedPrefixSessionPath, JSON.stringify(repeatedPrefixSession));
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1742,6 +1749,67 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("NO_OP_SUPPRESSION_REJECTED_AFTER_HASH_READY_OUTPUT_RETAINED");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Operations are replayed against the selected prefix. The first real
+    // suppression operation changes the condition, so repeating that exact
+    // operation is a dependent no-op. Reject the complete session atomically
+    // after identity validation, without installing the valid prefix or
+    // invalidating the verified output for the existing queue revision.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      const state = { calls: 0 };
+      crypto.subtle.digest = function (...args) {
+        state.calls++;
+        if (state.calls === 3) crypto.subtle.digest = original;
+        return original.apply(this, args);
+      };
+      window.__firstLzmaRepeatedPrefixProbe = state;
+    });
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(repeatedPrefixSessionPath);
+    const repeatedPrefixRejection = queue.getByRole("alert");
+    await repeatedPrefixRejection.waitFor();
+    assert.match(
+      await repeatedPrefixRejection.innerText(),
+      /menu action with no change/,
+    );
+    assert.deepEqual(await page.evaluate(() => window.__firstLzmaRepeatedPrefixProbe), {
+      calls: 3,
+    });
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        false,
+        `Repeated-prefix rejection must retain ${name}`,
+      );
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const retainedRepeatedPrefixImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const retainedRepeatedPrefixImagePath =
+      root + "/repeated-prefix-retained-output.bin";
+    await (
+      await retainedRepeatedPrefixImagePromise
+    ).saveAs(retainedRepeatedPrefixImagePath);
+    const retainedRepeatedPrefixOutput = fs.readFileSync(
+      retainedRepeatedPrefixImagePath,
+    );
+    assert(
+      retainedRepeatedPrefixOutput.equals(baseline),
+      "Repeated-prefix rejection must retain the verified complete BIOS",
+    );
+    await verifyByteComparisonReport(page, retainedRepeatedPrefixOutput);
+    console.log("REPEATED_PREFIX_REJECTED_AFTER_HASH_READY_OUTPUT_RETAINED");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -1781,6 +1849,11 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       [
         "no-op-suppression-retained-output",
         root + "/no-op-suppression-retained-output.bin",
+        sessionPath,
+      ],
+      [
+        "repeated-prefix-retained-output",
+        root + "/repeated-prefix-retained-output.bin",
         sessionPath,
       ],
     ]) {
