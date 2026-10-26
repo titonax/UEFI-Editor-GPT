@@ -125,8 +125,12 @@ The next work order is:
    `a252f78` now lets all three identity hashes complete for a valid selector
    requesting the already active state. Semantic replay rejects that no-op while
    retaining the exact selected queue and ready output; fourteen downloads and
-   independent rereads remain exact. Other history shapes, ambiguous selectors
-   and semantic-rejection causes remain next.
+   independent rereads remain exact. A thirteenth run from `1992573` repeats the
+   same valid enabled suppression operation twice. The second becomes a no-op
+   only after replaying the valid selected prefix; rejection remains atomic after
+   all three hashes, retains the existing queue and ready output, and extends the
+   set to fifteen exact downloads and independent rereads. Other history shapes,
+   ambiguous current-source selectors and semantic-rejection causes remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)

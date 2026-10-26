@@ -85,6 +85,15 @@ already verified complete-BIOS output. The retained image and all fourteen
 independent reopens remain exact. This does not establish ambiguous selectors,
 other semantic causes, other action types, other sources or hardware.
 
+A further deployed Firefox 153 run on 2026-10-26 repeats the same enabled real
+Suppression operation in two schema-valid operations. The first is supported;
+the second becomes a no-op only after replaying the selected prefix. All three
+identity hashes complete, then the importer rejects the complete session without
+installing the valid prefix, replacing the selected queue or invalidating its
+verified complete-BIOS output. The retained image and all fifteen independent
+reopens remain exact. This does not establish ambiguous current-source selectors,
+other action types, other sources or hardware.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output
