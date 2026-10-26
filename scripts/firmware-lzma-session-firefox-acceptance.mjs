@@ -326,6 +326,13 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       duplicateSelectorSessionPath,
       JSON.stringify(duplicateSelectorSession),
     );
+    const noOpSuppressionSession = structuredClone(session);
+    noOpSuppressionSession.operations[0].changes[0].active = true;
+    const noOpSuppressionSessionPath = root + "/session-no-op-suppression-v2.json";
+    fs.writeFileSync(
+      noOpSuppressionSessionPath,
+      JSON.stringify(noOpSuppressionSession),
+    );
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1679,6 +1686,62 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("DUPLICATE_SELECTOR_REJECTED_BEFORE_HASH_READY_OUTPUT_RETAINED");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // A well-formed selector and all three exact identities are insufficient
+    // when the requested state already equals the opened condition. Semantic
+    // replay must reject the no-op without replacing the queue or invalidating
+    // the complete image that was verified for that unchanged queue revision.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      const state = { calls: 0 };
+      crypto.subtle.digest = function (...args) {
+        state.calls++;
+        if (state.calls === 3) crypto.subtle.digest = original;
+        return original.apply(this, args);
+      };
+      window.__firstLzmaNoOpSuppressionProbe = state;
+    });
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(noOpSuppressionSessionPath);
+    const noOpSuppressionRejection = queue.getByRole("alert");
+    await noOpSuppressionRejection.waitFor();
+    assert.match(
+      await noOpSuppressionRejection.innerText(),
+      /menu action with no change/,
+    );
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaNoOpSuppressionProbe),
+      { calls: 3 },
+    );
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        false,
+        `No-op semantic rejection must retain ${name}`,
+      );
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const retainedNoOpImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const retainedNoOpImagePath = root + "/no-op-suppression-retained-output.bin";
+    await (await retainedNoOpImagePromise).saveAs(retainedNoOpImagePath);
+    const retainedNoOpOutput = fs.readFileSync(retainedNoOpImagePath);
+    assert(
+      retainedNoOpOutput.equals(baseline),
+      "No-op suppression rejection must retain the verified complete BIOS",
+    );
+    await verifyByteComparisonReport(page, retainedNoOpOutput);
+    console.log("NO_OP_SUPPRESSION_REJECTED_AFTER_HASH_READY_OUTPUT_RETAINED");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -1713,6 +1776,11 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       [
         "duplicate-selector-retained-output",
         root + "/duplicate-selector-retained-output.bin",
+        sessionPath,
+      ],
+      [
+        "no-op-suppression-retained-output",
+        root + "/no-op-suppression-retained-output.bin",
         sessionPath,
       ],
     ]) {

@@ -619,3 +619,37 @@ I/O/hash failure, other sources, descriptor-bearing SPI, hardware and recovery
 remain separate. Codec, allocation, checksum, ownership, 15-minute timeout and
 independent-reader guards remained unchanged; private source, sessions and
 outputs stayed local.
+
+## No-op suppression rejection with ready output
+
+Reproduced on 2026-10-26 (Europe/Madrid) in Firefox 153.0 / Playwright 1.62.1
+build 1538 against deployed main
+`a252f7821ec721c75cf20950b1abc420a8b8c127`. Firefox loaded the public deployed
+application and its three WASM readers from Pages. This was a real browser
+interaction with the deployed origin, not React/jsdom. The application, editor,
+queue, codec, writer, responses and downloads were not mocked.
+
+After the known suppression output was already verified, a schema-valid v2
+session selected the real `SuppressIf` but requested its existing active state.
+All three native identity hashes completed before semantic replay rejected the
+operation because it made no change. The original one-selected queue remained
+exact, no loaded status appeared, and Check, output details and the verified
+download stayed enabled.
+
+The retained download was byte-identical to every earlier accepted output: a
+complete 16,777,216-byte BIOS at SHA-256
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+The independent scan found 4,987,327 changed bytes, 11,789,889 unchanged bytes,
+19,458 ranges, all 64 displayed ranges with bounded 16-byte samples, and zero
+changes outside owning FFS `[2949240, 7956530)`. The complete flow now has
+fourteen byte-identical downloads. Fourteen fresh reopens recovered 277 Forms,
+the unchanged expression and empty scope body, an empty queue and disabled
+output; every original session rejected against the changed image/context. No
+application page errors occurred.
+
+This closes only a semantic no-op for the exact first-LZMA suppression action
+while retaining a ready verified output. Ambiguous selectors, other semantic
+causes, ordinary scheduling, actual I/O/hash failure, other actions/sources,
+descriptor-bearing SPI, hardware and recovery remain separate. Codec,
+allocation, checksum, ownership, 15-minute timeout and independent-reader guards
+remained unchanged; private source, sessions and outputs stayed local.
