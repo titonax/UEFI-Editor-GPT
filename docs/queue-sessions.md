@@ -287,7 +287,13 @@ suppression batch whose valid first change is followed by an invalid selector.
 The complete batch rejects after three native hashes without replacing the
 one-selected queue or invalidating its ready verified output. The retained
 complete BIOS and all eleven independent rereads remain exact. Other batch
-orders and semantic causes remain separate.
+orders and semantic causes remain separate. A tenth run against deployed main
+`4c8e5b3` reverses that enabled batch: an invalid first selector precedes the
+real supported change. It rejects after three native hashes without installing
+the later suffix or replacing the selected queue, and retains the ready verified
+output. Both retained controls and all twelve complete-BIOS rereads remain
+exact. Duplicate or ambiguous selectors and other semantic causes remain
+separate.
 
 ## AMITSE menu reassignment
 

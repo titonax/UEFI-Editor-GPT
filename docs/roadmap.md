@@ -114,8 +114,12 @@ The next work order is:
    enabled suppression batch with a supported first change and invalid later
    selector. Rejection after three native hashes retains the exact selected
    queue and ready verified output; eleven complete-BIOS downloads and independent
-   rereads remain exact. Other history shapes, batch orders and semantic-rejection
-   causes remain next.
+   rereads remain exact. A tenth Firefox run against deployed main `4c8e5b3`
+   reverses that enabled batch: an invalid first selector precedes the supported
+   change. Rejection after three native hashes installs no suffix and retains the
+   exact selected queue and ready output; twelve complete-BIOS downloads and
+   independent rereads remain exact. Other history shapes, duplicate or ambiguous
+   selectors and semantic-rejection causes remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -1059,7 +1063,11 @@ list the blocker for every unsupported case.
   proves atomic rejection within one enabled suppression batch whose valid first
   change precedes an invalid selector. The exact selected queue and ready output
   survive; all eleven complete-BIOS downloads and independent rereads remain
-  exact. Other history shapes, batch orders and semantic-rejection causes remain
+  exact. A tenth run against deployed main `4c8e5b3` reverses that enabled batch:
+  an invalid first selector precedes the real supported change. No suffix is
+  installed, the selected queue and ready output survive, and all twelve
+  complete-BIOS downloads and independent rereads remain exact. Other history
+  shapes, duplicate or ambiguous selectors and semantic-rejection causes remain
   separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
