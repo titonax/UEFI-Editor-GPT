@@ -316,6 +316,16 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       atomicBatchInvalidFirstSessionPath,
       JSON.stringify(atomicBatchInvalidFirstSession),
     );
+    const duplicateSelectorSession = structuredClone(session);
+    duplicateSelectorSession.operations[0].changes.push(
+      structuredClone(duplicateSelectorSession.operations[0].changes[0]),
+    );
+    const duplicateSelectorSessionPath =
+      root + "/session-duplicate-suppression-selector-v2.json";
+    fs.writeFileSync(
+      duplicateSelectorSessionPath,
+      JSON.stringify(duplicateSelectorSession),
+    );
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1604,6 +1614,71 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     );
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Duplicate condition selectors are rejected by the strict session schema
+    // before identity hashing or semantic replay. The current queue and cached
+    // verified bytes must remain untouched by that early rejection too.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      const state = { calls: 0 };
+      crypto.subtle.digest = function (...args) {
+        state.calls++;
+        return original.apply(this, args);
+      };
+      window.__firstLzmaDuplicateSelectorProbe = {
+        state,
+        restore: () => {
+          crypto.subtle.digest = original;
+        },
+      };
+    });
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(duplicateSelectorSessionPath);
+    const duplicateSelectorRejection = queue.getByRole("alert");
+    await duplicateSelectorRejection.waitFor();
+    assert.match(
+      await duplicateSelectorRejection.innerText(),
+      /duplicate condition target/,
+    );
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaDuplicateSelectorProbe.state),
+      { calls: 0 },
+    );
+    await page.evaluate(() => window.__firstLzmaDuplicateSelectorProbe.restore());
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        false,
+        `Duplicate-selector rejection must retain ${name}`,
+      );
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const retainedDuplicateSelectorImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const retainedDuplicateSelectorImagePath =
+      root + "/duplicate-selector-retained-output.bin";
+    await (
+      await retainedDuplicateSelectorImagePromise
+    ).saveAs(retainedDuplicateSelectorImagePath);
+    const retainedDuplicateSelectorOutput = fs.readFileSync(
+      retainedDuplicateSelectorImagePath,
+    );
+    assert(
+      retainedDuplicateSelectorOutput.equals(baseline),
+      "Duplicate-selector rejection must retain the verified complete BIOS",
+    );
+    await verifyByteComparisonReport(page, retainedDuplicateSelectorOutput);
+    console.log("DUPLICATE_SELECTOR_REJECTED_BEFORE_HASH_READY_OUTPUT_RETAINED");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -1633,6 +1708,11 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       [
         "atomic-batch-invalid-first-retained-output",
         root + "/atomic-batch-invalid-first-retained-output.bin",
+        sessionPath,
+      ],
+      [
+        "duplicate-selector-retained-output",
+        root + "/duplicate-selector-retained-output.bin",
         sessionPath,
       ],
     ]) {

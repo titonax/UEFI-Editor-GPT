@@ -69,6 +69,14 @@ inventory; no imported patches or labels are accepted. Normal source/bounds/
 overlap checks run with every operation enabled, including paused ones, before
 any queue replacement. Source and decoded bytes remain untouched.
 
+A deployed Firefox 153 run on 2026-10-26 separately exercises that early-schema
+boundary for the exact accepted first-LZMA source. Repeating one real SuppressIf
+selector inside an enabled batch rejects before any identity digest, does not
+replace the selected queue and retains the already verified complete-BIOS output.
+The retained image and all thirteen independent reopens match the existing exact
+acceptance record. This does not establish ambiguous selectors, other action
+types, other sources or hardware.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output

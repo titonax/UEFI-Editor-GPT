@@ -118,8 +118,11 @@ The next work order is:
    reverses that enabled batch: an invalid first selector precedes the supported
    change. Rejection after three native hashes installs no suffix and retains the
    exact selected queue and ready output; twelve complete-BIOS downloads and
-   independent rereads remain exact. Other history shapes, duplicate or ambiguous
-   selectors and semantic-rejection causes remain next.
+   independent rereads remain exact. An eleventh deployed-main run from `81a028e`
+   now rejects a duplicated real SuppressIf selector before any identity hash,
+   retains the selected queue and verified output, and extends the exact set to
+   thirteen complete-BIOS downloads and independent rereads. Other history
+   shapes, ambiguous selectors and semantic-rejection causes remain next.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
@@ -1066,9 +1069,12 @@ list the blocker for every unsupported case.
   exact. A tenth run against deployed main `4c8e5b3` reverses that enabled batch:
   an invalid first selector precedes the real supported change. No suffix is
   installed, the selected queue and ready output survive, and all twelve
-  complete-BIOS downloads and independent rereads remain exact. Other history
-  shapes, duplicate or ambiguous selectors and semantic-rejection causes remain
-  separate.
+  complete-BIOS downloads and independent rereads remain exact. An eleventh run
+  against deployed main `81a028e` repeats the real SuppressIf selector inside
+  one enabled batch. Strict schema validation rejects before all identity hashes,
+  retains the selected queue and ready output, and all thirteen complete-BIOS
+  downloads and independent rereads remain exact. Other history shapes,
+  ambiguous selectors and semantic-rejection causes remain separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
