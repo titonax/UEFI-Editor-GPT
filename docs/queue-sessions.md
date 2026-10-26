@@ -77,6 +77,14 @@ The retained image and all thirteen independent reopens match the existing exact
 acceptance record. This does not establish ambiguous selectors, other action
 types, other sources or hardware.
 
+Another deployed Firefox 153 run on 2026-10-26 exercises a later semantic
+boundary for that source. A schema-valid session requests the current active
+state of the real SuppressIf. All three identity hashes complete, but replay
+rejects the no-op without replacing the selected queue or invalidating the
+already verified complete-BIOS output. The retained image and all fourteen
+independent reopens remain exact. This does not establish ambiguous selectors,
+other semantic causes, other action types, other sources or hardware.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output
