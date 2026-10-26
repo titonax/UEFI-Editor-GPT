@@ -545,3 +545,40 @@ orders, duplicate or ambiguous selectors, ordinary scheduling, actual I/O/hash
 failure, other actions/sources, descriptor-bearing SPI, hardware or recovery.
 Codec, allocation, checksum, ownership, 15-minute timeout and independent-reader
 guards remained unchanged; private source, sessions and outputs stayed local.
+
+## Atomic invalid-first suppression-batch rejection with ready output
+
+Reproduced on 2026-10-26 (Europe/Madrid) in Firefox 153.0 / Playwright 1.62.1
+build 1538 against deployed main
+`4c8e5b32d8b37e04f9415663b80c93630c5588a8`. Firefox loaded the public
+deployed application and its three WASM readers. This was a real browser
+interaction with the Pages origin, not React/jsdom. File reading and all three
+SHA-256 calculations remained native; the application, queue, codec, writer,
+responses and downloads were not mocked.
+
+After the known suppression output was verified, an identity-valid v2 session
+supplied one enabled `suppressions` batch. Its first change used an out-of-range
+condition index and its second selected the real supported `SuppressIf`. All
+three native identity hashes completed before semantic replay rejected the first
+change. No later valid suffix was installed: the original one-selected queue
+remained exact, no loaded status appeared, and Check, output details and the
+verified download stayed enabled. The retained download was the same complete
+16,777,216-byte BIOS at SHA-256
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`.
+
+The extended flow downloaded twelve outputs, including both retained batch
+controls. All twelve were byte-identical. Every independent scan found 4,987,327
+changed bytes, 11,789,889 unchanged bytes, 19,458 ranges, all 64 displayed
+physical ranges with bounded 16-byte samples, and zero changes outside owning
+FFS `[2949240, 7956530)`. Twelve fresh reopens recovered 277 Forms, the unchanged
+expression and empty scope body, an empty queue and disabled output; every
+original session rejected against the changed image/context. No application
+page errors occurred.
+
+This closes only the inverse ordering of the exact enabled suppression-batch
+rejection while retaining a ready verified output. Duplicate or ambiguous
+selectors, other semantic causes, ordinary scheduling, actual I/O/hash failure,
+other actions/sources, descriptor-bearing SPI, hardware and recovery remain
+separate. Codec, allocation, checksum, ownership, 15-minute timeout and
+independent-reader guards remained unchanged; private source, sessions and
+outputs stayed local.

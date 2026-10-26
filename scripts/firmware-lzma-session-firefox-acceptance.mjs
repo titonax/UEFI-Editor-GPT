@@ -305,6 +305,17 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       atomicBatchSemanticSessionPath,
       JSON.stringify(atomicBatchSemanticSession),
     );
+    const atomicBatchInvalidFirstSession = structuredClone(session);
+    atomicBatchInvalidFirstSession.operations[0].changes.unshift({
+      conditionIndex: data.suppressions.length + 1,
+      active: false,
+    });
+    const atomicBatchInvalidFirstSessionPath =
+      root + "/session-atomic-batch-invalid-first-v2.json";
+    fs.writeFileSync(
+      atomicBatchInvalidFirstSessionPath,
+      JSON.stringify(atomicBatchInvalidFirstSession),
+    );
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1533,6 +1544,66 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     );
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Reverse the batch order: reject the first invalid selector before the
+    // real supported selector. Identity still has to complete natively, no
+    // prefix may be installed, and the existing verified image must survive.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      const state = { calls: 0 };
+      crypto.subtle.digest = function (...args) {
+        state.calls++;
+        if (state.calls === 3) crypto.subtle.digest = original;
+        return original.apply(this, args);
+      };
+      window.__firstLzmaAtomicBatchInvalidFirstProbe = state;
+    });
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(atomicBatchInvalidFirstSessionPath);
+    const atomicBatchInvalidFirstRejection = queue.getByRole("alert");
+    await atomicBatchInvalidFirstRejection.waitFor();
+    assert.match(
+      await atomicBatchInvalidFirstRejection.innerText(),
+      /targets a missing or read-only condition/,
+    );
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaAtomicBatchInvalidFirstProbe),
+      { calls: 3 },
+    );
+    assert.equal(await queue.getByText(/Queue session loaded/).count(), 0);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.equal(await selectSuppression.isChecked(), true);
+    for (const name of [
+      "Check firmware output",
+      "Modified firmware image",
+      "Output details",
+    ])
+      assert.equal(
+        await page.getByRole("button", { name, exact: true }).isDisabled(),
+        false,
+        `Invalid-first atomic batch rejection must retain ${name}`,
+      );
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    const retainedInvalidFirstImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const retainedInvalidFirstImagePath =
+      root + "/atomic-batch-invalid-first-retained-output.bin";
+    await (
+      await retainedInvalidFirstImagePromise
+    ).saveAs(retainedInvalidFirstImagePath);
+    const retainedInvalidFirstOutput = fs.readFileSync(retainedInvalidFirstImagePath);
+    assert(
+      retainedInvalidFirstOutput.equals(baseline),
+      "Invalid-first atomic batch rejection must retain the verified complete BIOS",
+    );
+    await verifyByteComparisonReport(page, retainedInvalidFirstOutput);
+    console.log(
+      "ENABLED_BATCH_INVALID_FIRST_REJECTED_ATOMICALLY_READY_OUTPUT_RETAINED",
+    );
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -1557,6 +1628,11 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       [
         "atomic-batch-retained-output",
         root + "/atomic-batch-retained-output.bin",
+        sessionPath,
+      ],
+      [
+        "atomic-batch-invalid-first-retained-output",
+        root + "/atomic-batch-invalid-first-retained-output.bin",
         sessionPath,
       ],
     ]) {
