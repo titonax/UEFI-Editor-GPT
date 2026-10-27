@@ -322,6 +322,41 @@ actions/sources, descriptor-bearing SPI, hardware and recovery remain separate.
 Codec, allocation, checksum, ownership, 15-minute timeout and independent-reader
 guards remained unchanged; private source, sessions and outputs stayed local.
 
+## Three distinct suppressions in one restored operation
+
+Reproduced on 2026-10-27 in Firefox 153.0 / Playwright 1.62.1 build 1538
+against deployed main `80520d0f714026d4f6593173a68ec935292da8f3` and the
+exact accepted first-LZMA source. Firefox loaded the public deployed application
+and its three WASM readers from Pages. This was a real browser interaction with
+the deployed origin, not React/jsdom; the application, queue, codec, writer,
+responses and downloads were not mocked.
+
+A schema-valid v2 session selected the three distinct active real SuppressIf
+conditions at `0x5B2D9`, `0x5B448` and `0x5B46F` in one operation. All three
+native identity hashes completed. The queue reported one selected operation and
+three net logical fields, invalidated the earlier ready output, applied the
+batch and rebuilt a fresh complete 16,777,216-byte BIOS at SHA-256
+`56c82468e64ba69d036c0eb7e913bd439e1f625a983f67af5445a62110bc89d6`.
+
+An independent scan of that actual download found 4,987,262 changed bytes,
+11,789,954 unchanged bytes and 19,522 contiguous changed ranges. All 64
+displayed boundaries and bounded 16-byte samples matched; zero bytes changed
+outside owning FFS `[2949240, 7956530)`. The report recorded the exact
+5,007,242-byte verified capacity, 4,985,240 rebuilt bytes and 22,002 remaining
+bytes. A fresh independent reopen recovered 277 Forms and found all three scopes
+empty: `0x5B2F3`, `0x5B44C` and `0x5B477` were each both start and end, with
+every original expression unchanged. The queue was empty, output stayed disabled
+and the original session rejected against the changed image/context. The full
+run completed sixteen accepted downloads and sixteen independent reopens without
+application page errors; the first fifteen retain their earlier identity, while
+this distinct batch has the new identity above.
+
+This establishes only a positive three-condition suppression batch for this
+exact source. It does not exercise an ambiguous current-source selector, other
+actions/sources, descriptor-bearing SPI, hardware or recovery. Codec,
+allocation, checksum, ownership, 15-minute timeout and independent-reader guards
+remained unchanged; private source, sessions and outputs stayed local.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main
