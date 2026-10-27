@@ -94,6 +94,19 @@ verified complete-BIOS output. The retained image and all fifteen independent
 reopens remain exact. This does not establish ambiguous current-source selectors,
 other action types, other sources or hardware.
 
+A deployed Firefox 153 run on 2026-10-27 also restores three distinct real
+SuppressIf conditions from that source in one v2 operation after all three
+native identity hashes. It invalidates the prior output, applies three net
+logical fields and produces a different complete 16 MiB BIOS. The independently
+scanned download has SHA-256
+`56c82468e64ba69d036c0eb7e913bd439e1f625a983f67af5445a62110bc89d6`,
+4,987,262 changed bytes, 19,522 ranges and zero changes outside the owning FFS.
+A fresh reopen recovers every selected scope empty with its expression unchanged;
+the 5,007,242-byte verified capacity retains 22,002 bytes after the 4,985,240-byte
+rebuild, and all sixteen accepted outputs are independently reopened. This is
+positive batch coverage for the exact source, not acceptance of ambiguous
+selectors, other action types, other sources or hardware.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output

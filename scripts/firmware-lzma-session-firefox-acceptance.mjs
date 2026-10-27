@@ -23,7 +23,16 @@ assert.equal(
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "uefi-lzma-session-firefox-"));
 fs.writeFileSync(root + "/source.bin", sourceBytes);
 const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
-async function verifyByteComparisonReport(page, output) {
+async function verifyByteComparisonReport(
+  page,
+  output,
+  expected = {
+    changed: 4987327,
+    rangeCount: 19458,
+    rebuiltPackedBytes: 4984931,
+    remainingBytes: 22311,
+  },
+) {
   // Independent run-based scan of the downloaded physical image. Do not import
   // the production comparison helper or derive expectations from rendered data.
   const hex = (value) => `0x${value.toString(16).toUpperCase()}`;
@@ -57,7 +66,8 @@ async function verifyByteComparisonReport(page, output) {
       truncatedSample ||= offset - start > 16;
     }
   }
-  assert.equal(changed, 4987327);
+  assert.equal(changed, expected.changed);
+  assert.equal(rangeCount, expected.rangeCount);
   assert(rangeCount > 64, "This exact image must exercise omitted ranges.");
   assert(truncatedSample, "This exact image must exercise bounded byte samples.");
   await page.getByRole("button", { name: "Output details", exact: true }).click();
@@ -81,9 +91,11 @@ async function verifyByteComparisonReport(page, output) {
       "BIOS region: [0x0, 0x1000000). 0 bytes outside BIOS preserved exactly.",
     ),
   );
-  assert(text.includes("16777216 bytes, 4987327 changed bytes"));
+  assert(text.includes(`16777216 bytes, ${expected.changed} changed bytes`));
   assert(
-    /5007242[\s\S]*4984931[\s\S]*22311/.test(text),
+    new RegExp(
+      `5007242[\\s\\S]*${expected.rebuiltPackedBytes}[\\s\\S]*${expected.remainingBytes}`,
+    ).test(text),
     "Accepted allocation and remaining capacity must match.",
   );
   const rows = await report
@@ -180,6 +192,12 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     const scope = data.suppressions.find((s) => s.offset.toLowerCase() === "0x5b2d9");
     assert(scope);
     assert.equal(scope.active, true);
+    assert.equal(data.suppressions[7].offset, "0x5B448");
+    assert.equal(data.suppressions[8].offset, "0x5B46F");
+    for (const conditionIndex of [7, 8]) {
+      assert.equal(data.suppressions[conditionIndex].kind, "SuppressIf");
+      assert.equal(data.suppressions[conditionIndex].active, true);
+    }
     const readOnlyConditionIndex = data.suppressions.findIndex(
       (condition) => (condition.kind ?? "SuppressIf") !== "SuppressIf",
     );
@@ -340,6 +358,16 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     const repeatedPrefixSessionPath =
       root + "/session-repeated-prefix-suppression-v2.json";
     fs.writeFileSync(repeatedPrefixSessionPath, JSON.stringify(repeatedPrefixSession));
+    const threeSuppressionSession = structuredClone(session);
+    threeSuppressionSession.operations[0].changes.push(
+      { conditionIndex: 7, active: false },
+      { conditionIndex: 8, active: false },
+    );
+    const threeSuppressionSessionPath = root + "/session-three-suppressions-v2.json";
+    fs.writeFileSync(
+      threeSuppressionSessionPath,
+      JSON.stringify(threeSuppressionSession),
+    );
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1810,6 +1838,84 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("REPEATED_PREFIX_REJECTED_AFTER_HASH_READY_OUTPUT_RETAINED");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // A distinct real batch must also pass the positive path. Restore three
+    // unique source conditions as one queue operation, invalidate the previous
+    // output, rebuild a different complete BIOS, and independently reopen all
+    // three scopes below. This is selected-prefix replay, not capability
+    // promotion: every condition and closing End is rediscovered locally.
+    await page.evaluate(() => {
+      const original = crypto.subtle.digest;
+      const state = { calls: 0 };
+      crypto.subtle.digest = function (...args) {
+        state.calls++;
+        if (state.calls === 3) crypto.subtle.digest = original;
+        return original.apply(this, args);
+      };
+      window.__firstLzmaThreeSuppressionProbe = state;
+    });
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(threeSuppressionSessionPath);
+    const threeSuppressionStarted = Date.now();
+    while (
+      await queue
+        .getByRole("button", { name: "Apply selected", exact: true })
+        .isDisabled()
+    ) {
+      if (Date.now() - threeSuppressionStarted > 60000)
+        throw Error("Three-suppression session restore exceeded one minute");
+      await page.waitForTimeout(100);
+    }
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.match(await queue.innerText(), /1 SELECTED/);
+    assert.match(await queue.innerText(), /3 NET LOGICAL FIELD\(S\)/);
+    for (const offset of ["0x5B2D9", "0x5B448", "0x5B46F"])
+      assert.match(await queue.innerText(), new RegExp(`SuppressIf ${offset}`));
+    assert.deepEqual(
+      await page.evaluate(() => window.__firstLzmaThreeSuppressionProbe),
+      { calls: 3 },
+    );
+    await assertVerifiedOutputUnavailable(page, "Three-suppression session load");
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const threeSuppressionBuildStarted = Date.now();
+    while (await button.isDisabled()) {
+      const text = await page.locator("body").innerText();
+      if (text.includes("Output check failed:"))
+        throw Error(
+          text.slice(
+            text.indexOf("Output check failed:"),
+            text.indexOf("Output check failed:") + 400,
+          ),
+        );
+      if (Date.now() - threeSuppressionBuildStarted > 900000)
+        throw Error("Three-suppression output check exceeded 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const threeSuppressionImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const threeSuppressionImagePath = root + "/three-suppression-batch-output.bin";
+    await (await threeSuppressionImagePromise).saveAs(threeSuppressionImagePath);
+    const threeSuppressionOutput = fs.readFileSync(threeSuppressionImagePath);
+    assert.equal(threeSuppressionOutput.length, sourceBytes.length);
+    assert.equal(
+      sha(threeSuppressionOutput),
+      "56c82468e64ba69d036c0eb7e913bd439e1f625a983f67af5445a62110bc89d6",
+    );
+    await verifyByteComparisonReport(page, threeSuppressionOutput, {
+      changed: 4987262,
+      rangeCount: 19522,
+      rebuiltPackedBytes: 4985240,
+      remainingBytes: 22002,
+    });
+    console.log("THREE_DISTINCT_SUPPRESSIONS_RESTORED_FRESH_COMPLETE_BIOS_VERIFIED");
+    await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -1820,7 +1926,7 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       true,
     );
     console.log("REMOVAL_INVALIDATED");
-    for (const [label, imagePath, sourceSessionPath] of [
+    for (const [label, imagePath, sourceSessionPath, additionalScopes = []] of [
       ["v2", root + "/output-v2.bin", sessionPath],
       ["v1", root + "/output-v1.bin", legacyPath],
       ["history-before-undo", root + "/history-before-undo.bin", sessionPath],
@@ -1856,6 +1962,23 @@ async function assertVerifiedOutputUnavailable(page, transition) {
         root + "/repeated-prefix-retained-output.bin",
         sessionPath,
       ],
+      [
+        "three-suppression-batch-output",
+        root + "/three-suppression-batch-output.bin",
+        threeSuppressionSessionPath,
+        [
+          {
+            offset: "0x5b448",
+            start: "0x5B44C",
+            expression: data.suppressions[7].expression,
+          },
+          {
+            offset: "0x5b46f",
+            start: "0x5B477",
+            expression: data.suppressions[8].expression,
+          },
+        ],
+      ],
     ]) {
       await page.reload();
       await page.locator("input[type=file]").first().setInputFiles(imagePath);
@@ -1878,6 +2001,15 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       assert.equal(reopenedScope.start, "0x5B2F3");
       assert.equal(reopenedScope.end, reopenedScope.start);
       assert.equal(reopenedScope.expression, scope.expression);
+      for (const expected of additionalScopes) {
+        const reopenedAdditional = reopened.suppressions.find(
+          (s) => s.offset.toLowerCase() === expected.offset,
+        );
+        assert(reopenedAdditional);
+        assert.equal(reopenedAdditional.start, expected.start);
+        assert.equal(reopenedAdditional.end, expected.start);
+        assert.equal(reopenedAdditional.expression, expected.expression);
+      }
       assert(Number.parseInt(scope.end, 16) > Number.parseInt(scope.start, 16));
       assert.equal(
         await page

@@ -129,8 +129,14 @@ The next work order is:
    same valid enabled suppression operation twice. The second becomes a no-op
    only after replaying the valid selected prefix; rejection remains atomic after
    all three hashes, retains the existing queue and ready output, and extends the
-   set to fifteen exact downloads and independent rereads. Other history shapes,
-   ambiguous current-source selectors and semantic-rejection causes remain next.
+   set to fifteen exact downloads and independent rereads. A fourteenth run from
+   deployed main `80520d0` restores three distinct real SuppressIf conditions as
+   one selected operation after all three native identity hashes, builds a fresh
+   complete-BIOS output and independently reopens all three scopes empty with
+   their expressions unchanged. The accepted set is now sixteen downloads and
+   independent rereads; the sixteenth has its own exact output identity and byte
+   report. Other history shapes, ambiguous current-source selectors and
+   semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
    [combined Firefox flow](ami/nested-lzma-combined-firefox-output-acceptance.md)
