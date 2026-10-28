@@ -368,6 +368,19 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       threeSuppressionSessionPath,
       JSON.stringify(threeSuppressionSession),
     );
+    const splitSuppressionSession = structuredClone(session);
+    splitSuppressionSession.operations.push(
+      ...[7, 8].map((conditionIndex) => ({
+        action: "suppressions",
+        changes: [{ conditionIndex, active: false }],
+        enabled: true,
+      })),
+    );
+    const splitSuppressionSessionPath = root + "/session-split-suppressions-v2.json";
+    fs.writeFileSync(
+      splitSuppressionSessionPath,
+      JSON.stringify(splitSuppressionSession),
+    );
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1916,6 +1929,85 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     console.log("THREE_DISTINCT_SUPPRESSIONS_RESTORED_FRESH_COMPLETE_BIOS_VERIFIED");
     await page.getByRole("button", { name: "Change queue (1)", exact: true }).click();
 
+    // Replay the same three real changes as ordered independent operations.
+    // Preserve the portable representation and converge to the same full BIOS.
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(splitSuppressionSessionPath);
+    const splitRestoreStarted = Date.now();
+    while (
+      await queue
+        .getByRole("button", { name: "Apply selected", exact: true })
+        .isDisabled()
+    ) {
+      if (Date.now() - splitRestoreStarted > 60000)
+        throw Error("Split-suppression restore exceeded one minute");
+      await page.waitForTimeout(100);
+    }
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.match(await queue.innerText(), /3 SELECTED/);
+    assert.match(await queue.innerText(), /3 NET LOGICAL FIELD\(S\)/);
+    for (const offset of ["0x5B2D9", "0x5B448", "0x5B46F"])
+      assert.match(await queue.innerText(), new RegExp(`SuppressIf ${offset}`));
+    await assertVerifiedOutputUnavailable(page, "Split-suppression session load");
+    const splitExportPromise = page.waitForEvent(
+      "download",
+      (d) => d.suggestedFilename() === "firmware-session.json",
+    );
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    const splitExportPath = root + "/split-reexport.json";
+    await (await splitExportPromise).saveAs(splitExportPath);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(splitExportPath, "utf8")),
+      splitSuppressionSession,
+    );
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const splitBuildStarted = Date.now();
+    while (await button.isDisabled()) {
+      const body = await page.locator("body").innerText();
+      if (body.includes("Output check failed:"))
+        throw Error("Split-suppression output check failed");
+      if (Date.now() - splitBuildStarted > 900000)
+        throw Error("Split-suppression output check exceeded 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const splitImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const splitImagePath = root + "/split-suppression-output.bin";
+    await (await splitImagePromise).saveAs(splitImagePath);
+    const splitOutput = fs.readFileSync(splitImagePath);
+    assert(
+      splitOutput.equals(threeSuppressionOutput),
+      "Split operations must match the single-batch complete BIOS",
+    );
+    await verifyByteComparisonReport(page, splitOutput, {
+      changed: 4987262,
+      rangeCount: 19522,
+      rebuiltPackedBytes: 4985240,
+      remainingBytes: 22002,
+    });
+    console.log(
+      "THREE_ORDERED_SUPPRESSION_OPERATIONS_MATCH_SINGLE_BATCH_COMPLETE_BIOS",
+    );
+    await page.getByRole("button", { name: "Change queue (3)", exact: true }).click();
+    // Return to the original single-operation removal regression unchanged.
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(threeSuppressionSessionPath);
+    await page.waitForFunction(
+      () =>
+        document.body.innerText.includes("1 SELECTED") &&
+        !document.body.innerText.includes("3 SELECTED"),
+    );
+
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
     await queue.getByRole("button", { name: "Close", exact: true }).click();
     assert.equal(await button.isDisabled(), true);
@@ -1966,6 +2058,23 @@ async function assertVerifiedOutputUnavailable(page, transition) {
         "three-suppression-batch-output",
         root + "/three-suppression-batch-output.bin",
         threeSuppressionSessionPath,
+        [
+          {
+            offset: "0x5b448",
+            start: "0x5B44C",
+            expression: data.suppressions[7].expression,
+          },
+          {
+            offset: "0x5b46f",
+            start: "0x5B477",
+            expression: data.suppressions[8].expression,
+          },
+        ],
+      ],
+      [
+        "split-suppression-output",
+        root + "/split-suppression-output.bin",
+        splitSuppressionSessionPath,
         [
           {
             offset: "0x5b448",
