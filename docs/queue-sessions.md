@@ -107,6 +107,15 @@ rebuild, and all sixteen accepted outputs are independently reopened. This is
 positive batch coverage for the exact source, not acceptance of ambiguous
 selectors, other action types, other sources or hardware.
 
+A local-production Firefox 153 run on 2026-10-28 from main `cb190789` restores
+the same three conditions as three ordered, enabled suppression operations.
+Exact v2 re-export preserves all three operation boundaries and their order;
+loading invalidates the prior output. Fresh Apply/Check produces a complete BIOS
+byte-identical to the single-batch output above. All seventeen downloads are
+independently reopened; both three-condition variants retain empty scopes and
+original expressions and reject their original sessions on changed bytes.
+This is real Firefox on loopback, not Pages, descriptor-bearing SPI or hardware.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output

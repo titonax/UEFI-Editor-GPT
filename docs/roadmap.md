@@ -135,7 +135,14 @@ The next work order is:
    complete-BIOS output and independently reopens all three scopes empty with
    their expressions unchanged. The accepted set is now sixteen downloads and
    independent rereads; the sixteenth has its own exact output identity and byte
-   report. Other history shapes, ambiguous current-source selectors and
+   report. A fifteenth run on 2026-10-28 from main `cb190789` uses real Firefox
+   on the local production build: the same three changes restore as three
+   ordered enabled operations, re-export as identical v2 metadata and invalidate
+   the earlier output. A fresh complete BIOS equals the single-batch output
+   byte-for-byte; seventeen downloads and independent reopens pass, including
+   all three empty scopes with original expressions and changed-image session
+   rejection. This does not claim Pages interaction or descriptor-bearing SPI.
+   Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
    passes the exact source-bound suppression path on PR #154. Its
@@ -1088,7 +1095,15 @@ list the blocker for every unsupported case.
   one enabled batch. Strict schema validation rejects before all identity hashes,
   retains the selected queue and ready output, and all thirteen complete-BIOS
   downloads and independent rereads remain exact. Other history shapes,
-  ambiguous selectors and semantic-rejection causes remain separate.
+  ambiguous selectors and semantic-rejection causes remain separate. The later
+  2026-10-28 local-production Firefox run from `cb190789` reproduces all seventeen
+  current downloads/reopens and the exact three-condition single-batch output.
+  Splitting those conditions into three ordered enabled session operations
+  preserves exact v2 metadata/order, invalidates prior output and freshly
+  rebuilds the identical complete BIOS. Independent reanalysis confirms all
+  three empty scopes with original expressions and changed-image rejection.
+  This is loopback Firefox, not Pages, full descriptor SPI or hardware; other
+  history shapes and semantic causes remain separate.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.

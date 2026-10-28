@@ -357,6 +357,44 @@ actions/sources, descriptor-bearing SPI, hardware or recovery. Codec,
 allocation, checksum, ownership, 15-minute timeout and independent-reader guards
 remained unchanged; private source, sessions and outputs stayed local.
 
+## Equivalent three-operation suppression restore
+
+Reproduced on 2026-10-28 (Europe/Madrid) from main
+`cb1907897f5fe5e00ab3a67b11e11e525707c430` with Firefox 153.0 / Playwright
+1.62.1 build 1538. The production build (`index-BGap__g5.js`,
+`index-D4JOsfQ5.css`) and the three public deployed WASM readers were served
+on loopback. The accepted private input was recovered from the existing
+authorized archive and checked by its exact size and SHA-256. This is real
+Firefox/engine/codec interaction, not React/jsdom or interaction with Pages.
+No application response, writer or download was mocked.
+
+The same three real conditions at `0x5B2D9`, `0x5B448` and `0x5B46F` were
+restored as three ordered, enabled `suppressions` operations instead of one
+batch. The queue showed three selected operations and three net logical fields.
+Loading invalidated the prior verified output; metadata-only v2 re-export was
+deeply identical to the input, including operation boundaries and order.
+Apply and a fresh Check produced a complete 16,777,216-byte BIOS byte-identical
+to the independently rebuilt single-batch output in the same run, SHA-256
+`56c82468e64ba69d036c0eb7e913bd439e1f625a983f67af5445a62110bc89d6`.
+
+Its independent physical scan matched 4,987,262 changed bytes, 11,789,954
+unchanged bytes, 19,522 ranges and every displayed boundary/16-byte sample.
+The verified capacity remained 5,007,242 bytes, with 4,985,240 rebuilt and
+22,002 remaining. Exact equality with the accepted batch retains zero changes
+outside owning FFS `[2949240, 7956530)`. A fresh reanalysis reopened all three
+scopes empty at `0x5B2F3`, `0x5B44C` and `0x5B477`, with original expressions
+unchanged, 277 Forms, empty queue and download disabled. The original split
+session rejected against the changed image/context.
+
+The entire opt-in checker exited zero after seventeen actual downloads and
+seventeen independent reopens, including both three-condition variants, with
+no application page errors. The original removal-invalidation regression also
+passed after restoring the single batch. The earlier interrupted executions
+are not acceptance evidence. This closes only that ordered split-operation
+shape on this exact BIOS-only source; ambiguous selectors, other sources/actions,
+descriptor-bearing SPI, ordinary scheduling, hardware and recovery remain
+separate. Codec, ownership, checksum, allocation and timeout guards are unchanged.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main
