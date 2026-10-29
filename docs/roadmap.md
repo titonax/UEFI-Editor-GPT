@@ -157,6 +157,14 @@ The next work order is:
    All nineteen downloads independently reopen; both partial versions preserve
    the original nonempty paused scopes and reject on changed bytes. This is
    loopback Firefox, not deployed Pages, descriptor-bearing SPI or hardware.
+   An eighteenth local-production run on 2026-10-29 from main `b42c2a7`
+   verifies one-step Undo/Redo of the partial v2 load: three active operations
+   return on Undo and one active/two paused on Redo, with exact exported flags
+   and order, output invalidation and fresh distinct expected BIOS files.
+   Twenty-one downloads independently reopen; Undo has all three scopes empty
+   and Redo preserves the two original nonempty paused scopes. Both changed
+   outputs reject their original sessions. This is local Firefox only; legacy
+   partial history, other selection shapes and hardware remain separate.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
@@ -1128,7 +1136,12 @@ list the blocker for every unsupported case.
   invalidates ready output with the same selection count and freshly rebuilds
   the single-suppression BIOS. Nineteen independent reopens pass, including both
   partial versions' original nonempty paused scopes and changed-source session
-  rejection. Other selections remain unaccepted.
+  rejection. A further loopback Firefox run from `b42c2a7` accepts one-step
+  Undo/Redo of the partial v2 load: exact full/partial metadata, invalidation
+  and distinct fresh expected BIOS outputs pass. All twenty-one downloads
+  independently reopen, including all three empty Undo scopes and preserved
+  nonempty paused Redo scopes with unchanged expressions and changed-source
+  rejection. Legacy partial history and other selections remain unaccepted.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.

@@ -135,6 +135,15 @@ independently reopen; both partial versions retain the two original nonempty
 paused scopes and reject their original sessions on changed bytes. This is
 loopback Firefox, not deployed Pages, descriptor-bearing SPI or hardware.
 
+The 2026-10-29 local-production Firefox run from main `b42c2a7` also accepts
+one-step Undo/Redo of the partial v2 session load. Undo restores three enabled
+operations; Redo restores one enabled and two paused. Both invalidate ready
+output, re-export exact ordered metadata/flags and freshly rebuild the distinct
+expected complete BIOS. All twenty-one downloads independently reopen: the
+Undo output has three empty scopes, while Redo preserves the original two
+nonempty paused scopes. Changed-source session rejection passes for both.
+This does not establish legacy partial history or other selection shapes.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output

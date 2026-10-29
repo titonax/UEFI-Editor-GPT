@@ -462,6 +462,44 @@ not deployed-Pages interaction, a standalone engine rerun, descriptor-bearing
 SPI or hardware. Other selections/history shapes remain unaccepted. No codec,
 checksum, allocation, ownership, reconstruction or timeout guard changed.
 
+## Partial-session load Undo/Redo with distinct BIOS outputs
+
+Reproduced on 2026-10-29 (Europe/Madrid) from main
+`b42c2a717b97b7958eedef21de64e7f2d91366da`, Firefox 153.0 / Playwright 1.62.1
+build 1538, with the production build and public deployed WASM readers served
+only on loopback. The source again passed its exact size/SHA-256 check. The
+application assets remain `index-BGap__g5.js`, `index-D4JOsfQ5.css` and the
+three readers listed above. Firmware and JSON stayed local.
+
+After the verified partial v2 load/output above, one Undo restores all three
+ordered enabled operations, not an intermediate selection. One Redo restores
+the exact one-enabled/two-paused session. Both directions require the expected
+selected/net-field counts, deeply identical v2 metadata including order and
+flags, and disabled Check/download/details before fresh Apply/Check.
+Apply, export and reconstruction do not consume the available Redo.
+
+Each direction produces a fresh explicit complete-BIOS download. Undo equals
+the independently built three-suppression output, including its known hash,
+4,987,262 changed bytes, 19,522 ranges, 4,985,240 rebuilt packed bytes and
+22,002 remaining bytes. Redo equals the independent single-suppression
+baseline, including its known hash, 4,987,327 changed bytes, 19,458 ranges,
+4,984,931 rebuilt packed bytes and 22,311 remaining bytes. All 64 displayed
+range boundaries/samples match independent scans. Exact equality retains the
+complete 16,777,216-byte size and zero changes outside the owning FFS.
+
+The full checker exits zero after twenty-one actual downloads and independent
+reopens, with no application page errors. The new Undo output rereads all three
+scopes empty; Redo rereads only the selected scope empty while both paused
+scopes retain their original nonempty boundaries. All expressions remain
+unchanged. Both new outputs open with empty queue/disabled output and reject
+their respective original sessions on changed bytes. Earlier v2/v1, history,
+race, rejection and removal checks remain enabled.
+
+This accepts this v2 partial-load history only, not every selection, legacy
+partial history, deployed-Pages interaction, descriptor-bearing SPI, standalone
+engine rerun or hardware. No production code, codec, checksum, allocation,
+ownership, re-extraction or timeout guard changed.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main
