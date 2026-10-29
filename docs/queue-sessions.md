@@ -126,6 +126,15 @@ scope and two original nonempty paused scopes with unchanged expressions.
 Changed-image rejection passes. This accepts that subset only, not other
 selections, sources, descriptor-bearing SPI or hardware.
 
+A further 2026-10-29 local-production Firefox run from main `ea8a394` runs
+that partial session in legacy v1 as well as v2. Loading v1 invalidates the
+ready v2 output even though the selected count is unchanged; exact migrated
+v2 re-export preserves all three operations and their enabled flags. Fresh
+output equals the single-suppression baseline. All nineteen downloads
+independently reopen; both partial versions retain the two original nonempty
+paused scopes and reject their original sessions on changed bytes. This is
+loopback Firefox, not deployed Pages, descriptor-bearing SPI or hardware.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output

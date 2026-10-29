@@ -431,6 +431,37 @@ selection is accepted; other subsets, histories, ambiguous selectors, sources,
 descriptor-bearing SPI, hardware and recovery remain separate. No codec,
 capacity, checksum, ownership, timeout or reconstruction guard changed.
 
+## Legacy v1 split session with two paused operations
+
+Reproduced on 2026-10-29 (Europe/Madrid) from main
+`ea8a3942e825d2883f32a64b533efda3060cfa19`, Firefox 153.0 / Playwright 1.62.1
+build 1538, on the production build served only on loopback. The build loaded
+`index-BGap__g5.js`, `index-D4JOsfQ5.css` and all three public deployed WASM
+readers. The existing authorized private source passed its exact size/SHA-256
+check; private firmware and JSON stayed local.
+
+The checker now runs the partial three-operation session above in both v2 and
+legacy v1 form, changing only the version field. Loading v1 over a ready v2
+partial output must invalidate Check/download/details before proceeding; the
+wait observes output invalidation, not merely the already-present one-selected
+count. Exact v2 re-export preserves all three ordered selectors and the
+`true/false/false` enabled flags. Fresh Apply/Check and explicit download produce
+the same complete single-suppression BIOS as the independent baseline and v2,
+not the three-enabled output. The known output hash, owner confinement,
+allocation and independent physical byte-report assertions above all pass.
+
+All nineteen actual downloads independently reopen. For each partial version,
+the selected scope is empty, both paused scopes retain their original nonempty
+start/end bounds and all three expressions remain unchanged. Both original
+partial sessions reject on the changed source, which retains empty queue and
+disabled output. The full checker exits zero with no application page errors;
+all earlier history, race, rejection and removal checks remain enabled.
+
+This is real Firefox with the real engine/codec on local production assets,
+not deployed-Pages interaction, a standalone engine rerun, descriptor-bearing
+SPI or hardware. Other selections/history shapes remain unaccepted. No codec,
+checksum, allocation, ownership, reconstruction or timeout guard changed.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main
