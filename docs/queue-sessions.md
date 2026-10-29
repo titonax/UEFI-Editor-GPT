@@ -116,6 +116,16 @@ independently reopened; both three-condition variants retain empty scopes and
 original expressions and reject their original sessions on changed bytes.
 This is real Firefox on loopback, not Pages, descriptor-bearing SPI or hardware.
 
+A 2026-10-29 local-production Firefox run from main `10da689` also restores
+that three-operation session with only the first selected and two paused.
+Exact v2 re-export preserves all selectors, order and enabled flags; loading
+invalidates prior output. Fresh complete-BIOS output equals the independently
+built single-suppression baseline, not the three-enabled output. All eighteen
+downloads independently reopen; the final partial output has one empty selected
+scope and two original nonempty paused scopes with unchanged expressions.
+Changed-image rejection passes. This accepts that subset only, not other
+selections, sources, descriptor-bearing SPI or hardware.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output
