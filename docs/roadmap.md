@@ -142,6 +142,14 @@ The next work order is:
    byte-for-byte; seventeen downloads and independent reopens pass, including
    all three empty scopes with original expressions and changed-image session
    rejection. This does not claim Pages interaction or descriptor-bearing SPI.
+   A sixteenth run on 2026-10-29 from main `10da689` restores the same three
+   operations with only the first enabled and two paused, preserves exact v2
+   flags/order on re-export and invalidates prior output. Fresh BIOS output equals
+   the single-suppression baseline rather than the three-enabled output.
+   Eighteen downloads independently reopen, including the selected empty scope
+   and both original nonempty paused scopes with unchanged expressions; the
+   partial session rejects on changed bytes. This is local-production Firefox,
+   not Pages, descriptor-bearing SPI or hardware.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
@@ -1103,7 +1111,12 @@ list the blocker for every unsupported case.
   rebuilds the identical complete BIOS. Independent reanalysis confirms all
   three empty scopes with original expressions and changed-image rejection.
   This is loopback Firefox, not Pages, full descriptor SPI or hardware; other
-  history shapes and semantic causes remain separate.
+  history shapes and semantic causes remain separate. A 2026-10-29 loopback
+  Firefox run from `10da689` also verifies one selected/two paused operations:
+  exact ordered v2 export, output invalidation, fresh single-suppression BIOS
+  equality and eighteen independent reopens. The selected scope is empty while
+  paused scopes retain their original nonempty boundaries/expressions;
+  changed-image session rejection passes. Other selections remain unaccepted.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.

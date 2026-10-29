@@ -381,6 +381,11 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       splitSuppressionSessionPath,
       JSON.stringify(splitSuppressionSession),
     );
+    const pausedSplitSession = structuredClone(splitSuppressionSession);
+    pausedSplitSession.operations[1].enabled = false;
+    pausedSplitSession.operations[2].enabled = false;
+    const pausedSplitSessionPath = root + "/session-paused-split-v2.json";
+    fs.writeFileSync(pausedSplitSessionPath, JSON.stringify(pausedSplitSession));
     const button = page.getByRole("button", {
       name: "Modified firmware image",
       exact: true,
@@ -1998,6 +2003,74 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       "THREE_ORDERED_SUPPRESSION_OPERATIONS_MATCH_SINGLE_BATCH_COMPLETE_BIOS",
     );
     await page.getByRole("button", { name: "Change queue (3)", exact: true }).click();
+    // Paused siblings must survive session restore/export but contribute no
+    // firmware edits. Compare against the independently built one-scope BIOS,
+    // then reanalyse the paused scopes at their original nonempty boundaries.
+    await queue
+      .getByLabel("Load queue session file")
+      .setInputFiles(pausedSplitSessionPath);
+    const pausedSplitRestoreStarted = Date.now();
+    await page.waitForFunction(
+      () =>
+        document.body.innerText.includes("1 SELECTED") &&
+        !document.body.innerText.includes("3 SELECTED"),
+    );
+    while (
+      await queue
+        .getByRole("button", { name: "Apply selected", exact: true })
+        .isDisabled()
+    ) {
+      if (Date.now() - pausedSplitRestoreStarted > 60000)
+        throw Error("Paused split-session restore exceeded one minute");
+      await page.waitForTimeout(100);
+    }
+    assert.equal(await queue.getByRole("alert").count(), 0);
+    assert.match(await queue.innerText(), /1 NET LOGICAL FIELD\(S\)/);
+    await assertVerifiedOutputUnavailable(page, "Paused split-session load");
+    const pausedSplitExportPromise = page.waitForEvent(
+      "download",
+      (d) => d.suggestedFilename() === "firmware-session.json",
+    );
+    await queue
+      .getByRole("button", { name: "Save queue session", exact: true })
+      .click();
+    const pausedSplitExportPath = root + "/paused-split-reexport.json";
+    await (await pausedSplitExportPromise).saveAs(pausedSplitExportPath);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(pausedSplitExportPath, "utf8")),
+      pausedSplitSession,
+    );
+    await queue.getByRole("button", { name: "Apply selected", exact: true }).click();
+    await queue.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Check firmware output", exact: true })
+      .click();
+    const pausedSplitBuildStarted = Date.now();
+    while (await button.isDisabled()) {
+      if ((await page.locator("body").innerText()).includes("Output check failed:"))
+        throw Error("Paused split-session output check failed");
+      if (Date.now() - pausedSplitBuildStarted > 900000)
+        throw Error("Paused split-session output check exceeded 15 minutes");
+      await page.waitForTimeout(1000);
+    }
+    const pausedSplitImagePromise = page.waitForEvent("download", (d) =>
+      d.suggestedFilename().endsWith(".bin"),
+    );
+    await button.click();
+    const pausedSplitImagePath = root + "/paused-split-output.bin";
+    await (await pausedSplitImagePromise).saveAs(pausedSplitImagePath);
+    const pausedSplitOutput = fs.readFileSync(pausedSplitImagePath);
+    assert(
+      pausedSplitOutput.equals(baseline),
+      "Paused split output must equal the independently built one-scope BIOS",
+    );
+    assert(
+      !pausedSplitOutput.equals(splitOutput),
+      "Paused siblings must not leak into the selected output",
+    );
+    await verifyByteComparisonReport(page, pausedSplitOutput);
+    console.log("PAUSED_SPLIT_SESSION_EXACT_FLAGS_AND_ONE_SCOPE_OUTPUT_VERIFIED");
+    await page.getByRole("button", { name: "Change queue (3)", exact: true }).click();
     // Return to the original single-operation removal regression unchanged.
     await queue
       .getByLabel("Load queue session file")
@@ -2005,7 +2078,9 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     await page.waitForFunction(
       () =>
         document.body.innerText.includes("1 SELECTED") &&
-        !document.body.innerText.includes("3 SELECTED"),
+        [...document.querySelectorAll("button")].some(
+          (button) => button.textContent === "Change queue (1)",
+        ),
     );
 
     await queue.getByRole("button", { name: /^Remove .* from change queue$/ }).click();
@@ -2088,6 +2163,17 @@ async function assertVerifiedOutputUnavailable(page, transition) {
           },
         ],
       ],
+      [
+        "paused-split-output",
+        root + "/paused-split-output.bin",
+        pausedSplitSessionPath,
+        [7, 8].map((index) => ({
+          offset: data.suppressions[index].offset.toLowerCase(),
+          start: data.suppressions[index].start,
+          end: data.suppressions[index].end,
+          expression: data.suppressions[index].expression,
+        })),
+      ],
     ]) {
       await page.reload();
       await page.locator("input[type=file]").first().setInputFiles(imagePath);
@@ -2116,8 +2202,13 @@ async function assertVerifiedOutputUnavailable(page, transition) {
         );
         assert(reopenedAdditional);
         assert.equal(reopenedAdditional.start, expected.start);
-        assert.equal(reopenedAdditional.end, expected.start);
+        assert.equal(reopenedAdditional.end, expected.end ?? expected.start);
         assert.equal(reopenedAdditional.expression, expected.expression);
+        if (expected.end !== undefined)
+          assert(
+            Number.parseInt(expected.end, 16) > Number.parseInt(expected.start, 16),
+            "A paused scope must remain nonempty",
+          );
       }
       assert(Number.parseInt(scope.end, 16) > Number.parseInt(scope.start, 16));
       assert.equal(

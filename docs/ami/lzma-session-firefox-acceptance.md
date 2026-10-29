@@ -395,6 +395,42 @@ shape on this exact BIOS-only source; ambiguous selectors, other sources/actions
 descriptor-bearing SPI, ordinary scheduling, hardware and recovery remain
 separate. Codec, ownership, checksum, allocation and timeout guards are unchanged.
 
+## Split session with two paused suppression operations
+
+Reproduced on 2026-10-29 (Europe/Madrid) from main
+`10da689e65520f1b2d95c7c4cad3f9d681e292f4`, Firefox 153.0 / Playwright 1.62.1
+build 1538, using the production build and public deployed WASM readers on
+loopback. The exact existing private input passed its size/SHA-256 check.
+This is real Firefox with the actual engine, codec and downloads, not jsdom,
+deployed-Pages interaction or hardware validation.
+
+After checking the three-enabled-operation output, the checker loads the same
+ordered v2 session with only the first operation enabled and the other two
+paused. The queue reports one selected operation and one net logical field;
+loading invalidates the previous verified output. Re-export is deeply identical
+to the complete input session, preserving all three operations, their order and
+the `true/false/false` enabled flags. Apply and a fresh Check produce a complete
+16,777,216-byte BIOS identical to the independently built single-suppression
+baseline, SHA-256
+`31973e862e1929f8791508582da5189f28355a2577fcab15f28f90056299d543`,
+and different from the three-enabled output.
+
+The independent byte-report scan matches 4,987,327 changed bytes, 11,789,889
+unchanged bytes, 19,458 ranges and all 64 displayed boundaries/samples.
+The 5,007,242-byte capacity retains 22,311 bytes after a 4,984,931-byte rebuild.
+Exact baseline equality retains zero changes outside the owning FFS. Fresh
+reanalysis finds 277 Forms and the selected scope empty at `0x5B2F3`; both
+paused scopes at `0x5B448` and `0x5B46F` retain their original start/end bounds,
+remain nonempty and keep their original expressions. The changed image opens
+with empty queue/output disabled and rejects the original partial session.
+
+The full checker exits zero after eighteen downloads and eighteen independent
+reopens without application page errors. Existing history, rejection, full-batch,
+split-batch and removal regressions remain active. Only this exact partial
+selection is accepted; other subsets, histories, ambiguous selectors, sources,
+descriptor-bearing SPI, hardware and recovery remain separate. No codec,
+capacity, checksum, ownership, timeout or reconstruction guard changed.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main
