@@ -150,6 +150,13 @@ The next work order is:
    and both original nonempty paused scopes with unchanged expressions; the
    partial session rejects on changed bytes. This is local-production Firefox,
    not Pages, descriptor-bearing SPI or hardware.
+   A seventeenth local-production run on 2026-10-29 from main `ea8a394`
+   extends the same partial session to legacy v1: migration re-exports identical
+   ordered v2 metadata and flags, invalidates the ready v2 output despite the
+   unchanged selected count and freshly rebuilds the single-suppression BIOS.
+   All nineteen downloads independently reopen; both partial versions preserve
+   the original nonempty paused scopes and reject on changed bytes. This is
+   loopback Firefox, not deployed Pages, descriptor-bearing SPI or hardware.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
@@ -1116,7 +1123,12 @@ list the blocker for every unsupported case.
   exact ordered v2 export, output invalidation, fresh single-suppression BIOS
   equality and eighteen independent reopens. The selected scope is empty while
   paused scopes retain their original nonempty boundaries/expressions;
-  changed-image session rejection passes. Other selections remain unaccepted.
+  changed-image session rejection passes. A further 2026-10-29 loopback run from
+  `ea8a394` also migrates that partial v1 session to exact ordered v2 metadata,
+  invalidates ready output with the same selection count and freshly rebuilds
+  the single-suppression BIOS. Nineteen independent reopens pass, including both
+  partial versions' original nonempty paused scopes and changed-source session
+  rejection. Other selections remain unaccepted.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
