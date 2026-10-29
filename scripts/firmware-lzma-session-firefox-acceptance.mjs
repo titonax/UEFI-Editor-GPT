@@ -2011,6 +2011,7 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     // Paused siblings must survive session restore/export but contribute no
     // firmware edits. Compare against the independently built one-scope BIOS,
     // then reanalyse the paused scopes at their original nonempty boundaries.
+    const partialHistoryOutputs = [];
     for (const version of [2, 1]) {
       await queue
         .getByLabel("Load queue session file")
@@ -2089,6 +2090,108 @@ async function assertVerifiedOutputUnavailable(page, transition) {
         version,
       );
       await page.getByRole("button", { name: "Change queue (3)", exact: true }).click();
+      if (version === 2) {
+        // The partial load is one replacement, not three selection mutations.
+        // Undo must restore the full selection in one step; Redo restores the
+        // partial selection. Neither may reuse the other revision's ready bytes.
+        for (const [direction, expectedSession, expectedOutput] of [
+          ["Undo", splitSuppressionSession, splitOutput],
+          ["Redo", pausedSplitSession, baseline],
+        ]) {
+          await queue
+            .getByRole("button", {
+              name: direction + " queue change",
+              exact: true,
+            })
+            .click();
+          const selected = direction === "Undo" ? 3 : 1;
+          assert.match(await queue.innerText(), new RegExp(selected + " SELECTED"));
+          assert.match(
+            await queue.innerText(),
+            new RegExp(selected + " NET LOGICAL FIELD\\(S\\)"),
+          );
+          await assertVerifiedOutputUnavailable(page, "Partial-load " + direction);
+          const metadataPromise = page.waitForEvent(
+            "download",
+            (d) => d.suggestedFilename() === "firmware-session.json",
+          );
+          await queue
+            .getByRole("button", { name: "Save queue session", exact: true })
+            .click();
+          const label = "partial-history-" + direction.toLowerCase();
+          const metadataPath = root + "/" + label + ".json";
+          await (await metadataPromise).saveAs(metadataPath);
+          assert.deepEqual(
+            JSON.parse(fs.readFileSync(metadataPath, "utf8")),
+            expectedSession,
+          );
+          await queue
+            .getByRole("button", { name: "Apply selected", exact: true })
+            .click();
+          await queue.getByRole("button", { name: "Close", exact: true }).click();
+          await page
+            .getByRole("button", { name: "Check firmware output", exact: true })
+            .click();
+          const started = Date.now();
+          while (await button.isDisabled()) {
+            if (
+              (await page.locator("body").innerText()).includes("Output check failed:")
+            )
+              throw Error("Partial-load " + direction + " output check failed");
+            if (Date.now() - started > 900000)
+              throw Error(
+                "Partial-load " + direction + " output check exceeded 15 minutes",
+              );
+            await page.waitForTimeout(1000);
+          }
+          const imagePromise = page.waitForEvent("download", (d) =>
+            d.suggestedFilename().endsWith(".bin"),
+          );
+          await button.click();
+          const imagePath = root + "/" + label + ".bin";
+          await (await imagePromise).saveAs(imagePath);
+          const output = fs.readFileSync(imagePath);
+          assert(
+            output.equals(expectedOutput),
+            "History must rebuild the selected plan's exact BIOS",
+          );
+          await verifyByteComparisonReport(
+            page,
+            output,
+            direction === "Undo"
+              ? {
+                  changed: 4987262,
+                  rangeCount: 19522,
+                  rebuiltPackedBytes: 4985240,
+                  remainingBytes: 22002,
+                }
+              : undefined,
+          );
+          partialHistoryOutputs.push([
+            label,
+            imagePath,
+            direction === "Undo" ? splitSuppressionSessionPath : pausedSplitSessionPath,
+            [7, 8].map((index) => ({
+              offset: data.suppressions[index].offset.toLowerCase(),
+              start:
+                direction === "Undo"
+                  ? index === 7
+                    ? "0x5B44C"
+                    : "0x5B477"
+                  : data.suppressions[index].start,
+              ...(direction === "Redo" ? { end: data.suppressions[index].end } : {}),
+              expression: data.suppressions[index].expression,
+            })),
+          ]);
+          console.log(
+            "PARTIAL_SESSION_HISTORY_EXACT_METADATA_AND_FRESH_BIOS",
+            direction,
+          );
+          await page
+            .getByRole("button", { name: "Change queue (3)", exact: true })
+            .click();
+        }
+      }
     }
     // Return to the original single-operation removal regression unchanged.
     await queue
@@ -2193,6 +2296,7 @@ async function assertVerifiedOutputUnavailable(page, transition) {
           expression: data.suppressions[index].expression,
         })),
       ]),
+      ...partialHistoryOutputs,
     ]) {
       await page.reload();
       await page.locator("input[type=file]").first().setInputFiles(imagePath);
