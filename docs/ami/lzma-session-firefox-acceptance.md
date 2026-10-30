@@ -500,6 +500,59 @@ partial history, deployed-Pages interaction, descriptor-bearing SPI, standalone
 engine rerun or hardware. No production code, codec, checksum, allocation,
 ownership, re-extraction or timeout guard changed.
 
+## Focused legacy partial-load history
+
+Reproduced on 2026-10-30 (Europe/Madrid) from main
+`82b79c77bb1f00e9e4be69d473ef503598193fb0`, Firefox 153.0 / Playwright 1.62.1
+build 1538, on the production build served only on loopback. The source passed
+the exact size/SHA-256 check. Assets were `index-BGap__g5.js`,
+`index-D4JOsfQ5.css` and the three public deployed WASM readers above.
+Firmware, decoded data, session JSON and downloads stayed local.
+
+The separate opt-in checker
+`scripts/firmware-lzma-legacy-history-firefox-acceptance.mjs` leaves the broad
+session checker unchanged. It exports a source-bound session from the existing
+suppression import, restores the three ordered enabled operations and builds a
+fresh full-selection reference. It then loads the one-enabled/two-paused legacy
+v1 session and requires identical v2 metadata, flags/order and invalidated
+Check/download/details before building the partial reference.
+
+One Undo restores all three enabled operations, not an intermediate state;
+one Redo restores exactly one enabled and two paused. Both require identical
+exported metadata and disabled prior output before fresh Apply/Check. Export,
+Apply and reconstruction preserve the pending Redo.
+
+Four actual complete-BIOS downloads pass the known full/partial hashes above.
+Undo is byte-identical to the freshly built full-selection reference; Redo is
+byte-identical to the fresh partial reference, and the two plans differ.
+Every file is 16,777,216 bytes with zero changes outside the owning FFS.
+Independent scans match the respective 4,987,262/4,987,327 changed-byte totals,
+19,522/19,458 ranges, all 64 displayed boundaries and samples, 5,007,242-byte
+capacity, rebuilt sizes and remaining space recorded above.
+
+All four downloads independently reopen with 277 Forms and 3,548 conditions.
+Both full selections have all three scopes empty; both partial selections keep
+the original nonempty bounds of the two paused scopes. Expressions remain
+unchanged. Each changed image opens with empty queue/disabled download and
+rejects its original full v2 or partial v1 session by image/context identity.
+The focused checker exits zero with no application page errors.
+
+Reproduce using the same private-source/browser environment settings as above:
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+FIRMWARE_ACCEPTANCE_URL=http://127.0.0.1:4173/UEFI-Editor-GPT/ \
+node scripts/firmware-lzma-legacy-history-firefox-acceptance.mjs
+```
+
+These are four new focused downloads/reopens, not a rerun or cumulative count
+of the broad checker's twenty-one earlier outputs. An interrupted broad attempt
+has no accepted result and contributes no evidence. This is real Firefox with
+the real engine/codec, not a standalone engine rerun, React/jsdom, deployed
+Pages interaction, descriptor-bearing SPI or hardware. Other selection/history
+shapes remain separate; all production guards and broad-checker coverage remain
+unchanged.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main

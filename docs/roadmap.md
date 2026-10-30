@@ -165,6 +165,13 @@ The next work order is:
    and Redo preserves the two original nonempty paused scopes. Both changed
    outputs reject their original sessions. This is local Firefox only; legacy
    partial history, other selection shapes and hardware remain separate.
+   A focused 2026-10-30 loopback Firefox run from main `82b79c7` now also
+   verifies the legacy v1 partial-load history: exact migrated metadata,
+   one-step full-selection Undo/partial-selection Redo, invalidation and fresh
+   distinct expected BIOS outputs. Four new downloads independently reopen,
+   preserving full/partial scope bounds and expressions and rejecting the
+   original sessions on changed bytes. The broad checker was unchanged and not
+   rerun; its earlier twenty-one outputs are not counted as new evidence.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
@@ -1141,7 +1148,12 @@ list the blocker for every unsupported case.
   and distinct fresh expected BIOS outputs pass. All twenty-one downloads
   independently reopen, including all three empty Undo scopes and preserved
   nonempty paused Redo scopes with unchanged expressions and changed-source
-  rejection. Legacy partial history and other selections remain unaccepted.
+  rejection. A focused 2026-10-30 loopback run from `82b79c7` also verifies
+  legacy partial-load Undo/Redo with exact metadata, invalidation and four new
+  full/partial BIOS downloads and independent reopens. Paused bounds and
+  expressions survive and changed-source identity rejects both session forms.
+  The broad checker is unchanged and was not rerun. Other selections and
+  history shapes remain unaccepted.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
