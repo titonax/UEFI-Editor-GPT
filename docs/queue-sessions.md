@@ -144,6 +144,16 @@ Undo output has three empty scopes, while Redo preserves the original two
 nonempty paused scopes. Changed-source session rejection passes for both.
 This does not establish legacy partial history or other selection shapes.
 
+A focused 2026-10-30 loopback Firefox run from main `82b79c7` also verifies
+the legacy v1 partial-load history. Starting from three enabled operations,
+loading v1 produces one enabled/two paused; one Undo restores the full selection
+and one Redo restores the partial selection. Exact v2 metadata/flags/order,
+output invalidation and four fresh complete-BIOS downloads/reopens pass.
+Undo matches the fresh full-selection reference and Redo the fresh partial
+reference; both changed images reject their original sessions. Paused scopes
+remain nonempty with original bounds and expressions. The broad session suite
+was unchanged and not rerun; this focused result does not extend other scopes.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output
