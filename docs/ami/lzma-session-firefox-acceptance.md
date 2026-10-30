@@ -553,6 +553,37 @@ Pages interaction, descriptor-bearing SPI or hardware. Other selection/history
 shapes remain separate; all production guards and broad-checker coverage remain
 unchanged.
 
+## New legacy load discards the abandoned Redo branch
+
+Reproduced on 2026-10-30 (Europe/Madrid) from main
+`618627a07730a2d073cdaf2d18ba82ef08e66b61`, with the same exact private source,
+Firefox 153.0 / Playwright 1.62.1 build 1538, production assets
+`index-BGap__g5.js`, `index-D4JOsfQ5.css` and public deployed WASM readers on
+loopback. The source size/SHA-256 check passed again.
+
+The focused checker above first reproduces its full reference, partial v1 load,
+Undo and Redo outputs. From the ready partial output it then performs another
+Undo to the exact three-enabled session. Prior output must be disabled and the
+old partial Redo must be available. A new load of the original partial v1 session
+must export identical ordered v2 metadata and enabled flags, invalidate output
+and disable Redo. Fresh Apply/Check must not restore that abandoned Redo branch.
+
+The fifth explicit complete-BIOS download equals the fresh partial reference
+byte-for-byte and retains its known hash, size and zero outside-owner changes.
+Its independently scanned report matches 4,987,327 changed bytes, 19,458 ranges,
+all 64 displayed boundaries/samples and the recorded packed capacity/remainder.
+All five actual downloads independently reopen and reject their original source
+sessions on changed bytes. Full selections retain three empty scopes; partial
+selections, including the new branch, retain both original nonempty paused
+scopes and unchanged expressions. The focused checker exits zero without page
+errors. The existing reproduction command now includes this branch.
+
+These are five downloads/reopens in this run, not a cumulative count with the
+earlier four or the broad suite. No production code or broad-checker coverage
+changed; the broad browser suite was not rerun. This remains real local Firefox,
+not Pages interaction, a standalone engine rerun, descriptor-bearing SPI,
+hardware, or acceptance of other branch/selection shapes.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main
