@@ -425,7 +425,31 @@ async function assertVerifiedOutputUnavailable(page, transition) {
     await queue.getByRole("button", { name: "Redo queue change", exact: true }).click();
     await assertPlan(partialSession, "legacy-load-redo");
     await build("legacy-load-redo", false, partialBaseline);
-    assert.equal(outputs.length, 4);
+    // Branch from the full selection by loading the same legacy partial plan
+    // again. Identical earlier metadata must not resurrect its verified bytes
+    // or retain the abandoned Redo branch.
+    await queue.getByRole("button", { name: "Undo queue change", exact: true }).click();
+    await assertPlan(fullSession, "legacy-branch-undo");
+    const redo = queue.getByRole("button", { name: "Redo queue change", exact: true });
+    assert.equal(
+      await redo.isDisabled(),
+      false,
+      "Undo must offer the old partial branch",
+    );
+    await restore(legacyPath, partialSession, "legacy-branch-load");
+    assert.equal(
+      await redo.isDisabled(),
+      true,
+      "A new load must discard the old Redo branch",
+    );
+    await build("legacy-branch-load", false, partialBaseline);
+    assert.equal(
+      await redo.isDisabled(),
+      true,
+      "Apply/Check must not restore discarded Redo",
+    );
+    assert.equal(outputs.length, 5);
+    console.log("LEGACY_PARTIAL_HISTORY_NEW_LOAD_DISCARDS_REDO_AND_FRESH_BIOS");
 
     for (const output of outputs) {
       await page.reload();

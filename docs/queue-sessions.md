@@ -154,6 +154,14 @@ reference; both changed images reject their original sessions. Paused scopes
 remain nonempty with original bounds and expressions. The broad session suite
 was unchanged and not rerun; this focused result does not extend other scopes.
 
+The further focused 2026-10-30 run from main `618627a` verifies branching:
+after Undo restores the three-enabled plan with an available partial Redo,
+a new legacy partial load must discard Redo and invalidate prior output even
+though its metadata matches an earlier partial state. Apply/Check cannot
+resurrect the abandoned branch. The fifth fresh BIOS equals the current partial
+reference; all five downloads/reopens, paused-scope preservation and changed
+source rejection pass. The broad browser suite is unchanged and was not rerun.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output

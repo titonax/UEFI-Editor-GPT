@@ -172,6 +172,13 @@ The next work order is:
    preserving full/partial scope bounds and expressions and rejecting the
    original sessions on changed bytes. The broad checker was unchanged and not
    rerun; its earlier twenty-one outputs are not counted as new evidence.
+   A further focused 2026-10-30 run from main `618627a` verifies a new legacy
+   partial load after Undo: the old partial Redo is available before the new
+   load, discarded after it and stays unavailable after fresh Apply/Check.
+   Exact metadata and output invalidation pass despite revisiting earlier
+   partial metadata. Five fresh BIOS downloads/reopens pass, including the new
+   branch's preserved paused scopes and changed-source rejection. The broad
+   browser suite was unchanged and not rerun.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
@@ -1152,8 +1159,12 @@ list the blocker for every unsupported case.
   legacy partial-load Undo/Redo with exact metadata, invalidation and four new
   full/partial BIOS downloads and independent reopens. Paused bounds and
   expressions survive and changed-source identity rejects both session forms.
-  The broad checker is unchanged and was not rerun. Other selections and
-  history shapes remain unaccepted.
+  The broad checker is unchanged and was not rerun. A further focused run from
+  `618627a` verifies a new partial legacy load after Undo discards available
+  Redo, invalidates prior output and freshly rebuilds the exact partial BIOS.
+  All five downloads/reopens pass, preserving paused scopes and rejecting
+  changed-source sessions; Apply/Check cannot resurrect discarded Redo.
+  Other selections and history shapes remain unaccepted.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.
