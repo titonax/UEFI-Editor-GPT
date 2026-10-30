@@ -179,6 +179,12 @@ The next work order is:
    partial metadata. Five fresh BIOS downloads/reopens pass, including the new
    branch's preserved paused scopes and changed-source rejection. The broad
    browser suite was unchanged and not rerun.
+   A separate focused 2026-10-30 run from main `8cf98e6` verifies v2/v1
+   session files at exactly 1 MiB and one byte over: the boundary loads with
+   exact metadata and output invalidation; oversize rejects while retaining
+   queue/output. Three fresh reconstructions, two retained downloads and five
+   independent reopens pass, including original paused scopes and changed-image
+   identity rejection. Existing session/history suites are unchanged, not rerun.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
@@ -1164,7 +1170,12 @@ list the blocker for every unsupported case.
   Redo, invalidates prior output and freshly rebuilds the exact partial BIOS.
   All five downloads/reopens pass, preserving paused scopes and rejecting
   changed-source sessions; Apply/Check cannot resurrect discarded Redo.
-  Other selections and history shapes remain unaccepted.
+  A separate focused run from `8cf98e6` verifies v2/v1 exact-1-MiB load,
+  oversize rejection/retained output, exact metadata and fresh reconstruction.
+  Three reconstructions plus two retained downloads independently reopen with
+  preserved paused scopes and changed-image identity rejection. Existing broad
+  browser suites are unchanged and were not rerun. Other selections, envelopes
+  and history shapes remain unaccepted.
 - The [exact Z03 history acceptance](phoenix/z03-history-firefox-acceptance.md)
   verifies real Firefox undo/redo invalidation and fresh identical output. AMI/HII
   history, multi-operation variants and asynchronous races remain separate gates.

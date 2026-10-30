@@ -162,6 +162,15 @@ resurrect the abandoned branch. The fifth fresh BIOS equals the current partial
 reference; all five downloads/reopens, paused-scope preservation and changed
 source rejection pass. The broad browser suite is unchanged and was not rerun.
 
+A separate focused 2026-10-30 loopback Firefox run from main `8cf98e6`
+verifies the existing file-size boundary for both v2 and v1 partial sessions.
+Exactly 1,048,576 bytes loads, re-exports exact v2 metadata and invalidates ready
+output before a fresh identical BIOS. One extra byte rejects while retaining
+the exact queue, paused flags and verified output. Three reconstructions,
+two additional cached downloads and five independent reopens pass, preserving
+paused scopes and changed-image identity rejection. The existing broad session
+and history suites remain unchanged and were not rerun.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output
