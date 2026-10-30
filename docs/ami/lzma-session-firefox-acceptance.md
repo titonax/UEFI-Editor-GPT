@@ -584,6 +584,58 @@ changed; the broad browser suite was not rerun. This remains real local Firefox,
 not Pages interaction, a standalone engine rerun, descriptor-bearing SPI,
 hardware, or acceptance of other branch/selection shapes.
 
+## Focused v2/v1 session file-size boundary
+
+Reproduced on 2026-10-30 (Europe/Madrid) from main
+`8cf98e68625fa02e7d0563d1bc52f9929e2f6be8`, Firefox 153.0 / Playwright 1.62.1
+build 1538, using the production build and public deployed WASM readers only on
+loopback. The exact private source again passed size/SHA-256 validation.
+Assets remained `index-BGap__g5.js`, `index-D4JOsfQ5.css` and the three readers
+listed above. Private firmware, decoded data, session JSON and downloads stayed
+local.
+
+The separate opt-in checker
+`scripts/firmware-lzma-size-firefox-acceptance.mjs` leaves both existing session
+and history browser suites unchanged. It builds a fresh partial reference with
+one selected and two paused suppressions. For each version, legal ASCII JSON
+whitespace pads the same source-bound metadata to exactly 1,048,576 bytes and
+1,048,577 bytes; actual file sizes are asserted.
+
+The larger file rejects with the existing 1 MiB file-limit error. The selected
+queue, exact ordered v2 metadata/paused flags, Check/details and ready download
+survive. An explicit cached download must equal the fresh partial reference and
+match its independently scanned report. Loading the exact-limit file succeeds
+and re-exports identical v2 metadata. Even with unchanged selection/counts it
+must invalidate prior output, then fresh Apply/Check must rebuild the same BIOS.
+The wait observes both restored operation count and output invalidation, not
+merely the already-present selected count.
+
+The focused checker exits zero after three real reconstructions and five actual
+downloads: the reference, two retained cached files after rejection and two
+fresh exact-limit outputs. All retain the known partial hash and complete
+16,777,216-byte size with zero outside-owner changes. Independent report scans
+match 4,987,327 changed bytes, 19,458 ranges, all 64 displayed boundaries/samples
+and the existing capacity/remainder. Five independent reopens confirm 277 Forms,
+3,548 conditions, the empty selected scope and both original nonempty paused
+scopes with unchanged expressions. Each changed image rejects its original
+source-bound session, including the exact-limit v2/v1 files. No page errors occur.
+
+Reproduce with the documented browser environment and a local production server:
+
+```bash
+FIRMWARE_ACCEPTANCE_IMAGE=/path/to/source.bin \
+FIRMWARE_ACCEPTANCE_URL=http://127.0.0.1:4173/UEFI-Editor-GPT/ \
+node scripts/firmware-lzma-size-firefox-acceptance.mjs
+```
+
+These are five downloads, not five reconstructions or a cumulative count with
+earlier suites. Interrupted attempts contribute no accepted results. Existing
+broad session/history suites were not rerun. This is real Firefox with the real
+engine/codec on loopback, not deployed Pages, a standalone engine rerun,
+React/jsdom, descriptor-bearing SPI or hardware. Production size/codec/checksum/
+ownership/capacity/re-extraction/timeout guards and coverage remain unchanged.
+Other envelopes, selectors and selection shapes retain their separate gates.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main
