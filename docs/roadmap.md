@@ -185,6 +185,15 @@ The next work order is:
    queue/output. Three fresh reconstructions, two retained downloads and five
    independent reopens pass, including original paused scopes and changed-image
    identity rejection. Existing session/history suites are unchanged, not rerun.
+   A 2026-11-09 focused loopback Firefox run from main `662b9d4` additionally
+   rejects seven size/schema envelope cases per v2/v1 batch, including malformed
+   paused actions/selections and 1001 operations. Every rejection preserves the
+   exact partial queue/export and ready controls; two cached downloads equal the
+   fresh reference. Exact-limit valid recovery invalidates output and rebuilds
+   it. Three reconstructions, five downloads/reports and five independent reopens
+   pass, with original paused scopes and changed-image identity rejection.
+   Broad session/history suites are unchanged and not rerun; this is not the
+   positive 1000-operation boundary, Pages interaction or hardware acceptance.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)

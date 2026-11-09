@@ -636,6 +636,52 @@ React/jsdom, descriptor-bearing SPI or hardware. Production size/codec/checksum/
 ownership/capacity/re-extraction/timeout guards and coverage remain unchanged.
 Other envelopes, selectors and selection shapes retain their separate gates.
 
+## Strict session envelopes retain the partial queue and ready output
+
+Reproduced on 2026-11-09 (Europe/Madrid) from main
+`662b9d468e42aaf479911759afe2b67deb871c80`, with Firefox 153.0 / Playwright
+1.62.1 build 1538, the production build on loopback and the public deployed
+WASM readers. Assets remain `index-BGap__g5.js`, `index-D4JOsfQ5.css` and the
+three readers above. The existing private input passed its exact size/SHA-256
+check. No application API, queue, codec, writer, response, download or native
+timing was mocked; firmware and JSON stayed local.
+
+The focused size checker now exercises seven rejected inputs per v2/v1 batch:
+malformed JSON, one byte over the file limit, future version 3, an unknown
+top-level field, a non-boolean enabled flag on a paused operation, an unknown
+action on a paused operation and 1001 operations. Future-version and malformed
+JSON cases intentionally have the same content in both batches. The other
+schema cases retain that batch's version. These are schema/file envelopes, not
+evidence of an ambiguous current-source selector or semantic replay failure.
+
+Every rejection displays the expected error and retains exactly one selected
+operation, two paused operations, their original order and one net logical
+field. Check, details and download stay enabled. Saving after each rejection
+clears the alert and exports deeply identical canonical v2 metadata, including
+all paused flags. After each complete rejection batch, an actual cached BIOS
+download equals the independently rebuilt partial reference byte-for-byte.
+The valid exact-1-MiB file then loads, re-exports exactly and invalidates prior
+output despite unchanged selection counts; fresh Apply/Check must rebuild it.
+
+The extended focused checker exits zero: fourteen rejection attempts, three
+reconstructions, five actual BIOS downloads/reports and five independent
+reopens. All files retain the known partial hash, 16,777,216-byte size and zero
+outside-owner changes. Each independent scan matches 4,987,327 changed bytes,
+11,789,889 unchanged bytes, 19,458 ranges, all 64 displayed boundaries/samples
+and the existing allocation/capacity. Every reopen recovers 277 Forms and
+3,548 conditions, the selected empty scope, both original nonempty paused
+scopes and all original expressions. Original source-bound sessions reject on
+each changed image; empty queue and disabled output remain. No page errors occur.
+
+Use the focused size-checker reproduction command above. Counts describe this
+run only, not cumulative earlier results; five downloads are not five rebuilds.
+Production code remains unchanged. The broad session/history checkers are
+unchanged and were not rerun. This is real local Firefox with the actual engine/codec, not
+Pages interaction, a standalone engine rerun, React/jsdom or hardware. The
+1000-operation positive boundary, other selections/semantic causes, ambiguous
+selectors, descriptor-bearing SPI and unsupported formats remain unaccepted.
+No guard, coverage threshold, allocation, ownership or timeout was weakened.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main
