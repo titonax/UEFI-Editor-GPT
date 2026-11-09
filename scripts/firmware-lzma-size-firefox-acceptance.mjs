@@ -1,4 +1,4 @@
-// Focused exact first-LZMA v1/v2 session file-size boundary. Private inputs stay local.
+// Focused exact first-LZMA v1/v2 session size/schema envelopes. Private inputs stay local.
 // Requires a separately installed Playwright; CI never supplies private firmware.
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -433,47 +433,89 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       fs.writeFileSync(oversizedPath, text.padEnd(limit + 1, " "));
       assert.equal(fs.statSync(boundaryPath).size, limit);
       assert.equal(fs.statSync(oversizedPath).size, limit + 1);
-      await queue.getByLabel("Load queue session file").setInputFiles(oversizedPath);
-      const rejection = queue.getByRole("alert");
-      await rejection.waitFor();
-      assert.match(await rejection.innerText(), /exceeds the 1 MiB file limit/);
-      assert.match(await queue.innerText(), /1 SELECTED/);
-      assert.match(await queue.innerText(), /1 NET LOGICAL FIELD\(S\)/);
-      for (const name of [
-        "Check firmware output",
-        "Modified firmware image",
-        "Output details",
-      ])
-        assert.equal(
-          await page.getByRole("button", { name, exact: true }).isDisabled(),
-          false,
+      const nonBoolean = structuredClone({ ...partialSession, version });
+      nonBoolean.operations[1].enabled = "false";
+      const unknownAction = structuredClone({ ...partialSession, version });
+      unknownAction.operations[1].action = "write-bytes";
+      const rejectedInputs = [
+        ["malformed-json", "{", /is not valid JSON/],
+        ["file-limit", text.padEnd(limit + 1, " "), /exceeds the 1 MiB file limit/],
+        [
+          "future-version",
+          JSON.stringify({ ...partialSession, version: 3 }),
+          /unsupported format, version or editor kind/,
+        ],
+        [
+          "unknown-field",
+          JSON.stringify({ ...partialSession, version, firmware: [] }),
+          /unsupported format, version or editor kind/,
+        ],
+        ["non-boolean-paused", JSON.stringify(nonBoolean), /invalid suppression batch/],
+        ["unknown-paused-action", JSON.stringify(unknownAction), /invalid menu action/],
+        [
+          "operation-limit",
+          JSON.stringify({
+            ...partialSession,
+            version,
+            operations: Array(1001).fill(partialSession.operations[0]),
+          }),
+          /too many or invalid operations/,
+        ],
+      ];
+      for (const [name, invalidText, error] of rejectedInputs) {
+        const invalidPath = root + "/invalid-" + name + "-v" + version + ".json";
+        fs.writeFileSync(invalidPath, invalidText);
+        assert.equal(fs.statSync(invalidPath).size, Buffer.byteLength(invalidText));
+        await queue.getByLabel("Load queue session file").setInputFiles(invalidPath);
+        const rejection = queue.getByRole("alert");
+        await rejection.waitFor();
+        assert.match(await rejection.innerText(), error);
+        assert.match(await queue.innerText(), /1 SELECTED/);
+        assert.match(await queue.innerText(), /1 NET LOGICAL FIELD\(S\)/);
+        assert.deepEqual(
+          await queue
+            .getByRole("checkbox")
+            .evaluateAll((boxes) => boxes.map((box) => box.checked)),
+          [true, false, false],
         );
-      const metadataPromise = page.waitForEvent(
-        "download",
-        (d) => d.suggestedFilename() === "firmware-session.json",
-      );
-      await queue
-        .getByRole("button", { name: "Save queue session", exact: true })
-        .click();
-      const metadataPath = root + "/after-oversize-v" + version + ".json";
-      await (await metadataPromise).saveAs(metadataPath);
-      assert(
-        JSON.stringify(JSON.parse(fs.readFileSync(metadataPath, "utf8"))) ===
-          JSON.stringify(partialSession),
-        "Oversized import must retain exact current metadata and paused flags",
-      );
+        for (const control of [
+          "Check firmware output",
+          "Modified firmware image",
+          "Output details",
+        ])
+          assert.equal(
+            await page.getByRole("button", { name: control, exact: true }).isDisabled(),
+            false,
+          );
+        const metadataPromise = page.waitForEvent(
+          "download",
+          (d) => d.suggestedFilename() === "firmware-session.json",
+        );
+        await queue
+          .getByRole("button", { name: "Save queue session", exact: true })
+          .click();
+        const metadataPath = root + "/after-" + name + "-v" + version + ".json";
+        await (await metadataPromise).saveAs(metadataPath);
+        assert(
+          JSON.stringify(JSON.parse(fs.readFileSync(metadataPath, "utf8"))) ===
+            JSON.stringify(partialSession),
+          "Rejected import must retain exact ordered metadata and paused flags",
+        );
+        assert.equal(await queue.getByRole("alert").count(), 0);
+        console.log("SESSION_ENVELOPE_ATOMIC_READY_OUTPUT_RETAINED", version, name);
+      }
       await queue.getByRole("button", { name: "Close", exact: true }).click();
       const pending = page.waitForEvent("download", (d) =>
         d.suggestedFilename().endsWith(".bin"),
       );
       await imageButton.click();
-      const label = "oversize-retained-v" + version;
+      const label = "envelope-retained-v" + version;
       const imagePath = root + "/" + label + ".bin";
       await (await pending).saveAs(imagePath);
       const retained = fs.readFileSync(imagePath);
       assert(
         retained.equals(partialBaseline),
-        "Oversized import must retain the verified BIOS bytes",
+        "The complete rejection batch must retain the verified BIOS bytes",
       );
       await verifyByteComparisonReport(page, retained);
       outputs.push({ label, imagePath, full: false, sessionPath: boundaryPath });
@@ -550,7 +592,9 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       );
     }
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
-    console.log("SESSION_SIZE_BOUNDARY_ACCEPTED", outputs.length, [...assets]);
+    console.log("SESSION_SIZE_AND_SCHEMA_ENVELOPES_ACCEPTED", outputs.length, [
+      ...assets,
+    ]);
   } finally {
     await browser?.close();
     fs.rmSync(root, { recursive: true, force: true });

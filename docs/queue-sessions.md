@@ -171,6 +171,17 @@ two additional cached downloads and five independent reopens pass, preserving
 paused scopes and changed-image identity rejection. The existing broad session
 and history suites remain unchanged and were not rerun.
 
+A further 2026-11-09 focused loopback Firefox run from main `662b9d4` rejects
+seven file/schema envelope cases per v2/v1 batch, including invalid paused
+selection/action metadata and 1001 operations. Every rejection retains the exact
+one-selected/two-paused queue, canonical export and ready-output controls.
+Cached downloads after each batch equal the fresh reference; valid exact-limit
+recovery invalidates output and freshly rebuilds it. Three reconstructions,
+five downloads/reports and five independent reopens preserve paused scopes and
+reject changed-source sessions. This does not establish the positive 1000-op
+boundary, ambiguous selectors, other semantic failures, Pages or hardware.
+The broad browser session/history suites remain unchanged and were not rerun.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output
