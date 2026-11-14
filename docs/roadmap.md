@@ -194,6 +194,14 @@ The next work order is:
    pass, with original paused scopes and changed-image identity rejection.
    Broad session/history suites are unchanged and not rerun; this is not the
    positive 1000-operation boundary, Pages interaction or hardware acceptance.
+   A 2026-11-14 focused loopback Firefox run from main `dab90aa` validates
+   empty v2/v1 imports over the ready one-selected/two-paused LZMA queue.
+   Wrong-image identity preserves exact metadata and cached downloads. Valid
+   loads clear the queue in one undoable step; Undo/Redo/Undo restores exact
+   partial/empty exports without reviving output. Three fresh reconstructions,
+   two retained downloads and five independent reopens pass, with unchanged
+   paused scopes and changed-image rejection. This is BIOS-only and does not
+   establish Pages interaction, descriptor SPI or hardware acceptance.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
