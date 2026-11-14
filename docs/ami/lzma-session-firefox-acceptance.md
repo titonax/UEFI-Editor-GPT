@@ -682,6 +682,38 @@ Pages interaction, a standalone engine rerun, React/jsdom or hardware. The
 selectors, descriptor-bearing SPI and unsupported formats remain unaccepted.
 No guard, coverage threshold, allocation, ownership or timeout was weakened.
 
+## Empty v2/v1 session load over a ready partial queue
+
+On 2026-11-14, Firefox 153.0 with Playwright 1.62.1 build 1538 ran the
+production build from main `dab90aa6fd53e08f80cde3f23128283fcea10211` on
+loopback, with the same public WASM readers and exact private BIOS source
+as above. No application response, timing, codec or download was mocked.
+
+Starting with one selected suppression and two paused, the checker loads a
+zero-operation session with a wrong image hash, for each version. Each
+rejection retains exact ordered canonical v2 metadata and a ready download
+that is byte-identical to the reference without another Check. The matching
+empty session clears the queue and disables Apply and all output controls.
+One Undo restores the partial queue; one Redo restores the empty queue;
+one final Undo restores the partial queue again. Exact canonical exports
+match at every step, and none of those transitions revive a verified output.
+Fresh Apply/Check after each final Undo produces the reference bytes.
+
+The focused run exits zero with three fresh reconstructions and two cached
+downloads (five actual BIOS files and independent report comparisons), no
+page errors, and zero changed bytes outside the owning FFS. Five independent
+reopens confirm the selected empty body, preservation of both paused nonempty
+bodies and original expressions, an empty queue, disabled output, and rejection
+of the original source-bound session on changed bytes.
+
+Use the size-checker command above with `--empty-history`, serving the
+production build at a `127.0.0.1` URL. This mode runs instead of the
+size/schema envelopes; they and the broad session/history suites were not
+rerun. This is real Firefox with the real engine/codec on the exact BIOS-only
+source, not a separate engine run, React/jsdom, Pages interaction, descriptor
+SPI or hardware. Other empty-load predecessors, identities and histories
+remain separate. No production guard or coverage threshold changed.
+
 ## Controlled first identity digest across selection Undo
 
 Reproduced on 2026-10-25 (Europe/Madrid) from main

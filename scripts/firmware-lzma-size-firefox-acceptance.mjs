@@ -1,4 +1,4 @@
-// Focused exact first-LZMA v1/v2 session size/schema envelopes. Private inputs stay local.
+// Focused exact first-LZMA v1/v2 envelopes or empty-session history.
 // Requires a separately installed Playwright; CI never supplies private firmware.
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -14,6 +14,9 @@ const sourcePath = process.env.FIRMWARE_ACCEPTANCE_IMAGE;
 assert(sourcePath, "Set FIRMWARE_ACCEPTANCE_IMAGE to the accepted private source.");
 const acceptanceUrl =
   process.env.FIRMWARE_ACCEPTANCE_URL || "https://titonax.github.io/UEFI-Editor-GPT/";
+const emptyHistory = process.argv.slice(2).includes("--empty-history");
+if (emptyHistory)
+  assert.equal(new URL(acceptanceUrl).hostname, "127.0.0.1", "Use a loopback build");
 const sourceBytes = fs.readFileSync(sourcePath);
 assert.equal(sourceBytes.length, 16777216);
 assert.equal(
@@ -310,15 +313,7 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       remainingBytes: 22002,
     };
     const outputs = [];
-    const assertPlan = async (expected, label) => {
-      const selected = expected.operations.filter((op) => op.enabled).length;
-      assert.match(await queue.innerText(), new RegExp(selected + " SELECTED"));
-      assert.match(
-        await queue.innerText(),
-        new RegExp(selected + " NET LOGICAL FIELD\\(S\\)"),
-      );
-      assert.equal(await queue.getByRole("alert").count(), 0);
-      await assertVerifiedOutputUnavailable(page, label);
+    const saveExact = async (expected, label) => {
       const pending = page.waitForEvent(
         "download",
         (d) => d.suggestedFilename() === "firmware-session.json",
@@ -333,6 +328,17 @@ async function assertVerifiedOutputUnavailable(page, transition) {
           JSON.stringify(expected),
         "The exact ordered v2 session and all enabled flags must match",
       );
+    };
+    const assertPlan = async (expected, label) => {
+      const selected = expected.operations.filter((op) => op.enabled).length;
+      assert.match(await queue.innerText(), new RegExp(selected + " SELECTED"));
+      assert.match(
+        await queue.innerText(),
+        new RegExp(selected + " NET LOGICAL FIELD\\(S\\)"),
+      );
+      assert.equal(await queue.getByRole("alert").count(), 0);
+      await assertVerifiedOutputUnavailable(page, label);
+      await saveExact(expected, label);
     };
     const restore = async (filePath, expected, label) => {
       await queue.getByLabel("Load queue session file").setInputFiles(filePath);
@@ -421,112 +427,196 @@ async function assertVerifiedOutputUnavailable(page, transition) {
 
     await restore(legacyPath, partialSession, "size-reference-load");
     const partialBaseline = await build("size-reference", false);
-    // Legal ASCII whitespace changes the actual file size, not the metadata.
-    // The complete image stays ready across oversized rejections, while a
-    // successful same-selection load at the exact boundary must invalidate it.
-    for (const version of [2, 1]) {
-      const limit = 1024 * 1024;
-      const text = JSON.stringify({ ...partialSession, version });
-      const boundaryPath = root + "/session-boundary-v" + version + ".json";
-      const oversizedPath = root + "/session-oversized-v" + version + ".json";
-      fs.writeFileSync(boundaryPath, text.padEnd(limit, " "));
-      fs.writeFileSync(oversizedPath, text.padEnd(limit + 1, " "));
-      assert.equal(fs.statSync(boundaryPath).size, limit);
-      assert.equal(fs.statSync(oversizedPath).size, limit + 1);
-      const nonBoolean = structuredClone({ ...partialSession, version });
-      nonBoolean.operations[1].enabled = "false";
-      const unknownAction = structuredClone({ ...partialSession, version });
-      unknownAction.operations[1].action = "write-bytes";
-      const rejectedInputs = [
-        ["malformed-json", "{", /is not valid JSON/],
-        ["file-limit", text.padEnd(limit + 1, " "), /exceeds the 1 MiB file limit/],
-        [
-          "future-version",
-          JSON.stringify({ ...partialSession, version: 3 }),
-          /unsupported format, version or editor kind/,
-        ],
-        [
-          "unknown-field",
-          JSON.stringify({ ...partialSession, version, firmware: [] }),
-          /unsupported format, version or editor kind/,
-        ],
-        ["non-boolean-paused", JSON.stringify(nonBoolean), /invalid suppression batch/],
-        ["unknown-paused-action", JSON.stringify(unknownAction), /invalid menu action/],
-        [
-          "operation-limit",
+    if (emptyHistory) {
+      const empty = { ...partialSession, operations: [] };
+      const apply = queue.getByRole("button", { name: "Apply selected", exact: true });
+      const undo = queue.getByRole("button", {
+        name: "Undo queue change",
+        exact: true,
+      });
+      const redo = queue.getByRole("button", {
+        name: "Redo queue change",
+        exact: true,
+      });
+      const load = queue.getByLabel("Load queue session file");
+      for (const version of [2, 1]) {
+        const validPath = root + "/empty-v" + version + ".json";
+        const wrongPath = root + "/empty-wrong-image-v" + version + ".json";
+        fs.writeFileSync(validPath, JSON.stringify({ ...empty, version }));
+        fs.writeFileSync(
+          wrongPath,
           JSON.stringify({
-            ...partialSession,
+            ...empty,
             version,
-            operations: Array(1001).fill(partialSession.operations[0]),
+            source: { ...empty.source, sha256: "0".repeat(64) },
           }),
-          /too many or invalid operations/,
-        ],
-      ];
-      for (const [name, invalidText, error] of rejectedInputs) {
-        const invalidPath = root + "/invalid-" + name + "-v" + version + ".json";
-        fs.writeFileSync(invalidPath, invalidText);
-        assert.equal(fs.statSync(invalidPath).size, Buffer.byteLength(invalidText));
-        await queue.getByLabel("Load queue session file").setInputFiles(invalidPath);
+        );
+        await load.setInputFiles(wrongPath);
         const rejection = queue.getByRole("alert");
         await rejection.waitFor();
-        assert.match(await rejection.innerText(), error);
-        assert.match(await queue.innerText(), /1 SELECTED/);
-        assert.match(await queue.innerText(), /1 NET LOGICAL FIELD\(S\)/);
-        assert.deepEqual(
-          await queue
-            .getByRole("checkbox")
-            .evaluateAll((boxes) => boxes.map((box) => box.checked)),
-          [true, false, false],
+        assert.match(
+          await rejection.innerText(),
+          /different firmware image or opened HII context/,
         );
-        for (const control of [
-          "Check firmware output",
-          "Modified firmware image",
-          "Output details",
-        ])
-          assert.equal(
-            await page.getByRole("button", { name: control, exact: true }).isDisabled(),
-            false,
-          );
-        const metadataPromise = page.waitForEvent(
-          "download",
-          (d) => d.suggestedFilename() === "firmware-session.json",
+        await saveExact(partialSession, "empty-rejection-retained-v" + version);
+        assert.equal(await rejection.count(), 0);
+        await queue.getByRole("button", { name: "Close", exact: true }).click();
+        const pending = page.waitForEvent("download", (d) =>
+          d.suggestedFilename().endsWith(".bin"),
         );
-        await queue
-          .getByRole("button", { name: "Save queue session", exact: true })
-          .click();
-        const metadataPath = root + "/after-" + name + "-v" + version + ".json";
-        await (await metadataPromise).saveAs(metadataPath);
+        await imageButton.click();
+        const label = "empty-rejection-retained-v" + version;
+        const imagePath = root + "/" + label + ".bin";
+        await (await pending).saveAs(imagePath);
+        const retained = fs.readFileSync(imagePath);
         assert(
-          JSON.stringify(JSON.parse(fs.readFileSync(metadataPath, "utf8"))) ===
-            JSON.stringify(partialSession),
-          "Rejected import must retain exact ordered metadata and paused flags",
+          retained.equals(partialBaseline),
+          "Rejected load must retain verified bytes",
         );
-        assert.equal(await queue.getByRole("alert").count(), 0);
-        console.log("SESSION_ENVELOPE_ATOMIC_READY_OUTPUT_RETAINED", version, name);
+        await verifyByteComparisonReport(page, retained);
+        outputs.push({ label, imagePath, full: false, sessionPath: validPath });
+        await page
+          .getByRole("button", { name: "Change queue (3)", exact: true })
+          .click();
+        await load.setInputFiles(validPath);
+        const assertEmpty = async (phase) => {
+          await queue.getByText(/The queue is empty/).waitFor();
+          assert.equal(await apply.isDisabled(), true);
+          await assertVerifiedOutputUnavailable(page, phase);
+          await saveExact(empty, phase + "-v" + version);
+        };
+        await assertEmpty("empty-load");
+        await undo.click();
+        await assertPlan(partialSession, "empty-undo-v" + version);
+        assert.equal(await apply.isDisabled(), false);
+        await redo.click();
+        await assertEmpty("empty-redo");
+        await undo.click();
+        await assertPlan(partialSession, "empty-final-undo-v" + version);
+        await build("empty-rebuilt-v" + version, false, partialBaseline);
+        outputs[outputs.length - 1].sessionPath = validPath;
+        console.log("EMPTY_SESSION_IDENTITY_HISTORY_AND_FRESH_BIOS", version);
       }
-      await queue.getByRole("button", { name: "Close", exact: true }).click();
-      const pending = page.waitForEvent("download", (d) =>
-        d.suggestedFilename().endsWith(".bin"),
-      );
-      await imageButton.click();
-      const label = "envelope-retained-v" + version;
-      const imagePath = root + "/" + label + ".bin";
-      await (await pending).saveAs(imagePath);
-      const retained = fs.readFileSync(imagePath);
-      assert(
-        retained.equals(partialBaseline),
-        "The complete rejection batch must retain the verified BIOS bytes",
-      );
-      await verifyByteComparisonReport(page, retained);
-      outputs.push({ label, imagePath, full: false, sessionPath: boundaryPath });
-      await page.getByRole("button", { name: "Change queue (3)", exact: true }).click();
-      await restore(boundaryPath, partialSession, "exact-limit-load-v" + version);
-      await build("exact-limit-output-v" + version, false, partialBaseline);
-      outputs[outputs.length - 1].sessionPath = boundaryPath;
-      console.log(
-        "SESSION_EXACT_1MIB_ACCEPTED_PLUS_ONE_REJECTED_READY_OUTPUT_RETAINED",
-        version,
-      );
+    } else {
+      // Legal ASCII whitespace changes the actual file size, not the metadata.
+      // The complete image stays ready across oversized rejections, while a
+      // successful same-selection load at the exact boundary must invalidate it.
+      for (const version of [2, 1]) {
+        const limit = 1024 * 1024;
+        const text = JSON.stringify({ ...partialSession, version });
+        const boundaryPath = root + "/session-boundary-v" + version + ".json";
+        const oversizedPath = root + "/session-oversized-v" + version + ".json";
+        fs.writeFileSync(boundaryPath, text.padEnd(limit, " "));
+        fs.writeFileSync(oversizedPath, text.padEnd(limit + 1, " "));
+        assert.equal(fs.statSync(boundaryPath).size, limit);
+        assert.equal(fs.statSync(oversizedPath).size, limit + 1);
+        const nonBoolean = structuredClone({ ...partialSession, version });
+        nonBoolean.operations[1].enabled = "false";
+        const unknownAction = structuredClone({ ...partialSession, version });
+        unknownAction.operations[1].action = "write-bytes";
+        const rejectedInputs = [
+          ["malformed-json", "{", /is not valid JSON/],
+          ["file-limit", text.padEnd(limit + 1, " "), /exceeds the 1 MiB file limit/],
+          [
+            "future-version",
+            JSON.stringify({ ...partialSession, version: 3 }),
+            /unsupported format, version or editor kind/,
+          ],
+          [
+            "unknown-field",
+            JSON.stringify({ ...partialSession, version, firmware: [] }),
+            /unsupported format, version or editor kind/,
+          ],
+          [
+            "non-boolean-paused",
+            JSON.stringify(nonBoolean),
+            /invalid suppression batch/,
+          ],
+          [
+            "unknown-paused-action",
+            JSON.stringify(unknownAction),
+            /invalid menu action/,
+          ],
+          [
+            "operation-limit",
+            JSON.stringify({
+              ...partialSession,
+              version,
+              operations: Array(1001).fill(partialSession.operations[0]),
+            }),
+            /too many or invalid operations/,
+          ],
+        ];
+        for (const [name, invalidText, error] of rejectedInputs) {
+          const invalidPath = root + "/invalid-" + name + "-v" + version + ".json";
+          fs.writeFileSync(invalidPath, invalidText);
+          assert.equal(fs.statSync(invalidPath).size, Buffer.byteLength(invalidText));
+          await queue.getByLabel("Load queue session file").setInputFiles(invalidPath);
+          const rejection = queue.getByRole("alert");
+          await rejection.waitFor();
+          assert.match(await rejection.innerText(), error);
+          assert.match(await queue.innerText(), /1 SELECTED/);
+          assert.match(await queue.innerText(), /1 NET LOGICAL FIELD\(S\)/);
+          assert.deepEqual(
+            await queue
+              .getByRole("checkbox")
+              .evaluateAll((boxes) => boxes.map((box) => box.checked)),
+            [true, false, false],
+          );
+          for (const control of [
+            "Check firmware output",
+            "Modified firmware image",
+            "Output details",
+          ])
+            assert.equal(
+              await page
+                .getByRole("button", { name: control, exact: true })
+                .isDisabled(),
+              false,
+            );
+          const metadataPromise = page.waitForEvent(
+            "download",
+            (d) => d.suggestedFilename() === "firmware-session.json",
+          );
+          await queue
+            .getByRole("button", { name: "Save queue session", exact: true })
+            .click();
+          const metadataPath = root + "/after-" + name + "-v" + version + ".json";
+          await (await metadataPromise).saveAs(metadataPath);
+          assert(
+            JSON.stringify(JSON.parse(fs.readFileSync(metadataPath, "utf8"))) ===
+              JSON.stringify(partialSession),
+            "Rejected import must retain exact ordered metadata and paused flags",
+          );
+          assert.equal(await queue.getByRole("alert").count(), 0);
+          console.log("SESSION_ENVELOPE_ATOMIC_READY_OUTPUT_RETAINED", version, name);
+        }
+        await queue.getByRole("button", { name: "Close", exact: true }).click();
+        const pending = page.waitForEvent("download", (d) =>
+          d.suggestedFilename().endsWith(".bin"),
+        );
+        await imageButton.click();
+        const label = "envelope-retained-v" + version;
+        const imagePath = root + "/" + label + ".bin";
+        await (await pending).saveAs(imagePath);
+        const retained = fs.readFileSync(imagePath);
+        assert(
+          retained.equals(partialBaseline),
+          "The complete rejection batch must retain the verified BIOS bytes",
+        );
+        await verifyByteComparisonReport(page, retained);
+        outputs.push({ label, imagePath, full: false, sessionPath: boundaryPath });
+        await page
+          .getByRole("button", { name: "Change queue (3)", exact: true })
+          .click();
+        await restore(boundaryPath, partialSession, "exact-limit-load-v" + version);
+        await build("exact-limit-output-v" + version, false, partialBaseline);
+        outputs[outputs.length - 1].sessionPath = boundaryPath;
+        console.log(
+          "SESSION_EXACT_1MIB_ACCEPTED_PLUS_ONE_REJECTED_READY_OUTPUT_RETAINED",
+          version,
+        );
+      }
     }
     assert.equal(outputs.length, 5);
     for (const output of outputs) {
@@ -592,9 +682,13 @@ async function assertVerifiedOutputUnavailable(page, transition) {
       );
     }
     assert.equal(pageErrors.length, 0, "No application page errors are allowed.");
-    console.log("SESSION_SIZE_AND_SCHEMA_ENVELOPES_ACCEPTED", outputs.length, [
-      ...assets,
-    ]);
+    console.log(
+      emptyHistory
+        ? "EMPTY_SESSION_HISTORY_ACCEPTED"
+        : "SESSION_SIZE_AND_SCHEMA_ENVELOPES_ACCEPTED",
+      outputs.length,
+      [...assets],
+    );
   } finally {
     await browser?.close();
     fs.rmSync(root, { recursive: true, force: true });
