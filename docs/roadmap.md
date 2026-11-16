@@ -201,7 +201,10 @@ The next work order is:
    partial/empty exports without reviving output. Three fresh reconstructions,
    two retained downloads and five independent reopens pass, with unchanged
    paused scopes and changed-image rejection. This is BIOS-only and does not
-   establish Pages interaction, descriptor SPI or hardware acceptance.
+   establish Pages interaction, descriptor SPI or hardware acceptance. A
+   separate synthetic parser regression accepts exactly 1000 structurally
+   valid operation entries under the 1 MiB document limit; it does not replay
+   that document against a source context or establish its runtime cost.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
