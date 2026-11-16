@@ -117,7 +117,7 @@ function valueField(value: unknown): value is AmiValueField {
 function byteValue(value: unknown): value is string {
   return typeof value === "string" && /^[0-9A-F]{1,2}$/.test(value);
 }
-function parse(text: string): Session {
+export function parseHiiQueueSessionDocument(text: string): Session {
   if (text.length > queueSessionTextLimit) invalid("exceeds the 1 MiB text limit");
   let value: unknown;
   try {
@@ -622,14 +622,14 @@ export async function saveHiiQueueSession(
     operations,
   };
   const text = JSON.stringify(session, null, 2);
-  parse(text);
+  parseHiiQueueSessionDocument(text);
   return text;
 }
 export async function loadHiiQueueSession(
   text: string,
   context: HiiQueueSessionContext,
 ) {
-  const session = parse(text);
+  const session = parseHiiQueueSessionDocument(text);
   const current = await identity(context);
   if (
     current.sha256 !== session.source.sha256 ||

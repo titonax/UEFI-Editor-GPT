@@ -9,7 +9,11 @@ import {
   projectDataChangeQueue,
 } from "../ChangeQueue/dataChangeQueue";
 import { useDataChangeQueue } from "../ChangeQueue/useDataChangeQueue";
-import { loadHiiQueueSession, saveHiiQueueSession } from "./hiiQueueSession";
+import {
+  loadHiiQueueSession,
+  parseHiiQueueSessionDocument,
+  saveHiiQueueSession,
+} from "./hiiQueueSession";
 import { queueSessionTextLimit } from "./phoenixQueueSession";
 
 function required<T>(value: T | null | undefined): T {
@@ -201,6 +205,16 @@ describe("source-bound AMI/HII Ref sessions (synthetic)", () => {
     expect(
       await loadHiiQueueSession(await saveHiiQueueSession(context, []), context),
     ).toEqual([]);
+  });
+  it("accepts exactly 1000 structurally valid session operations", async () => {
+    const { text } = await plan();
+    const document = JSON.parse(text) as { operations: unknown[] };
+    const operation = document.operations[0];
+    document.operations = Array.from({ length: 1000 }, () => operation);
+
+    const serialized = JSON.stringify(document);
+    expect(serialized.length).toBeLessThan(queueSessionTextLimit);
+    expect(parseHiiQueueSessionDocument(serialized).operations).toHaveLength(1000);
   });
   it("migrates a strict version-1 Ref-only session before replay", async () => {
     const { context, text, entry } = await plan();
