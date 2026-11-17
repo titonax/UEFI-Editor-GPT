@@ -200,6 +200,25 @@ describe("source-bound AMI/HII Ref sessions (synthetic)", () => {
       ]),
     ).rejects.toThrow("stale");
   });
+  it("rejects a Ref selector that is ambiguous in the current source model", async () => {
+    const context = fixture();
+    context.base.forms[0].children.push(
+      structuredClone(context.base.forms[0].children[0]),
+    );
+    const after = await moveMenuReference(
+      context.base,
+      context.originalSetupSct,
+      request,
+    );
+    const before = structuredClone(context.base);
+
+    await expect(
+      saveHiiQueueSession(context, [
+        required(createDataChangeEntry(context.base, after, "ambiguous")),
+      ]),
+    ).rejects.toThrow(/ambiguous or unsupported/);
+    expect(context.base).toEqual(before);
+  });
   it("accepts an empty session", async () => {
     const context = fixture();
     expect(

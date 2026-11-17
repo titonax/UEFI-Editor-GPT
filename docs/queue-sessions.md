@@ -191,6 +191,13 @@ the full operation count on a small synthetic SetupData/HII context only. It is
 not a real-firmware, React/jsdom, Firefox, full-image reconstruction or SPI
 acceptance result. The real-source/browser 1000-operation replay remains open.
 
+Also on 2026-11-17, a focused synthetic engine regression duplicates the
+current model's Ref child at the same IFR offset before session export. The
+session is rejected as an ambiguous/unsupported Ref move and the opened model
+remains unchanged. This covers only the engine's synthetic current-source
+selector guard; it is not a real-source, React/jsdom, Firefox, reconstruction or
+SPI result. The ambiguous-selector browser gate remains open.
+
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
 the open editor already exposes. Loading it grants no new editing or output
