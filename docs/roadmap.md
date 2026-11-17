@@ -1160,8 +1160,10 @@ list the blocker for every unsupported case.
   against deployed main `81a028e` repeats the real SuppressIf selector inside
   one enabled batch. Strict schema validation rejects before all identity hashes,
   retains the selected queue and ready output, and all thirteen complete-BIOS
-  downloads and independent rereads remain exact. Other history shapes,
-  ambiguous selectors and semantic-rejection causes remain separate. The later
+  downloads and independent rereads remain exact. An engine-level synthetic
+  regression now explicitly rejects a duplicated current-source Ref selector
+  without mutating its model; real-source/browser ambiguity, other history
+  shapes and semantic-rejection causes remain open. The later
   2026-10-28 local-production Firefox run from `cb190789` reproduces all seventeen
   current downloads/reopens and the exact three-condition single-batch output.
   Splitting those conditions into three ordered enabled session operations
