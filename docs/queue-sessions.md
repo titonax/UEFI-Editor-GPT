@@ -179,8 +179,17 @@ Cached downloads after each batch equal the fresh reference; valid exact-limit
 recovery invalidates output and freshly rebuilds it. Three reconstructions,
 five downloads/reports and five independent reopens preserve paused scopes and
 reject changed-source sessions. This does not establish the positive 1000-op
-boundary, ambiguous selectors, other semantic failures, Pages or hardware.
+browser boundary, ambiguous selectors, other semantic failures, Pages or hardware.
 The broad browser session/history suites remain unchanged and were not rerun.
+
+On 2026-11-17, a focused synthetic engine regression builds 1000 ordered AMI
+scalar-value operations, exports them below the 1 MiB limit, and imports them
+through source-context identity and semantic regeneration. All 1000 operations
+replay and the final queue projection exactly matches the independently built
+expected state; the focused Vitest case completed in 805 ms. This exercises
+the full operation count on a small synthetic SetupData/HII context only. It is
+not a real-firmware, React/jsdom, Firefox, full-image reconstruction or SPI
+acceptance result. The real-source/browser 1000-operation replay remains open.
 
 SHA-256 binds a plan to its original bytes; it is not a signature identifying who
 created the JSON. A matching session can only select supported operations that
