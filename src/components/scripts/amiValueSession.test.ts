@@ -9,6 +9,7 @@ import {
   projectDataChangeQueue,
 } from "../ChangeQueue/dataChangeQueue";
 import { loadHiiQueueSession, saveHiiQueueSession } from "./hiiQueueSession";
+import { queueSessionTextLimit } from "./phoenixQueueSession";
 import type { Data } from "./types";
 
 async function fixture() {
@@ -85,6 +86,26 @@ describe("mapped AMI scalar sessions (synthetic)", () => {
       ).toEqual(context.base.singleFormSetNavigation);
     },
   );
+  it("regenerates and replays exactly 1000 ordered scalar operations", async () => {
+    const context = await fixture();
+    const entries = [];
+    let before = context.base;
+    for (let index = 0; index < 1000; index += 1) {
+      const after = structuredClone(before);
+      after.forms[0].children[0].accessLevel = index % 2 === 0 ? "02" : "01";
+      entries.push(entry(before, after, `local:${String(index)}`));
+      before = after;
+    }
+
+    const text = await saveHiiQueueSession(context, entries);
+    const session = JSON.parse(text) as { operations: unknown[] };
+    expect(session.operations).toHaveLength(1000);
+    expect(text.length).toBeLessThan(queueSessionTextLimit);
+
+    const restored = await loadHiiQueueSession(text, context);
+    expect(restored).toHaveLength(1000);
+    expect(projectDataChangeQueue(context.base, restored).data).toEqual(before);
+  });
   it("preserves selected-prefix dependencies and rejects stale paused dependencies", async () => {
     const { context, after } = await document();
     const second = structuredClone(after);

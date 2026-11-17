@@ -202,9 +202,12 @@ The next work order is:
    two retained downloads and five independent reopens pass, with unchanged
    paused scopes and changed-image rejection. This is BIOS-only and does not
    establish Pages interaction, descriptor SPI or hardware acceptance. A
-   separate synthetic parser regression accepts exactly 1000 structurally
-   valid operation entries under the 1 MiB document limit; it does not replay
-   that document against a source context or establish its runtime cost.
+   separate synthetic engine regression now exports and source-context replays
+   exactly 1000 ordered AMI scalar operations under the 1 MiB document limit;
+   the final projection matches the expected state and its focused Vitest case
+   completed in 805 ms. This small synthetic SetupData/HII context does not
+   establish real-source identity, Firefox replay or full-image output; a
+   real-source/browser 1000-operation replay remains open.
    Other history shapes, ambiguous current-source selectors and
    semantic-rejection causes remain next; no ambiguous selector was exercised.
    The [nested LZMA Firefox HII flow](ami/nested-lzma-firefox-output-acceptance.md)
